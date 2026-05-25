@@ -13,8 +13,6 @@ ENV NEXT_PUBLIC_APP_URL=https://api.agencia2c.cloud
 ENV NEXT_PUBLIC_DASHBOARD_STATE_ENDPOINT=/webhook/barberagency/dashboard/state
 ENV NEXT_PUBLIC_DRAFT_SAVE_ENDPOINT=/webhook/barberagency/landing/draft/save
 ENV NEXT_PUBLIC_PUBLISH_ENDPOINT=/webhook/barberagency/landing/save-v2
-ENV NEXT_PUBLIC_TEST_BARBERIA_SLUG=barberia-58
-ENV NEXT_PUBLIC_TEST_BARBERIA_ID=101
 
 COPY --from=deps /app/node_modules ./node_modules
 COPY apps/dashboard ./
@@ -31,8 +29,6 @@ ENV NEXT_PUBLIC_APP_URL=https://api.agencia2c.cloud
 ENV NEXT_PUBLIC_DASHBOARD_STATE_ENDPOINT=/webhook/barberagency/dashboard/state
 ENV NEXT_PUBLIC_DRAFT_SAVE_ENDPOINT=/webhook/barberagency/landing/draft/save
 ENV NEXT_PUBLIC_PUBLISH_ENDPOINT=/webhook/barberagency/landing/save-v2
-ENV NEXT_PUBLIC_TEST_BARBERIA_SLUG=barberia-58
-ENV NEXT_PUBLIC_TEST_BARBERIA_ID=101
 
 COPY --from=builder /app/package.json ./package.json
 COPY --from=builder /app/package-lock.json ./package-lock.json

@@ -26,8 +26,8 @@ export const env = {
     "/rpc/ba_get_landing_publica",
   disableRemoteFetch:
     (process.env.NEXT_PUBLIC_DISABLE_REMOTE_FETCH ?? "0").trim() === "1",
-  testBarberiaSlug: process.env.NEXT_PUBLIC_TEST_BARBERIA_SLUG ?? "barberia-58",
-  testBarberiaId: process.env.NEXT_PUBLIC_TEST_BARBERIA_ID ?? "101"
+  testBarberiaSlug: process.env.NEXT_PUBLIC_TEST_BARBERIA_SLUG ?? "",
+  testBarberiaId: process.env.NEXT_PUBLIC_TEST_BARBERIA_ID ?? ""
 };
 
 export function assertEnv() {

@@ -1,9 +1,11 @@
-import { readStorage, writeStorage } from "@/lib/storage";
+import { readStorage, removeStorage, writeStorage } from "@/lib/storage";
 import { env } from "@/lib/env";
 
 const BARBERSHOP_ID_KEY = "ba_barberia_id";
 const BARBERSHOP_SLUG_KEY = "ba_barberia_slug";
 const LANDING_SEED_KEY = "ba_landing_seed";
+const LEGACY_TEST_ID = "101";
+const LEGACY_TEST_SLUG = "barberia-58";
 
 type BarbershopIdentity = { id: string | null; slug: string | null };
 
@@ -77,9 +79,22 @@ export function getBarbershopContext(): BarbershopIdentity {
   };
 }
 
+function clearLegacyTestIdentity(): void {
+  const current = getBarbershopContext();
+  if (current.id !== LEGACY_TEST_ID && current.slug !== LEGACY_TEST_SLUG) return;
+  removeStorage(BARBERSHOP_ID_KEY, "local");
+  removeStorage(BARBERSHOP_ID_KEY, "session");
+  removeStorage(BARBERSHOP_SLUG_KEY, "local");
+  removeStorage(BARBERSHOP_SLUG_KEY, "session");
+}
+
 export function resolveBarbershopIdentity(): BarbershopIdentity {
   const fromUrl = resolveIdentityFromUrl();
   if (fromUrl.id || fromUrl.slug) return fromUrl;
+
+  if (!env.disableRemoteFetch) {
+    clearLegacyTestIdentity();
+  }
 
   const fromStorage = getBarbershopContext();
   if (fromStorage.id || fromStorage.slug) return fromStorage;

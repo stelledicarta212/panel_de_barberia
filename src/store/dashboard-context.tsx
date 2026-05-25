@@ -195,8 +195,8 @@ export function DashboardProvider({ children }: { children: React.ReactNode }) {
     } catch {
       const fallback = readMergedCache(incoming);
       const fallbackMerged = fallback ?? {
-        ...MOCK_MERGED,
-        biz_slug: incoming.slug || MOCK_MERGED.biz_slug
+        ...EMPTY_MERGED,
+        biz_slug: incoming.slug || ""
       };
       setMerged(fallbackMerged);
       setError(null);
