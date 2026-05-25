@@ -1,9 +1,9 @@
 import type { DashboardMerged } from "@/types/dashboard-state";
 
 export const MOCK_MERGED: DashboardMerged = {
-  biz_name: "Barbería 58",
+  biz_name: "Barberia 58",
   biz_slug: "barberia-58",
-  address: "Calle 58 #14-22, Bogotá",
+  address: "Calle 58 #14-22, Bogota",
   maps_url: "https://maps.google.com/?q=Calle+58+14-22+Bogota",
   palette_primary: "#d4af37",
   palette_secondary: "#1b2a44",
@@ -12,14 +12,14 @@ export const MOCK_MERGED: DashboardMerged = {
   logo_url: "https://images.unsplash.com/photo-1585747860715-2ba37e788b70?w=400",
   cover_url: "https://images.unsplash.com/photo-1621607512022-6aecc4fed814?w=1200",
   hero_title: "Experiencia premium para caballeros",
-  hero_subtitle: "Reservas rápidas, atención impecable y estilo moderno.",
+  hero_subtitle: "Reservas rapidas, atencion impecable y estilo moderno.",
   template_id: "v7",
   public_landing_url: "https://barberagency-barberagency.gymh5g.easypanel.host/index_unicov7/?slug=barberia-58",
   reservation_url: "https://barberagency-barberagency.gymh5g.easypanel.host/index_unicov7/?slug=barberia-58#reservas",
   qr_url:
     "https://quickchart.io/qr?size=320&margin=2&text=https%3A%2F%2Fbarberagency-barberagency.gymh5g.easypanel.host%2Findex_unicov7%2F%3Fslug%3Dbarberia-58",
   services: [
-    { id: 1, nombre: "Corte Clásico", duracion_min: 40, precio: 35000, activo: true },
+    { id: 1, nombre: "Corte Clasico", duracion_min: 40, precio: 35000, activo: true },
     { id: 2, nombre: "Fade + Barba", duracion_min: 55, precio: 50000, activo: true },
     { id: 3, nombre: "Afeitado Premium", duracion_min: 35, precio: 30000, activo: true }
   ],
@@ -47,7 +47,7 @@ export const MOCK_CLIENTS = [
 
 export const MOCK_APPOINTMENTS = [
   { id: "A-01", cliente: "Carlos R.", servicio: "Fade + Barba", hora: "10:00", estado: "Confirmada" },
-  { id: "A-02", cliente: "Mateo L.", servicio: "Corte Clásico", hora: "11:00", estado: "Pendiente" },
+  { id: "A-02", cliente: "Mateo L.", servicio: "Corte Clasico", hora: "11:00", estado: "Pendiente" },
   { id: "A-03", cliente: "Juan P.", servicio: "Afeitado Premium", hora: "12:00", estado: "Confirmada" }
 ];
 

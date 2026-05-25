@@ -81,23 +81,11 @@ function money(value: unknown): string {
 
 export function DashboardEditor() {
   const router = useRouter();
-  const { merged, loading, saving, publishing, refresh, setField, saveDraft, publish } = useDashboard();
+  const { merged, loading, saving, publishing, refresh, saveDraft, publish } = useDashboard();
   const [manualAvailability, setManualAvailability] = useState<Record<string, boolean | undefined>>({});
   const [offDaysByBarber, setOffDaysByBarber] = useState<Record<string, number[]>>({});
   const [reservations, setReservations] = useState<ReservationRecord[]>([]);
-  const exactQrBarberia58 =
-    "https://quickchart.io/qr?size=320&margin=2&text=https%3A%2F%2Fbarberagency-barberagency.gymh5g.easypanel.host%2Findex_unicov7%2F%3Fslug%3Dbarberia-58";
-  const barberia58Signals = [
-    String(merged.biz_slug || "").toLowerCase(),
-    String(merged.biz_name || "").toLowerCase(),
-    String(merged.public_landing_url || "").toLowerCase(),
-    String(merged.reservation_url || "").toLowerCase()
-  ];
-  const isBarberia58 = barberia58Signals.some((value) => value.includes("barberia-58") || value.includes("barberia 58"));
-  const qrPanelValue =
-    isBarberia58
-      ? exactQrBarberia58
-      : merged.qr_url;
+  const qrPanelValue = merged.qr_url;
 
   const topStats = [
     { label: "Ingresos Mensuales", value: "$12,450", delta: "+15%", icon: CircleDollarSign },
@@ -238,6 +226,16 @@ export function DashboardEditor() {
       .sort((a, b) => toMinutes(a.hour) - toMinutes(b.hour))
       .slice(0, 6);
   }, [reservations]);
+
+  const handleCopyPublicUrl = async () => {
+    const url = String(merged.public_landing_url || "").trim();
+    if (!url) return;
+    try {
+      await navigator.clipboard.writeText(url);
+    } catch {
+      // noop
+    }
+  };
 
   return (
     <section className="ba-overview-v3">
@@ -416,14 +414,26 @@ export function DashboardEditor() {
           <div className="ba-card-title"><h2>Publicacion</h2><Send size={16} /></div>
           <div className="ba-form-grid">
             <div className="ba-field ba-span-2">
+              <span>URL pública</span>
+              <input value={merged.public_landing_url} readOnly />
+            </div>
+            <div className="ba-field ba-span-2">
               <span>QR publico</span>
               <div style={{ display: "flex", justifyContent: "center", padding: "10px", border: "1px solid rgba(212,175,55,0.25)", borderRadius: "12px" }}>
-                <img src={qrPanelValue} alt="QR Barberia" width={170} height={170} style={{ borderRadius: "8px", background: "#fff", padding: "8px" }} />
+                {qrPanelValue ? (
+                  <img src={qrPanelValue} alt="QR Barberia" width={170} height={170} style={{ borderRadius: "8px", background: "#fff", padding: "8px" }} />
+                ) : (
+                  <small>Publica para generar el QR estable.</small>
+                )}
               </div>
             </div>
           </div>
           <div className="ba-action-row">
             <button className="ba-btn-ghost" onClick={() => refresh()} disabled={loading} type="button"><RefreshCw size={15} />Recargar</button>
+            <button className="ba-btn-ghost" onClick={() => handleCopyPublicUrl()} disabled={!merged.public_landing_url} type="button">Copiar URL</button>
+            <a className="ba-btn-ghost" href={merged.public_landing_url || "#"} target="_blank" rel="noreferrer" aria-disabled={!merged.public_landing_url}>
+              Abrir landing
+            </a>
             <button className="ba-btn-main" onClick={() => saveDraft()} disabled={saving || publishing} type="button"><Save size={15} />Guardar</button>
             <button className="ba-btn-main" onClick={() => publish()} disabled={publishing || saving} type="button"><Send size={15} />Publicar</button>
           </div>

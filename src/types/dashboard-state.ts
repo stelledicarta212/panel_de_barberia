@@ -51,8 +51,12 @@ export type PublishResponse = {
   ok?: boolean;
   success?: boolean;
   message?: string;
+  error?: string;
   barberia_id?: number;
   slug?: string;
+  qr_code?: string;
+  public_path?: string;
+  qr_path?: string;
   public_landing_url?: string;
   reservation_url?: string;
   qr_url?: string;

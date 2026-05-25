@@ -42,6 +42,19 @@ function pickFirstText(...values: unknown[]): string {
   return "";
 }
 
+function normalizeRpcJsonb<T extends Record<string, unknown>>(raw: unknown): T {
+  if (!raw || typeof raw !== "object") return {} as T;
+  const obj = raw as Record<string, unknown>;
+  const firstValue = Object.values(obj)[0];
+  if (firstValue && typeof firstValue === "object" && !Array.isArray(firstValue)) {
+    const firstObj = firstValue as Record<string, unknown>;
+    if ("ok" in firstObj || "error" in firstObj || "public_path" in firstObj || "redirect_path" in firstObj) {
+      return firstObj as T;
+    }
+  }
+  return obj as T;
+}
+
 async function safeGetArray(path: string): Promise<Array<Record<string, unknown>>> {
   try {
     const rows = await apiGetJson<Array<Record<string, unknown>>>(path);
@@ -240,4 +253,12 @@ export async function saveLandingDraft(payload: Record<string, unknown>): Promis
 
 export async function publishLanding(payload: Record<string, unknown>): Promise<PublishResponse> {
   return apiPostJson<PublishResponse, Record<string, unknown>>(env.publishEndpoint, payload);
+}
+
+export async function publishBarbershopViaRpc(barberiaId: number): Promise<PublishResponse> {
+  const response = await apiPostJson<Record<string, unknown>, { p_barberia_id: number }>(
+    env.publishRpcEndpoint,
+    { p_barberia_id: barberiaId }
+  );
+  return normalizeRpcJsonb<PublishResponse>(response);
 }

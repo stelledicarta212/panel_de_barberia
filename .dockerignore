@@ -1,0 +1,10 @@
+.git
+node_modules
+apps/dashboard/node_modules
+apps/dashboard/.next
+_tmp_panel_de_barberia
+ContextoGeneral
+pruebas
+project
+docs
+*.log

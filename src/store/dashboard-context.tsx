@@ -4,7 +4,7 @@ import { createContext, useCallback, useContext, useEffect, useMemo, useState } 
 import {
   getDashboardState,
   normalizeMergedFromState,
-  publishLanding,
+  publishBarbershopViaRpc,
   saveLandingDraft
 } from "@/lib/dashboard-api";
 import { env } from "@/lib/env";
@@ -91,6 +91,35 @@ function pickIdentityFromPublishResponse(response: PublishResponse): DashboardId
   return null;
 }
 
+function getPublicBaseUrl(): string {
+  const configured = String(env.publicBaseUrl || "").trim().replace(/\/+$/, "");
+  if (configured) return configured;
+  if (typeof window !== "undefined") return window.location.origin.replace(/\/+$/, "");
+  return "";
+}
+
+function joinBaseAndPath(baseUrl: string, path: string): string {
+  const base = String(baseUrl || "").trim().replace(/\/+$/, "");
+  const rawPath = String(path || "").trim();
+  if (!base || !rawPath) return "";
+  return `${base}${rawPath.startsWith("/") ? rawPath : `/${rawPath}`}`;
+}
+
+function mapPublishError(errorCode: string): string {
+  switch (errorCode) {
+    case "barberia_no_encontrada":
+      return "No se encontró la barbería para publicar.";
+    case "falta_nombre_barberia":
+      return "Falta el nombre de la barbería.";
+    case "faltan_servicios_activos":
+      return "Debes tener al menos un servicio activo para publicar.";
+    case "faltan_barberos_activos":
+      return "Debes tener al menos un barbero activo para publicar.";
+    default:
+      return "No se pudo publicar la barbería.";
+  }
+}
+
 export function DashboardProvider({ children }: { children: React.ReactNode }) {
   const [identity, setIdentity] = useState<DashboardIdentity | null>(() => {
     const resolved = normalizeIdentity(resolveBarbershopIdentity());
@@ -154,7 +183,7 @@ export function DashboardProvider({ children }: { children: React.ReactNode }) {
       writeMergedCache(effectiveIdentity, normalized);
       const nextMessage = String(response.message ?? "").trim();
       setMessage(nextMessage.toLowerCase().startsWith("fallback:") ? null : (nextMessage || null));
-    } catch (cause) {
+    } catch {
       const fallback = readMergedCache(incoming);
       const fallbackMerged = fallback ?? {
         ...MOCK_MERGED,
@@ -229,60 +258,32 @@ export function DashboardProvider({ children }: { children: React.ReactNode }) {
       setError("No hay identidad para publicar.");
       return;
     }
+    if (!identity.barberia_id) {
+      setError("No hay barberia_id para publicar.");
+      return;
+    }
 
     setPublishing(true);
     setError(null);
     try {
-      const landingPublish = {
-        barberia_id: identity.barberia_id ?? 0,
-        slug: identity.slug ?? merged.biz_slug,
-        template_id: merged.template_id,
-        public_landing_url: merged.public_landing_url,
-        reservation_url: merged.reservation_url,
-        qr_url: merged.qr_url,
-        landing_status: "published",
-        source: "dashboard"
-      };
-
-      const payload = {
-        barberia_id: identity.barberia_id,
-        slug: identity.slug,
-        template_id: merged.template_id,
-        branding: {
-          biz_name: merged.biz_name,
-          biz_slug: merged.biz_slug,
-          address: merged.address,
-          maps_url: merged.maps_url,
-          logo_url: merged.logo_url,
-          cover_url: merged.cover_url,
-          hero_title: merged.hero_title,
-          hero_subtitle: merged.hero_subtitle,
-          palette_primary: merged.palette_primary,
-          palette_secondary: merged.palette_secondary,
-          palette_accent: merged.palette_accent,
-          palette_text: merged.palette_text
-        },
-        inherited: {
-          servicios: merged.services,
-          barberos: merged.barbers,
-          horarios: merged.hours
-        },
-        public_landing_url: merged.public_landing_url,
-        reservation_url: merged.reservation_url,
-        qr_url: merged.qr_url,
-        landing_publish: landingPublish
-      };
-
-      const response = await publishLanding(payload);
+      const response = await publishBarbershopViaRpc(identity.barberia_id);
+      const ok = response.ok === true || response.success === true;
+      if (!ok) {
+        throw new Error(mapPublishError(String(response.error || "").trim()));
+      }
       const nextIdentity = pickIdentityFromPublishResponse(response);
+      const baseUrl = getPublicBaseUrl();
+      const publicLandingUrl = joinBaseAndPath(baseUrl, String(response.public_path || ""));
+      const qrTargetUrl = joinBaseAndPath(baseUrl, String(response.qr_path || ""));
+      const qrImageUrl = qrTargetUrl
+        ? `https://quickchart.io/qr?size=320&margin=2&text=${encodeURIComponent(qrTargetUrl)}`
+        : "";
 
       const nextMerged: DashboardMerged = {
         ...merged,
-        public_landing_url:
-          String(response.public_landing_url ?? response.data?.public_landing_url ?? merged.public_landing_url),
-        reservation_url:
-          String(response.reservation_url ?? response.data?.reservation_url ?? merged.reservation_url),
-        qr_url: String(response.qr_url ?? response.data?.qr_url ?? merged.qr_url)
+        public_landing_url: publicLandingUrl || merged.public_landing_url,
+        reservation_url: publicLandingUrl ? `${publicLandingUrl}#reservas` : merged.reservation_url,
+        qr_url: qrImageUrl || merged.qr_url
       };
 
       setMerged(nextMerged);
@@ -293,10 +294,13 @@ export function DashboardProvider({ children }: { children: React.ReactNode }) {
           public_landing_url: nextMerged.public_landing_url,
           reservation_url: nextMerged.reservation_url,
           qr_url: nextMerged.qr_url,
-          template_id: nextMerged.template_id
+          template_id: nextMerged.template_id,
+          qr_code: response.qr_code,
+          qr_path: response.qr_path,
+          public_path: response.public_path
         }
       }));
-      setMessage(String(response.message ?? "Landing publicada."));
+      setMessage("Landing publicada correctamente.");
 
       if (nextIdentity) {
         setIdentity(nextIdentity);
