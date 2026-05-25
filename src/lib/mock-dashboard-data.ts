@@ -35,7 +35,9 @@ export const MOCK_MERGED: DashboardMerged = {
     { dia: "jueves", activo: true, hora_abre: "09:00", hora_cierra: "19:00" },
     { dia: "viernes", activo: true, hora_abre: "09:00", hora_cierra: "20:00" },
     { dia: "sabado", activo: true, hora_abre: "10:00", hora_cierra: "18:00" }
-  ]
+  ],
+  clients: [],
+  appointments: []
 };
 
 export const MOCK_CLIENTS = [

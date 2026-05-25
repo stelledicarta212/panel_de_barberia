@@ -3,6 +3,7 @@
 import { useMemo, useState } from "react";
 import { Cake, ChevronLeft, ChevronRight, Clock3, Gift, MoreHorizontal, RefreshCcw, Scissors, Plus, Search, X } from "lucide-react";
 import { DashboardShell } from "@/components/dashboard-shell";
+import { useDashboard } from "@/store/dashboard-context";
 
 type Client = {
   id: string;
@@ -122,6 +123,75 @@ const MONTHS = [
 ];
 const DAYS = ["L", "M", "X", "J", "V", "S", "D"];
 
+function textValue(value: unknown): string {
+  return typeof value === "string" ? value.trim() : "";
+}
+
+function formatDbDate(value: unknown): string {
+  const raw = textValue(value);
+  const match = raw.match(/^(\d{4})-(\d{2})-(\d{2})/);
+  if (!match) return raw || "Sin visita";
+  return `${match[3]}/${match[2]}/${match[1]}`;
+}
+
+function mapRealClients(clients: Array<Record<string, unknown>>, appointments: Array<Record<string, unknown>>): Client[] {
+  const byPhone = new Map<string, Client>();
+  clients.forEach((item, index) => {
+    const phone = textValue(item.telefono ?? item.phone);
+    const name = textValue(item.nombre ?? item.nombre_completo ?? item.name) || "Cliente";
+    const key = phone || `${name}-${index}`;
+    byPhone.set(key, {
+      id: textValue(item.id) || `cliente-${index + 1}`,
+      name,
+      email: textValue(item.email ?? item.correo),
+      phone,
+      lastVisit: "Sin visita",
+      status: "Confirmada",
+      avatar: "",
+      loyaltyPoints: 0,
+      preferredBarber: "",
+      preferredService: "",
+      stampCurrent: 0,
+      stampRequired: 8,
+      birthdayBenefit: "Sin beneficio configurado",
+      inactiveDays: 0,
+      reactivationBenefit: "Sin automatizacion",
+      offPeakBenefit: "Sin promocion"
+    });
+  });
+
+  appointments.forEach((item, index) => {
+    const phone = textValue(item.cliente_tel ?? item.telefono ?? item.phone);
+    const name = textValue(item.cliente_nombre ?? item.client ?? item.nombre_cliente) || "Cliente";
+    const key = phone || `${name}-${index}`;
+    const existing = byPhone.get(key);
+    const next: Client = existing ?? {
+      id: textValue(item.cliente_id) || `cliente-cita-${index + 1}`,
+      name,
+      email: "",
+      phone,
+      lastVisit: "Sin visita",
+      status: "Confirmada",
+      avatar: "",
+      loyaltyPoints: 0,
+      preferredBarber: "",
+      preferredService: "",
+      stampCurrent: 0,
+      stampRequired: 8,
+      birthdayBenefit: "Sin beneficio configurado",
+      inactiveDays: 0,
+      reactivationBenefit: "Sin automatizacion",
+      offPeakBenefit: "Sin promocion"
+    };
+    next.lastVisit = formatDbDate(item.fecha);
+    next.preferredBarber = textValue(item.barbero_nombre ?? item.barber ?? item.nombre_barbero);
+    next.preferredService = textValue(item.servicio_nombre ?? item.service ?? item.nombre_servicio);
+    byPhone.set(key, next);
+  });
+
+  return Array.from(byPhone.values());
+}
+
 function buildCalendar(date: Date) {
   const year = date.getFullYear();
   const month = date.getMonth();
@@ -159,25 +229,30 @@ function phoneToWhatsappUrl(phone: string, clientName: string): string | null {
 }
 
 export default function ClientesPage() {
+  const { merged } = useDashboard();
   const [query, setQuery] = useState("");
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [detailOpen, setDetailOpen] = useState(false);
   const [calendarMonth, setCalendarMonth] = useState(() => new Date());
   const [calendarDay, setCalendarDay] = useState<number | null>(new Date().getDate());
 
+  const realClients = useMemo(() => mapRealClients(merged.clients, merged.appointments), [merged.clients, merged.appointments]);
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
-    if (!q) return CLIENTS;
-    return CLIENTS.filter((c) => c.name.toLowerCase().includes(q) || c.email.toLowerCase().includes(q));
-  }, [query]);
+    if (!q) return realClients;
+    return realClients.filter((c) => c.name.toLowerCase().includes(q) || c.email.toLowerCase().includes(q) || c.phone.includes(q));
+  }, [query, realClients]);
 
-  const selected = CLIENTS.find((c) => c.id === selectedId) ?? null;
+  const selected = realClients.find((c) => c.id === selectedId) ?? null;
   const calendarCells = useMemo(() => buildCalendar(calendarMonth), [calendarMonth]);
   const calendarMonthLabel = `${MONTHS[calendarMonth.getMonth()]} ${calendarMonth.getFullYear()}`;
   const clientsForSelectedDay = useMemo(() => {
     if (!calendarDay) return [];
-    return CLIENTS.filter((client, index) => ((calendarDay + index) % 3 === 0) || ((calendarDay + index) % 5 === 0));
-  }, [calendarDay]);
+    const day = String(calendarDay).padStart(2, "0");
+    const month = String(calendarMonth.getMonth() + 1).padStart(2, "0");
+    const year = String(calendarMonth.getFullYear());
+    return realClients.filter((client) => client.lastVisit.startsWith(`${day}/${month}/${year}`));
+  }, [calendarDay, calendarMonth, realClients]);
   const occupancyRate = useMemo(() => {
     const maxDailySlots = 12;
     const usedSlots = clientsForSelectedDay.length;
@@ -233,6 +308,18 @@ export default function ClientesPage() {
                 </span>
               </button>
             ))}
+            {!filtered.length ? (
+              <div className="ba-client-row">
+                <span className="ba-client-id">
+                  <span className="ba-client-initials">CL</span>
+                  <b>Sin clientes reales</b>
+                  <small>Las reservas de la landing apareceran aqui</small>
+                </span>
+                <span>-</span>
+                <span>-</span>
+                <span><em className="ba-status-chip is-pending">Vacio</em></span>
+              </div>
+            ) : null}
           </div>
 
           {selected && detailOpen ? (

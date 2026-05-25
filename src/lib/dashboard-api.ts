@@ -26,6 +26,11 @@ function safeText(value: unknown): string {
   return typeof value === "string" ? value.trim() : "";
 }
 
+function safeKey(value: unknown): string {
+  const raw = String(value ?? "").trim();
+  return raw;
+}
+
 function normalizeIdentity(identity?: IdentityInput): DashboardIdentity {
   const idNum = Number(identity?.barberia_id ?? 0);
   return {
@@ -135,6 +140,14 @@ export function normalizeMergedFromState(raw: DashboardStateResponse): Dashboard
       seed["horarios"],
       seed["hours"],
       (seed["inherited"] as Record<string, unknown> | undefined)?.["horarios"]
+    ),
+    clients: pickFirstArray(merged.clients, draft["clients"], draft["clientes"], seed["clientes"], seed["clients"]),
+    appointments: pickFirstArray(
+      merged.appointments,
+      draft["appointments"],
+      draft["citas"],
+      seed["citas"],
+      seed["appointments"]
     )
   };
 }
@@ -184,6 +197,24 @@ export async function getDashboardState(identity: IdentityInput): Promise<Dashbo
     let barbersRows = safeId
       ? await safeGetArray(`/barberos?select=*&barberia_id=eq.${encodeURIComponent(String(safeId))}`)
       : [];
+    const clientsRows = safeId
+      ? await safeGetArray(`/clientes_finales?select=*&barberia_id=eq.${encodeURIComponent(String(safeId))}&order=id.desc`)
+      : [];
+    const appointmentsRows = safeId
+      ? await safeGetArray(`/citas?select=*&barberia_id=eq.${encodeURIComponent(String(safeId))}&order=fecha.desc,hora_inicio.desc`)
+      : [];
+    const servicesById = new Map(servicesRows.map((item) => [safeKey(item.id), item]));
+    const barbersById = new Map(barbersRows.map((item) => [safeKey(item.id), item]));
+    const appointmentsWithLabels = appointmentsRows.map((item) => {
+      const service = servicesById.get(safeKey(item.servicio_id));
+      const barber = barbersById.get(safeKey(item.barbero_id));
+      return {
+        ...item,
+        servicio_nombre: safeText(item.servicio_nombre) || safeText(service?.nombre ?? service?.name),
+        barbero_nombre: safeText(item.barbero_nombre) || safeText(barber?.nombre ?? barber?.name),
+        total: Number(item.total ?? service?.precio ?? service?.price ?? 0)
+      };
+    });
 
     if (!barbersRows.length && slug) {
       barbersRows = await safeGetArray(`/barberos?select=*&slug=eq.${encodeURIComponent(slug)}`);
@@ -237,7 +268,9 @@ export async function getDashboardState(identity: IdentityInput): Promise<Dashbo
       },
       seed: {
         servicios: servicesRows,
-        barberos: barbersRows
+        barberos: barbersRows,
+        clientes: clientsRows,
+        citas: appointmentsWithLabels
       }
     };
   }

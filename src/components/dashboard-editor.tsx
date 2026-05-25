@@ -24,11 +24,13 @@ const BARBER_MANUAL_AVAILABILITY_STORAGE_KEY = "ba_barberos_manual_availability"
 type ReservationRecord = {
   id?: string;
   client?: string;
+  phone?: string;
   service?: string;
   barber?: string;
   date?: string;
   hour?: string;
   status?: string;
+  total?: number;
 };
 
 function normalizeManualAvailability(input: unknown): Record<string, boolean | undefined> {
@@ -79,6 +81,31 @@ function money(value: unknown): string {
   return `$${num.toFixed(0)}`;
 }
 
+function textValue(value: unknown): string {
+  return typeof value === "string" ? value.trim() : "";
+}
+
+function formatDbDate(value: unknown): string {
+  const raw = textValue(value);
+  const match = raw.match(/^(\d{4})-(\d{2})-(\d{2})/);
+  if (!match) return raw;
+  return `${match[3]}/${match[2]}/${match[1]}`;
+}
+
+function normalizeAppointmentRecord(item: Record<string, unknown>, index: number): ReservationRecord {
+  return {
+    id: textValue(item.id) || `cita-${index + 1}`,
+    client: textValue(item.cliente_nombre ?? item.client ?? item.nombre_cliente),
+    phone: textValue(item.cliente_tel ?? item.telefono ?? item.phone),
+    service: textValue(item.servicio_nombre ?? item.service ?? item.nombre_servicio),
+    barber: textValue(item.barbero_nombre ?? item.barber ?? item.nombre_barbero),
+    date: formatDbDate(item.fecha ?? item.date),
+    hour: textValue(item.hora_inicio ?? item.hora ?? item.hour).slice(0, 5),
+    status: textValue(item.estado ?? item.status) || "confirmada",
+    total: Number(item.total ?? 0)
+  };
+}
+
 export function DashboardEditor() {
   const router = useRouter();
   const { merged, loading, saving, publishing, refresh, saveDraft, publish } = useDashboard();
@@ -86,13 +113,6 @@ export function DashboardEditor() {
   const [offDaysByBarber, setOffDaysByBarber] = useState<Record<string, number[]>>({});
   const [reservations, setReservations] = useState<ReservationRecord[]>([]);
   const qrPanelValue = merged.qr_url;
-
-  const topStats = [
-    { label: "Ingresos Mensuales", value: "$12,450", delta: "+15%", icon: CircleDollarSign },
-    { label: "Citas de Hoy", value: "24 / 30", delta: "+8%", icon: CalendarClock },
-    { label: "Nuevos Clientes", value: "45", delta: "+20%", icon: Users },
-    { label: "Tasa de Ocupacion", value: "85%", delta: "+5%", icon: LayoutDashboard }
-  ];
 
   const services = useMemo(
     () => merged.services.slice(0, 5).map((item, i) => ({
@@ -163,6 +183,13 @@ export function DashboardEditor() {
     };
   }, []);
 
+  useEffect(() => {
+    const remoteReservations = merged.appointments.map(normalizeAppointmentRecord);
+    if (remoteReservations.length) {
+      setReservations(remoteReservations);
+    }
+  }, [merged.appointments]);
+
   const barbers = useMemo(() => {
     const now = new Date();
     const todayDay = now.getDate();
@@ -226,6 +253,40 @@ export function DashboardEditor() {
       .sort((a, b) => toMinutes(a.hour) - toMinutes(b.hour))
       .slice(0, 6);
   }, [reservations]);
+
+  const monthlyIncome = useMemo(
+    () => reservations.reduce((acc, item) => acc + Number((item as Record<string, unknown>).total ?? 0), 0),
+    [reservations]
+  );
+  const occupancyRate = useMemo(() => {
+    const slots = Math.max(1, merged.barbers.length * 22);
+    return Math.min(100, Math.round((todayReservations.length / slots) * 100));
+  }, [merged.barbers.length, todayReservations.length]);
+  const topStats = [
+    { label: "Ingresos Mensuales", value: money(monthlyIncome), delta: "Real", icon: CircleDollarSign },
+    { label: "Citas de Hoy", value: String(todayReservations.length), delta: "Hoy", icon: CalendarClock },
+    { label: "Nuevos Clientes", value: String(merged.clients.length), delta: "Real", icon: Users },
+    { label: "Tasa de Ocupacion", value: `${occupancyRate}%`, delta: "Hoy", icon: LayoutDashboard }
+  ];
+  const clients = useMemo(() => {
+    const fromClients = merged.clients.map((item, index) => ({
+      id: textValue(item.id) || `cliente-${index + 1}`,
+      name: textValue(item.nombre ?? item.nombre_completo ?? item.name) || "Cliente",
+      phone: textValue(item.telefono ?? item.phone)
+    }));
+    if (fromClients.length) return fromClients.slice(0, 5);
+    const byName = new Map<string, { id: string; name: string; phone: string }>();
+    reservations.forEach((item, index) => {
+      const name = textValue(item.client);
+      if (!name || byName.has(name.toLowerCase())) return;
+      byName.set(name.toLowerCase(), {
+        id: textValue(item.id) || `cliente-cita-${index + 1}`,
+        name,
+        phone: textValue(item.phone)
+      });
+    });
+    return Array.from(byName.values()).slice(0, 5);
+  }, [merged.clients, reservations]);
 
   const handleCopyPublicUrl = async () => {
     const url = String(merged.public_landing_url || "").trim();
@@ -372,9 +433,13 @@ export function DashboardEditor() {
         >
           <div className="ba-card-title"><h2>Clientes</h2><Users size={14} /></div>
           <ul className="ba-list">
-            <li><span>John Smith</span><small>Contacto</small></li>
-            <li><span>Ana Wilson</span><small>Contacto</small></li>
-            <li><span>Mike S.</span><small>Contacto</small></li>
+            {clients.length ? (
+              clients.map((client) => (
+                <li key={client.id}><span>{client.name}</span><small>{client.phone || "Contacto"}</small></li>
+              ))
+            ) : (
+              <li><span>Sin clientes registrados</span><small>Reserva desde la landing</small></li>
+            )}
           </ul>
         </article>
 
@@ -387,9 +452,9 @@ export function DashboardEditor() {
         >
           <div className="ba-card-title"><h2>Finanzas</h2><CircleDollarSign size={14} /></div>
           <ul className="ba-list">
-            <li><span>Ingresos</span><small>$190.00</small></li>
-            <li><span>Pago reciente</span><small>$13.00</small></li>
-            <li><span>Neto</span><small>$177.00</small></li>
+            <li><span>Ingresos</span><small>{money(monthlyIncome)}</small></li>
+            <li><span>Citas registradas</span><small>{reservations.length}</small></li>
+            <li><span>Neto</span><small>{money(monthlyIncome)}</small></li>
           </ul>
         </article>
       </div>

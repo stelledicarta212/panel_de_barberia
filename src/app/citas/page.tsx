@@ -165,6 +165,41 @@ function mapBarberOptions(barbers: Array<Record<string, unknown>>): BarberOption
       ];
 }
 
+function formatDbDate(value: unknown): string {
+  const raw = textValue(value);
+  const match = raw.match(/^(\d{4})-(\d{2})-(\d{2})/);
+  if (!match) return raw;
+  return `${match[3]}/${match[2]}/${match[1]}`;
+}
+
+function mapAppointmentRequests(appointments: Array<Record<string, unknown>>): RequestItem[] {
+  return appointments.map((item, index) => {
+    const client = textValue(item.cliente_nombre ?? item.client ?? item.nombre_cliente) || "Cliente";
+    const statusText = textValue(item.estado ?? item.status).toLowerCase();
+    const status: RequestStatus =
+      statusText.includes("pend") ? "Pendiente" : statusText.includes("acept") || statusText.includes("confirm") ? "Aceptada" : "Enviada";
+    return {
+      id: textValue(item.id) || `cita-${index + 1}`,
+      client,
+      phone: textValue(item.cliente_tel ?? item.telefono ?? item.phone),
+      service: textValue(item.servicio_nombre ?? item.service ?? item.nombre_servicio) || "Servicio",
+      date: formatDbDate(item.fecha ?? item.date),
+      hour: textValue(item.hora_inicio ?? item.hora ?? item.hour).slice(0, 5),
+      barber: textValue(item.barbero_nombre ?? item.barber ?? item.nombre_barbero),
+      description: textValue(item.notas ?? item.description),
+      total: numberValue(item.total),
+      status,
+      avatar: "",
+      stampCurrent: 0,
+      stampRequired: 8,
+      birthdayBenefit: "Sin beneficio configurado",
+      inactiveDays: 0,
+      reactivationBenefit: "Sin automatizacion",
+      offPeakBenefit: "Sin promocion"
+    };
+  });
+}
+
 function formatDate(day: number, month: number, year: number): string {
   const dd = String(day).padStart(2, "0");
   const mm = String(month + 1).padStart(2, "0");
@@ -197,17 +232,7 @@ function phoneToWhatsappUrl(phone: string, clientName: string): string | null {
 
 export default function CitasPage() {
   const { merged } = useDashboard();
-  const [requests, setRequests] = useState<RequestItem[]>(() => {
-    if (typeof window === "undefined") return INITIAL_REQUESTS;
-    try {
-      const raw = window.localStorage.getItem(RESERVATIONS_STORAGE_KEY);
-      if (!raw) return INITIAL_REQUESTS;
-      const parsed = JSON.parse(raw);
-      return Array.isArray(parsed) && parsed.length ? (parsed as RequestItem[]) : INITIAL_REQUESTS;
-    } catch {
-      return INITIAL_REQUESTS;
-    }
-  });
+  const [requests, setRequests] = useState<RequestItem[]>([]);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [detailOpen, setDetailOpen] = useState(false);
   const [isCreateOpen, setIsCreateOpen] = useState(true);
@@ -239,6 +264,12 @@ export default function CitasPage() {
     new Intl.DateTimeFormat("es-CO", { hour: "2-digit", minute: "2-digit", second: "2-digit", hour12: false }).format(new Date())
   );
   const formRef = useRef<HTMLElement | null>(null);
+
+  useEffect(() => {
+    const remoteRequests = mapAppointmentRequests(merged.appointments);
+    setRequests(remoteRequests);
+    setSelectedId((current) => (current && remoteRequests.some((req) => req.id === current) ? current : null));
+  }, [merged.appointments]);
 
   const selected = requests.find((req) => req.id === selectedId) ?? null;
   const calendarCells = useMemo(() => buildCalendar(currentMonth), [currentMonth]);

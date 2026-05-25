@@ -28,6 +28,8 @@ export type DashboardMerged = {
   services: Array<Record<string, unknown>>;
   barbers: Array<Record<string, unknown>>;
   hours: Array<Record<string, unknown>>;
+  clients: Array<Record<string, unknown>>;
+  appointments: Array<Record<string, unknown>>;
 };
 
 export type DashboardStateResponse = {
@@ -89,5 +91,7 @@ export const EMPTY_MERGED: DashboardMerged = {
   qr_url: "",
   services: [],
   barbers: [],
-  hours: []
+  hours: [],
+  clients: [],
+  appointments: []
 };
