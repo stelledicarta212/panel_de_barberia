@@ -157,9 +157,6 @@ export async function getDashboardState(identity: IdentityInput): Promise<Dashbo
     const message = cause instanceof Error ? cause.message : "Error consultando dashboard/state";
     const fallbackBySlug = normalizeIdentity(identity).slug;
     const fallbackById = normalizeIdentity(identity).barberia_id;
-    if (!/404/.test(message)) {
-      throw cause;
-    }
 
     const profilePath = fallbackBySlug
       ? `/barberia_public_profiles?select=barberia_id,slug,created_at&slug=eq.${encodeURIComponent(fallbackBySlug)}&limit=1`
@@ -223,8 +220,7 @@ export async function getDashboardState(identity: IdentityInput): Promise<Dashbo
 
     return {
       ok: true,
-      message:
-        "Fallback: webhook dashboard/state no activo, usando barberia_public_profiles + servicios/barberos.",
+      message: `Fallback: dashboard/state no disponible, usando barberia_public_profiles + servicios/barberos. ${message}`,
       identity: {
         barberia_id: id > 0 ? id : null,
         slug: slug || null
