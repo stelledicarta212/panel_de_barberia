@@ -8,13 +8,13 @@ export const env = {
     "",
   dashboardStateEndpoint:
     process.env.NEXT_PUBLIC_DASHBOARD_STATE_ENDPOINT ??
-    "/webhook/barberagency/dashboard/state",
+    "https://barberagency-n8n.gymh5g.easypanel.host/webhook/barberagency/dashboard/state",
   draftSaveEndpoint:
     process.env.NEXT_PUBLIC_DRAFT_SAVE_ENDPOINT ??
-    "/webhook/barberagency/landing/draft/save",
+    "https://barberagency-n8n.gymh5g.easypanel.host/webhook/barberagency/landing/draft/save",
   publishEndpoint:
     process.env.NEXT_PUBLIC_PUBLISH_ENDPOINT ??
-    "/webhook/barberagency/landing/save-v2",
+    "https://barberagency-n8n.gymh5g.easypanel.host/webhook/barberagency/landing/save-v2",
   publishRpcEndpoint:
     process.env.NEXT_PUBLIC_PUBLISH_RPC_ENDPOINT ??
     "/rpc/ba_publicar_barberia",
