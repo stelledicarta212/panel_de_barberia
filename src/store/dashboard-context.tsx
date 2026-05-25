@@ -137,6 +137,15 @@ export function DashboardProvider({ children }: { children: React.ReactNode }) {
   );
   const [message, setMessage] = useState<string | null>(null);
 
+  useEffect(() => {
+    if (identity) return;
+    const resolved = normalizeIdentity(resolveBarbershopIdentity());
+    if (!resolved.barberia_id && !resolved.slug) return;
+    setIdentity(resolved);
+    setError(null);
+    setLoading(true);
+  }, [identity]);
+
   const loadState = useCallback(async (incoming: DashboardIdentity) => {
     if (env.disableRemoteFetch) {
       setLoading(false);

@@ -78,12 +78,6 @@ export function getBarbershopContext(): BarbershopIdentity {
 }
 
 export function resolveBarbershopIdentity(): BarbershopIdentity {
-  // Temporal: forzar foco del dashboard en barberia-58 (id 101).
-  return {
-    id: "101",
-    slug: "barberia-58"
-  };
-
   const fromUrl = resolveIdentityFromUrl();
   if (fromUrl.id || fromUrl.slug) return fromUrl;
 
@@ -93,8 +87,12 @@ export function resolveBarbershopIdentity(): BarbershopIdentity {
   const fromSeed = resolveIdentityFromSeed();
   if (fromSeed.id || fromSeed.slug) return fromSeed;
 
-  return {
-    id: safeText(env.testBarberiaId) || "101",
-    slug: safeText(env.testBarberiaSlug) || "barberia-58"
-  };
+  if (env.disableRemoteFetch) {
+    return {
+      id: safeText(env.testBarberiaId) || null,
+      slug: safeText(env.testBarberiaSlug) || null
+    };
+  }
+
+  return { id: null, slug: null };
 }
