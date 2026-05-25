@@ -113,6 +113,21 @@ export function DashboardEditor() {
   const [offDaysByBarber, setOffDaysByBarber] = useState<Record<string, number[]>>({});
   const [reservations, setReservations] = useState<ReservationRecord[]>([]);
   const qrPanelValue = merged.qr_url;
+  const editorUrl = useMemo(() => {
+    const slug = String(merged.biz_slug || "").trim();
+    if (!slug) return "https://barberagency-barberagency.gymh5g.easypanel.host/registro-barberias/";
+    const params = new URLSearchParams({
+      edit: "1",
+      modo: "editar",
+      mode: "edit",
+      is_edit: "1",
+      editing: "1",
+      tpl: String(merged.template_id || "v2"),
+      slug,
+      barberia_slug: slug
+    });
+    return `https://barberagency-barberagency.gymh5g.easypanel.host/landing_editor_v2/?${params.toString()}`;
+  }, [merged.biz_slug, merged.template_id]);
 
   const services = useMemo(
     () => merged.services.slice(0, 5).map((item, i) => ({
@@ -465,7 +480,7 @@ export function DashboardEditor() {
           <p className="ba-overview-loyalty-title">Gestiona la informacion completa de tu barberia desde el modulo de configuracion.</p>
           <div className="ba-action-row">
             <a
-              href="https://barberagency-barberagency.gymh5g.easypanel.host/registro-barberias/"
+              href={editorUrl}
               target="_blank"
               rel="noreferrer"
               className="ba-btn-main"

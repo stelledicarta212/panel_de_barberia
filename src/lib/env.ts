@@ -7,14 +7,17 @@ export const env = {
     process.env.NEXT_PUBLIC_APP_URL ??
     "",
   dashboardStateEndpoint:
-    process.env.NEXT_PUBLIC_DASHBOARD_STATE_ENDPOINT ??
-    "https://barberagency-n8n.gymh5g.easypanel.host/webhook/barberagency/dashboard/state",
+    ((process.env.NEXT_PUBLIC_DASHBOARD_STATE_ENDPOINT ?? "").startsWith("http")
+      ? process.env.NEXT_PUBLIC_DASHBOARD_STATE_ENDPOINT
+      : "https://barberagency-n8n.gymh5g.easypanel.host/webhook/barberagency/dashboard/state") as string,
   draftSaveEndpoint:
-    process.env.NEXT_PUBLIC_DRAFT_SAVE_ENDPOINT ??
-    "https://barberagency-n8n.gymh5g.easypanel.host/webhook/barberagency/landing/draft/save",
+    ((process.env.NEXT_PUBLIC_DRAFT_SAVE_ENDPOINT ?? "").startsWith("http")
+      ? process.env.NEXT_PUBLIC_DRAFT_SAVE_ENDPOINT
+      : "https://barberagency-n8n.gymh5g.easypanel.host/webhook/barberagency/landing/draft/save") as string,
   publishEndpoint:
-    process.env.NEXT_PUBLIC_PUBLISH_ENDPOINT ??
-    "https://barberagency-n8n.gymh5g.easypanel.host/webhook/barberagency/landing/save-v2",
+    ((process.env.NEXT_PUBLIC_PUBLISH_ENDPOINT ?? "").startsWith("http")
+      ? process.env.NEXT_PUBLIC_PUBLISH_ENDPOINT
+      : "https://barberagency-n8n.gymh5g.easypanel.host/webhook/barberagency/landing/save-v2") as string,
   publishRpcEndpoint:
     process.env.NEXT_PUBLIC_PUBLISH_RPC_ENDPOINT ??
     "/rpc/ba_publicar_barberia",

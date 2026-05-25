@@ -47,6 +47,55 @@ function pickFirstText(...values: unknown[]): string {
   return "";
 }
 
+async function getPublicProfile(identity: IdentityInput): Promise<Record<string, unknown> | null> {
+  const normalized = normalizeIdentity(identity);
+  const path = normalized.barberia_id
+    ? `/barberia_public_profiles?select=*&barberia_id=eq.${encodeURIComponent(String(normalized.barberia_id))}&limit=1`
+    : normalized.slug
+      ? `/barberia_public_profiles?select=*&slug=eq.${encodeURIComponent(normalized.slug)}&limit=1`
+      : "";
+  if (!path) return null;
+  try {
+    const rows = await apiGetJson<Array<Record<string, unknown>>>(path);
+    return Array.isArray(rows) && rows.length ? rows[0] : null;
+  } catch {
+    return null;
+  }
+}
+
+function mergeStateWithPublicProfile(
+  state: DashboardStateResponse,
+  profile: Record<string, unknown> | null
+): DashboardStateResponse {
+  if (!profile) return state;
+  const profileMerged: Partial<DashboardMerged> = {
+    biz_name: safeText(profile.nombre_publico),
+    biz_slug: safeText(profile.slug),
+    address: safeText(profile.direccion),
+    maps_url: safeText(profile.maps_url),
+    logo_url: safeText(profile.logo_url),
+    cover_url: safeText(profile.cover_url),
+    public_landing_url: safeText(profile.public_landing_url),
+    reservation_url: safeText(profile.reservation_url),
+    qr_url: safeText(profile.qr_url)
+  };
+  return {
+    ...state,
+    identity: {
+      barberia_id: Number(profile.barberia_id) > 0 ? Number(profile.barberia_id) : state.identity?.barberia_id ?? null,
+      slug: safeText(profile.slug) || state.identity?.slug || null
+    },
+    published: {
+      ...(state.published ?? {}),
+      ...profileMerged
+    },
+    merged: {
+      ...(state.merged ?? {}),
+      ...profileMerged
+    }
+  };
+}
+
 function normalizeRpcJsonb<T extends Record<string, unknown>>(raw: unknown): T {
   if (!raw || typeof raw !== "object") return {} as T;
   const obj = raw as Record<string, unknown>;
@@ -165,27 +214,16 @@ export async function getDashboardState(identity: IdentityInput): Promise<Dashbo
   }
   const path = `${env.dashboardStateEndpoint}?${query}`;
   try {
-    return await apiGetJson<DashboardStateResponse>(path);
+    const response = await apiGetJson<DashboardStateResponse>(path);
+    const responseIdentity = response.identity ?? normalizeIdentity(identity);
+    const profile = await getPublicProfile(responseIdentity);
+    return mergeStateWithPublicProfile(response, profile);
   } catch (cause) {
     const message = cause instanceof Error ? cause.message : "Error consultando dashboard/state";
     const fallbackBySlug = normalizeIdentity(identity).slug;
     const fallbackById = normalizeIdentity(identity).barberia_id;
 
-    const profilePath = fallbackBySlug
-      ? `/barberia_public_profiles?select=barberia_id,slug,created_at&slug=eq.${encodeURIComponent(fallbackBySlug)}&limit=1`
-      : `/barberia_public_profiles?select=barberia_id,slug,created_at&barberia_id=eq.${encodeURIComponent(String(fallbackById || 0))}&limit=1`;
-
-    const rows = await apiGetJson<Array<{
-      barberia_id?: number;
-      slug?: string;
-      nombre_publico?: string;
-      logo_url?: string;
-      direccion?: string;
-      public_landing_url?: string;
-      reservation_url?: string;
-      qr_url?: string;
-    }>>(profilePath.replace("barberia_id,slug,created_at", "*"));
-    const row = Array.isArray(rows) && rows.length ? rows[0] : {};
+    const row = (await getPublicProfile({ barberia_id: fallbackById, slug: fallbackBySlug })) ?? {};
     const id = Number(row?.barberia_id || fallbackById || 0);
     const slug = safeText(row?.slug) || fallbackBySlug || "";
     const safeId = id > 0 ? id : 0;
