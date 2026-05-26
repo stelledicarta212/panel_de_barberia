@@ -14,6 +14,14 @@ export const env = {
     ((process.env.NEXT_PUBLIC_DASHBOARD_LOGIN_ENDPOINT ?? "").startsWith("http")
       ? process.env.NEXT_PUBLIC_DASHBOARD_LOGIN_ENDPOINT
       : "https://barberagency-n8n.gymh5g.easypanel.host/webhook/barberagency/dashboard/login") as string,
+  dashboardRecoverRequestEndpoint:
+    ((process.env.NEXT_PUBLIC_DASHBOARD_RECOVER_REQUEST_ENDPOINT ?? "").startsWith("http")
+      ? process.env.NEXT_PUBLIC_DASHBOARD_RECOVER_REQUEST_ENDPOINT
+      : "https://barberagency-n8n.gymh5g.easypanel.host/webhook/barberagency/dashboard/recover/request") as string,
+  dashboardRecoverResetEndpoint:
+    ((process.env.NEXT_PUBLIC_DASHBOARD_RECOVER_RESET_ENDPOINT ?? "").startsWith("http")
+      ? process.env.NEXT_PUBLIC_DASHBOARD_RECOVER_RESET_ENDPOINT
+      : "https://barberagency-n8n.gymh5g.easypanel.host/webhook/barberagency/dashboard/recover/reset") as string,
   draftSaveEndpoint:
     ((process.env.NEXT_PUBLIC_DRAFT_SAVE_ENDPOINT ?? "").startsWith("http")
       ? process.env.NEXT_PUBLIC_DRAFT_SAVE_ENDPOINT

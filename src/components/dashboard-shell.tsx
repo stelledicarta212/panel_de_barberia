@@ -59,6 +59,11 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [showWelcome, setShowWelcome] = useState(false);
+  const [isRecovering, setIsRecovering] = useState(false);
+  const [recoverEmail, setRecoverEmail] = useState("");
+  const [recoverStatus, setRecoverStatus] = useState<{ type: "success" | "error" | null; text: string | null }>({ type: null, text: null });
+  const [sendingRecover, setSendingRecover] = useState(false);
+
   const permissions = access.permissions;
   const canViewCurrentPath = canAccessPath(pathname, permissions);
   const safeError =
@@ -77,7 +82,101 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
     setShowWelcome(true);
   }
 
+  async function handleRecoverRequest(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setSendingRecover(true);
+    setRecoverStatus({ type: null, text: null });
+    try {
+      const { recoverPasswordRequest } = await import("@/lib/dashboard-api");
+      const res = await recoverPasswordRequest({ email: recoverEmail });
+      if (res.ok) {
+        setRecoverStatus({
+          type: "success",
+          text: res.message || "Se ha enviado un enlace de recuperación a tu correo."
+        });
+      } else {
+        setRecoverStatus({
+          type: "error",
+          text: res.message || "No se pudo enviar el correo de recuperación."
+        });
+      }
+    } catch (err) {
+      setRecoverStatus({
+        type: "error",
+        text: err instanceof Error ? err.message : "Error al intentar recuperar contraseña."
+      });
+    } finally {
+      setSendingRecover(false);
+    }
+  }
+
   if (!isAuthenticated) {
+    if (isRecovering) {
+      return (
+        <main className="ba-dashboard-shell ba-login-shell">
+          <section className="ba-login-card ba-card animate-fade-in">
+            <div className="ba-login-icon">
+              <LockKeyhole size={24} />
+            </div>
+            <div>
+              <p className="ba-login-kicker">Recuperar contraseña</p>
+              <h1>¿Olvidaste tu contraseña?</h1>
+              <p className="ba-login-copy">{brandName}</p>
+            </div>
+
+            {recoverStatus.text && (
+              <div className="ba-alert-stack">
+                <p className={`ba-alert ${recoverStatus.type === "success" ? "ba-alert-ok" : "ba-alert-error"}`}>
+                  {recoverStatus.text}
+                </p>
+              </div>
+            )}
+
+            <form className="ba-login-form" onSubmit={handleRecoverRequest}>
+              <label className="ba-field">
+                Correo electrónico
+                <input
+                  className="ba-input"
+                  type="email"
+                  autoComplete="email"
+                  value={recoverEmail}
+                  onChange={(event) => setRecoverEmail(event.target.value)}
+                  required
+                  placeholder="ejemplo@correo.com"
+                />
+              </label>
+              <button className="ba-btn-main" type="submit" disabled={sendingRecover}>
+                {sendingRecover ? "Enviando..." : "Enviar enlace de recuperación"}
+              </button>
+            </form>
+            
+            <div style={{ display: "flex", justifyContent: "center", marginTop: "16px" }}>
+              <button
+                type="button"
+                onClick={() => {
+                  setIsRecovering(false);
+                  setRecoverStatus({ type: null, text: null });
+                }}
+                style={{
+                  background: "none",
+                  border: "none",
+                  color: "var(--color-gold, #d1a638)",
+                  cursor: "pointer",
+                  fontSize: "0.875rem",
+                  textDecoration: "underline",
+                  padding: 0
+                }}
+              >
+                Volver al inicio de sesión
+              </button>
+            </div>
+            
+            <p className="ba-login-meta">id: {identity?.barberia_id ?? "-"} / slug: {(identity?.slug ?? currentSlug) || "-"}</p>
+          </section>
+        </main>
+      );
+    }
+
     return (
       <main className="ba-dashboard-shell ba-login-shell">
         <section className="ba-login-card ba-card">
@@ -120,6 +219,26 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
                 required
               />
             </label>
+            <div style={{ display: "flex", justifyContent: "flex-end", marginTop: "-8px", marginBottom: "8px" }}>
+              <button
+                type="button"
+                onClick={() => {
+                  setIsRecovering(true);
+                  setRecoverStatus({ type: null, text: null });
+                }}
+                style={{
+                  background: "none",
+                  border: "none",
+                  color: "var(--color-gold, #d1a638)",
+                  cursor: "pointer",
+                  fontSize: "0.75rem",
+                  textDecoration: "underline",
+                  padding: 0
+                }}
+              >
+                ¿Olvidaste tu contraseña?
+              </button>
+            </div>
             <button className="ba-btn-main" type="submit" disabled={saving || !identity}>
               {saving ? "Validando..." : "Entrar"}
             </button>

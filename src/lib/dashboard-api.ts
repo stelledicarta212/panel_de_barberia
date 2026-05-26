@@ -328,6 +328,28 @@ export async function loginDashboard(payload: {
   });
 }
 
+export async function recoverPasswordRequest(payload: {
+  email: string;
+}): Promise<{ ok: boolean; message: string }> {
+  return apiPostJson<{ ok: boolean; message: string }, Record<string, unknown>>(
+    env.dashboardRecoverRequestEndpoint,
+    { email: payload.email }
+  );
+}
+
+export async function recoverPasswordReset(payload: {
+  token: string;
+  new_password: string;
+}): Promise<{ ok: boolean; message: string }> {
+  return apiPostJson<{ ok: boolean; message: string }, Record<string, unknown>>(
+    env.dashboardRecoverResetEndpoint,
+    {
+      token: payload.token,
+      new_password: payload.new_password
+    }
+  );
+}
+
 export async function saveLandingDraft(payload: Record<string, unknown>): Promise<DraftSaveResponse> {
   return apiPostJson<DraftSaveResponse, Record<string, unknown>>(env.draftSaveEndpoint, payload);
 }
