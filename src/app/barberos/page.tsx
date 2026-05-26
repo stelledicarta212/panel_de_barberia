@@ -63,8 +63,6 @@ const MONTHS = [
 ];
 const DAYS = ["L", "M", "X", "J", "V", "S", "D"];
 const RESERVATIONS_STORAGE_KEY = "ba_dashboard_reservas";
-const BARBER_OFF_DAYS_STORAGE_KEY = "ba_barberos_descansos";
-const BARBER_MANUAL_AVAILABILITY_STORAGE_KEY = "ba_barberos_manual_availability";
 
 type ReservationRecord = {
   client?: string;
@@ -94,6 +92,7 @@ export default function BarberosPage() {
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [calendarMonth, setCalendarMonth] = useState(() => new Date());
   const [offDaysByBarber, setOffDaysByBarber] = useState<Record<string, string[]>>({});
+  const [selectedCalendarDate, setSelectedCalendarDate] = useState<string | null>(null);
   const [reservations, setReservations] = useState<ReservationRecord[]>([]);
 
   const cards = useMemo<BarberCard[]>(() => {
@@ -120,21 +119,21 @@ export default function BarberosPage() {
   const todayMonth = now.getMonth();
   const todayYear = now.getFullYear();
 
-  const loadDescansos = useCallback(() => {
+  const loadDescansos = useCallback(async () => {
     if (!identity?.barberia_id) return;
-    getBarberDescansos(identity.barberia_id).then((rows) => {
-      const map: Record<string, string[]> = {};
-      for (const row of rows) {
-        const bId = String(row.barbero_id);
-        if (!map[bId]) map[bId] = [];
-        map[bId].push(String(row.fecha || "").split("T")[0]);
-      }
-      setOffDaysByBarber(map);
-    });
+    const rows = await getBarberDescansos(identity.barberia_id);
+    const map: Record<string, string[]> = {};
+    for (const row of rows) {
+      const bId = String(row.barbero_id);
+      if (!map[bId]) map[bId] = [];
+      map[bId].push(String(row.fecha || "").split("T")[0]);
+    }
+    setOffDaysByBarber(map);
   }, [identity]);
 
   // Load descansos from PostgreSQL
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     loadDescansos();
   }, [loadDescansos]);
 
@@ -158,8 +157,9 @@ export default function BarberosPage() {
         ).size;
 
         const todayStr = `${todayYear}-${String(todayMonth + 1).padStart(2, "0")}-${String(todayDay).padStart(2, "0")}`;
-        const hasRestToday = (offDaysByBarber[card.id] ?? []).includes(todayStr);
-        const effectiveActive = card.isActive && !hasRestToday;
+        const dateToCheck = selectedCalendarDate ?? todayStr;
+        const hasRestOnCheckedDate = (offDaysByBarber[card.id] ?? []).includes(dateToCheck);
+        const effectiveActive = card.isActive && !hasRestOnCheckedDate;
 
         const servicesToday = effectiveActive ? servicesTodayRaw : 0;
         const servicesMonth = effectiveActive ? servicesMonthRaw : servicesMonthRaw;
@@ -174,7 +174,7 @@ export default function BarberosPage() {
           clientsToday 
         };
       }),
-    [cards, reservations, offDaysByBarber, todayDay, todayMonth, todayYear]
+    [cards, reservations, offDaysByBarber, selectedCalendarDate, todayDay, todayMonth, todayYear]
   );
 
   const listWithAvailability = useMemo(() => {
@@ -230,11 +230,13 @@ export default function BarberosPage() {
     const current = offDaysByBarber[calendarBarberId] ?? [];
     const exists = current.includes(dateStr);
 
+    setSelectedCalendarDate(dateStr);
+
     try {
       if (exists) {
         const res = await deleteBarberDescanso(Number(calendarBarberId), dateStr);
         if (res.ok) {
-          loadDescansos();
+          await loadDescansos();
           await refresh();
         } else {
           alert(res.message || "Error al eliminar descanso.");
@@ -247,13 +249,13 @@ export default function BarberosPage() {
           fecha: dateStr
         });
         if (res.ok) {
-          loadDescansos();
+          await loadDescansos();
           await refresh();
         } else {
           alert(res.message || "Error al guardar descanso.");
         }
       }
-    } catch (err) {
+    } catch {
       alert("Error de red al actualizar descanso.");
     }
   };
