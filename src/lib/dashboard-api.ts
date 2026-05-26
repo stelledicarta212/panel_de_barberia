@@ -389,12 +389,16 @@ export async function addBarberDescanso(payload: {
   fecha: string;
 }): Promise<{ ok: boolean; message?: string }> {
   try {
-    await apiPostJson<Record<string, unknown>, Record<string, unknown>>("/barberos_descansos", {
-      barberia_id: payload.barberia_id,
-      barbero_id: payload.barbero_id,
-      fecha: payload.fecha
-    });
-    return { ok: true };
+    const response = await apiPostJson<{ ok: boolean; message?: string }, Record<string, unknown>>(
+      "https://barberagency-n8n.gymh5g.easypanel.host/webhook/barberagency/dashboard/barberos",
+      {
+        action: "add_descanso",
+        barberia_id: payload.barberia_id,
+        barbero_id: payload.barbero_id,
+        fecha: payload.fecha
+      }
+    );
+    return response;
   } catch (err) {
     return { ok: false, message: err instanceof Error ? err.message : "Error al guardar descanso" };
   }
@@ -402,14 +406,15 @@ export async function addBarberDescanso(payload: {
 
 export async function deleteBarberDescanso(barberoId: number, fecha: string): Promise<{ ok: boolean; message?: string }> {
   try {
-    const response = await apiFetch(
-      `/barberos_descansos?barbero_id=eq.${encodeURIComponent(String(barberoId))}&fecha=eq.${encodeURIComponent(fecha)}`,
-      { method: "DELETE" }
+    const response = await apiPostJson<{ ok: boolean; message?: string }, Record<string, unknown>>(
+      "https://barberagency-n8n.gymh5g.easypanel.host/webhook/barberagency/dashboard/barberos",
+      {
+        action: "delete_descanso",
+        barbero_id: barberoId,
+        fecha: fecha
+      }
     );
-    if (!response.ok) {
-      throw new Error(`DELETE -> ${response.status}`);
-    }
-    return { ok: true };
+    return response;
   } catch (err) {
     return { ok: false, message: err instanceof Error ? err.message : "Error al eliminar descanso" };
   }
@@ -417,17 +422,15 @@ export async function deleteBarberDescanso(barberoId: number, fecha: string): Pr
 
 export async function updateBarberActiveStatus(barberoId: number, active: boolean): Promise<{ ok: boolean; message?: string }> {
   try {
-    const response = await apiFetch(`/barberos?id=eq.${encodeURIComponent(String(barberoId))}`, {
-      method: "PATCH",
-      headers: {
-        "Content-Type": "application/json"
-      },
-      body: JSON.stringify({ activo: active })
-    });
-    if (!response.ok) {
-      throw new Error(`PATCH -> ${response.status}`);
-    }
-    return { ok: true };
+    const response = await apiPostJson<{ ok: boolean; message?: string }, Record<string, unknown>>(
+      "https://barberagency-n8n.gymh5g.easypanel.host/webhook/barberagency/dashboard/barberos",
+      {
+        action: "update_active",
+        barbero_id: barberoId,
+        activo: active
+      }
+    );
+    return response;
   } catch (err) {
     return { ok: false, message: err instanceof Error ? err.message : "Error al actualizar estado del barbero" };
   }
