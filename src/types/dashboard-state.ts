@@ -8,6 +8,38 @@ export type DashboardIdentity = {
   slug: string | null;
 };
 
+export type DashboardRole = "admin" | "owner" | "barbero" | "cajero" | "super_admin";
+
+export type DashboardPermissions = {
+  canViewDashboard: boolean;
+  canViewAppointments: boolean;
+  canViewClients: boolean;
+  canViewBarbers: boolean;
+  canViewServices: boolean;
+  canViewLoyalty: boolean;
+  canViewPOS: boolean;
+  canViewSettings: boolean;
+  canViewSupport: boolean;
+  canEditLanding: boolean;
+  canPublishLanding: boolean;
+  canChargePOS: boolean;
+  canViewGlobalFinance: boolean;
+};
+
+export type DashboardUserAccess = {
+  user_id: number | null;
+  role: DashboardRole;
+  permissions: DashboardPermissions;
+  barber_id?: number | null;
+  source?: string;
+};
+
+export type DashboardLoginSession = {
+  user: Record<string, unknown>;
+  access: DashboardUserAccess;
+  identity: DashboardIdentity;
+};
+
 export type DashboardMerged = {
   biz_name: string;
   biz_slug: string;
@@ -35,10 +67,26 @@ export type DashboardMerged = {
 export type DashboardStateResponse = {
   ok: boolean;
   identity?: DashboardIdentity;
+  user?: Record<string, unknown>;
+  usuario?: Record<string, unknown>;
+  role?: string;
+  rol?: string;
+  permissions?: Partial<DashboardPermissions>;
+  permisos?: Partial<DashboardPermissions>;
   seed?: Record<string, unknown>;
   draft?: Record<string, unknown>;
   published?: Record<string, unknown>;
   merged?: Partial<DashboardMerged>;
+  message?: string;
+};
+
+export type DashboardLoginResponse = {
+  ok: boolean;
+  status?: string;
+  identity?: DashboardIdentity;
+  user?: Record<string, unknown>;
+  role?: DashboardRole | string;
+  permissions?: Partial<DashboardPermissions>;
   message?: string;
 };
 

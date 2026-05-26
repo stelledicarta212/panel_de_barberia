@@ -235,6 +235,60 @@ body {
   border-color: rgba(109, 225, 158, 0.34);
 }
 
+.ba-login-shell {
+  min-height: 100dvh;
+  display: grid;
+  place-items: center;
+  padding: 18px;
+}
+
+.ba-login-card {
+  width: min(460px, 100%);
+  display: grid;
+  gap: 18px;
+  padding: 26px;
+}
+
+.ba-login-icon {
+  width: 56px;
+  height: 56px;
+  border-radius: 16px;
+  display: grid;
+  place-items: center;
+  color: #132018;
+  background: linear-gradient(180deg, #f0dfb5, #cfb073);
+}
+
+.ba-login-kicker,
+.ba-login-copy,
+.ba-login-meta {
+  margin: 0;
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.ba-login-card h1 {
+  margin: 4px 0;
+  font-size: 28px;
+  line-height: 1.1;
+}
+
+.ba-login-form {
+  display: grid;
+  gap: 12px;
+}
+
+.ba-logout-btn {
+  all: unset;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 10px;
+  color: var(--text);
+  font-size: 12px;
+}
+
 .ba-stats-grid {
   display: grid;
   gap: 10px;

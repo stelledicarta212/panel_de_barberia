@@ -2,6 +2,7 @@ import { apiGetJson, apiPostJson } from "@/lib/api";
 import { env } from "@/lib/env";
 import type {
   DashboardIdentity,
+  DashboardLoginResponse,
   DashboardMerged,
   DashboardStateResponse,
   DraftSaveResponse,
@@ -312,6 +313,19 @@ export async function getDashboardState(identity: IdentityInput): Promise<Dashbo
       }
     };
   }
+}
+
+export async function loginDashboard(payload: {
+  identity: DashboardIdentity;
+  email: string;
+  password: string;
+}): Promise<DashboardLoginResponse> {
+  return apiPostJson<DashboardLoginResponse, Record<string, unknown>>(env.dashboardLoginEndpoint, {
+    barberia_id: payload.identity.barberia_id,
+    slug: payload.identity.slug,
+    email: payload.email,
+    password: payload.password
+  });
 }
 
 export async function saveLandingDraft(payload: Record<string, unknown>): Promise<DraftSaveResponse> {

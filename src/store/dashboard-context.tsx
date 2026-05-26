@@ -3,6 +3,7 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
 import {
   getDashboardState,
+  loginDashboard,
   normalizeMergedFromState,
   publishBarbershopViaRpc,
   saveLandingDraft
@@ -13,10 +14,13 @@ import {
   resolveBarbershopIdentity,
   setBarbershopContext
 } from "@/lib/barbershop-context";
+import { NO_PERMISSIONS, resolveDashboardAccess, resolveLoginAccess } from "@/lib/dashboard-access";
 import type {
   DashboardIdentity,
+  DashboardLoginSession,
   DashboardMerged,
   DashboardStateResponse,
+  DashboardUserAccess,
   PublishResponse
 } from "@/types/dashboard-state";
 import { EMPTY_MERGED } from "@/types/dashboard-state";
@@ -24,6 +28,7 @@ import { EMPTY_MERGED } from "@/types/dashboard-state";
 type ScalarMergedKey = Exclude<keyof DashboardMerged, "services" | "barbers" | "hours">;
 type CollectionMergedKey = Extract<keyof DashboardMerged, "services" | "barbers" | "hours">;
 const DASHBOARD_MERGED_CACHE_PREFIX = "ba_dashboard_merged_cache";
+const DASHBOARD_SESSION_PREFIX = "ba_dashboard_session";
 
 function cacheKeyForIdentity(input: DashboardIdentity): string {
   const idPart = String(input.barberia_id ?? "no-id");
@@ -56,12 +61,17 @@ function writeMergedCache(input: DashboardIdentity, value: DashboardMerged) {
 type DashboardContextValue = {
   identity: DashboardIdentity | null;
   rawState: DashboardStateResponse | null;
+  access: DashboardUserAccess;
+  session: DashboardLoginSession | null;
+  isAuthenticated: boolean;
   merged: DashboardMerged;
   loading: boolean;
   saving: boolean;
   publishing: boolean;
   error: string | null;
   message: string | null;
+  login: (email: string, password: string) => Promise<void>;
+  logout: () => void;
   refresh: () => Promise<void>;
   setField: (key: ScalarMergedKey, value: string) => void;
   setCollection: (key: CollectionMergedKey, value: Array<Record<string, unknown>>) => void;
@@ -70,6 +80,14 @@ type DashboardContextValue = {
 };
 
 const DashboardContext = createContext<DashboardContextValue | null>(null);
+
+const LOCKED_ACCESS: DashboardUserAccess = {
+  user_id: null,
+  role: "admin",
+  permissions: NO_PERMISSIONS,
+  barber_id: null,
+  source: "locked"
+};
 
 function normalizeIdentity(input: { id: string | null; slug: string | null }): DashboardIdentity {
   const idNum = Number(input.id ?? 0);
@@ -120,6 +138,43 @@ function mapPublishError(errorCode: string): string {
   }
 }
 
+function sessionKeyForIdentity(input: DashboardIdentity): string {
+  const idPart = String(input.barberia_id ?? "no-id");
+  const slugPart = String(input.slug ?? "no-slug");
+  return `${DASHBOARD_SESSION_PREFIX}:${idPart}:${slugPart}`;
+}
+
+function readLoginSession(input: DashboardIdentity | null): DashboardLoginSession | null {
+  if (typeof window === "undefined" || !input) return null;
+  try {
+    const raw = window.localStorage.getItem(sessionKeyForIdentity(input));
+    if (!raw) return null;
+    const parsed = JSON.parse(raw) as DashboardLoginSession;
+    if (!parsed?.identity || !parsed?.access?.permissions) return null;
+    return parsed;
+  } catch {
+    return null;
+  }
+}
+
+function writeLoginSession(value: DashboardLoginSession) {
+  if (typeof window === "undefined") return;
+  try {
+    window.localStorage.setItem(sessionKeyForIdentity(value.identity), JSON.stringify(value));
+  } catch {
+    // ignore quota errors
+  }
+}
+
+function clearLoginSession(input: DashboardIdentity | null) {
+  if (typeof window === "undefined" || !input) return;
+  try {
+    window.localStorage.removeItem(sessionKeyForIdentity(input));
+  } catch {
+    // ignore storage errors
+  }
+}
+
 export function DashboardProvider({ children }: { children: React.ReactNode }) {
   const [identity, setIdentity] = useState<DashboardIdentity | null>(() => {
     const resolved = normalizeIdentity(resolveBarbershopIdentity());
@@ -136,12 +191,17 @@ export function DashboardProvider({ children }: { children: React.ReactNode }) {
     identity ? null : "No se encontro identidad en URL/storage/seed."
   );
   const [message, setMessage] = useState<string | null>(null);
+  const [session, setSession] = useState<DashboardLoginSession | null>(() => readLoginSession(identity));
+  const fallbackAccess = useMemo(() => resolveDashboardAccess(rawState), [rawState]);
+  const access = session?.access ?? (session ? fallbackAccess : LOCKED_ACCESS);
+  const isAuthenticated = Boolean(session?.access?.user_id);
 
   useEffect(() => {
     if (identity) return;
     const resolved = normalizeIdentity(resolveBarbershopIdentity());
     if (!resolved.barberia_id && !resolved.slug) return;
     setIdentity(resolved);
+    setSession(readLoginSession(resolved));
     setError(null);
     setLoading(true);
   }, [identity]);
@@ -187,6 +247,7 @@ export function DashboardProvider({ children }: { children: React.ReactNode }) {
       }
 
       setIdentity(effectiveIdentity);
+      setSession((prev) => prev ?? readLoginSession(effectiveIdentity));
       setRawState(response);
       setMerged(normalized);
       writeMergedCache(effectiveIdentity, normalized);
@@ -226,6 +287,48 @@ export function DashboardProvider({ children }: { children: React.ReactNode }) {
     }
     await loadState(identity);
   }, [identity, loadState]);
+
+  const loginAction = useCallback(async (email: string, password: string) => {
+    if (!identity) {
+      setError("No hay identidad de barberia para iniciar sesion.");
+      return;
+    }
+    setSaving(true);
+    setError(null);
+    try {
+      const response = await loginDashboard({ identity, email, password });
+      if (!response.ok) {
+        throw new Error(String(response.message || "No se pudo iniciar sesion."));
+      }
+      const nextIdentity = response.identity ?? identity;
+      const nextSession: DashboardLoginSession = {
+        user: response.user ?? {},
+        identity: nextIdentity,
+        access: resolveLoginAccess({
+          user: response.user,
+          role: response.role,
+          permissions: response.permissions
+        })
+      };
+      writeLoginSession(nextSession);
+      setSession(nextSession);
+      setIdentity(nextIdentity);
+      setError(null);
+      setMessage("Sesion iniciada correctamente.");
+    } catch (cause) {
+      setSession(null);
+      clearLoginSession(identity);
+      setError(cause instanceof Error ? cause.message : "No se pudo iniciar sesion.");
+    } finally {
+      setSaving(false);
+    }
+  }, [identity]);
+
+  const logoutAction = useCallback(() => {
+    clearLoginSession(identity);
+    setSession(null);
+    setMessage(null);
+  }, [identity]);
 
   const saveDraftAction = useCallback(async () => {
     if (!identity) {
@@ -325,12 +428,17 @@ export function DashboardProvider({ children }: { children: React.ReactNode }) {
   const value = useMemo<DashboardContextValue>(() => ({
     identity,
     rawState,
+    access,
+    session,
+    isAuthenticated,
     merged,
     loading,
     saving,
     publishing,
     error,
     message,
+    login: loginAction,
+    logout: logoutAction,
     refresh,
     setField: (key, value) => {
       setMerged((prev) => ({ ...prev, [key]: value }));
@@ -343,6 +451,11 @@ export function DashboardProvider({ children }: { children: React.ReactNode }) {
   }), [
     error,
     identity,
+    access,
+    session,
+    isAuthenticated,
+    loginAction,
+    logoutAction,
     refresh,
     loading,
     merged,

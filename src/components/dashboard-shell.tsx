@@ -1,5 +1,6 @@
 ﻿"use client";
 
+import { useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
@@ -8,6 +9,8 @@ import {
   CreditCard,
   HandHelping,
   LayoutGrid,
+  LogOut,
+  LockKeyhole,
   Scissors,
   Settings,
   ShieldQuestion,
@@ -16,17 +19,19 @@ import {
 } from "lucide-react";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { useDashboard } from "@/store/dashboard-context";
+import { canAccessPath } from "@/lib/dashboard-access";
+import type { DashboardPermissions } from "@/types/dashboard-state";
 
 const NAV_ITEMS = [
-  { href: "/", label: "Panel", icon: LayoutGrid },
-  { href: "/citas", label: "Citas", icon: CalendarDays },
-  { href: "/clientes", label: "Clientes", icon: Users },
-  { href: "/barberos", label: "Barberos", icon: UserRound },
-  { href: "/servicios", label: "Servicios", icon: Scissors },
-  { href: "/finanzas", label: "Programa de Lealtad", icon: HandHelping },
-  { href: "/inventario", label: "Caja / POS", icon: CreditCard },
-  { href: "/configuracion", label: "Configuración", icon: Settings },
-  { href: "/soporte", label: "Soporte", icon: ShieldQuestion }
+  { href: "/", label: "Panel", icon: LayoutGrid, permission: "canViewDashboard" },
+  { href: "/citas", label: "Citas", icon: CalendarDays, permission: "canViewAppointments" },
+  { href: "/clientes", label: "Clientes", icon: Users, permission: "canViewClients" },
+  { href: "/barberos", label: "Barberos", icon: UserRound, permission: "canViewBarbers" },
+  { href: "/servicios", label: "Servicios", icon: Scissors, permission: "canViewServices" },
+  { href: "/finanzas", label: "Programa de Lealtad", icon: HandHelping, permission: "canViewLoyalty" },
+  { href: "/inventario", label: "Caja / POS", icon: CreditCard, permission: "canViewPOS" },
+  { href: "/configuracion", label: "Configuración", icon: Settings, permission: "canViewSettings" },
+  { href: "/soporte", label: "Soporte", icon: ShieldQuestion, permission: "canViewSupport" }
 ];
 
 const CORE_BASE_URL = "https://barberagency-barberagency.gymh5g.easypanel.host";
@@ -49,7 +54,11 @@ function buildEditorUrl(slug: string, templateId: string): string {
 
 export function DashboardShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
-  const { identity, merged, error, message } = useDashboard();
+  const { identity, merged, error, message, access, isAuthenticated, login, logout, saving } = useDashboard();
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const permissions = access.permissions;
+  const canViewCurrentPath = canAccessPath(pathname, permissions);
   const safeError =
     typeof error === "string" ? error : error ? JSON.stringify(error) : null;
   const safeMessage =
@@ -58,6 +67,65 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
   const brandLogo = String(merged.logo_url || "").trim();
   const currentSlug = String(merged.biz_slug || identity?.slug || "").trim();
   const editorUrl = buildEditorUrl(currentSlug, String(merged.template_id || "v2"));
+  const roleLabel = access.role === "owner" ? "admin" : access.role.replace("_", " ");
+
+  async function handleLogin(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    await login(email, password);
+  }
+
+  if (!isAuthenticated) {
+    return (
+      <main className="ba-dashboard-shell ba-login-shell">
+        <section className="ba-login-card ba-card">
+          <div className="ba-login-icon">
+            <LockKeyhole size={24} />
+          </div>
+          <div>
+            <p className="ba-login-kicker">Dashboard privado</p>
+            <h1>Iniciar sesion</h1>
+            <p className="ba-login-copy">{brandName}</p>
+          </div>
+
+          {(safeError || safeMessage) && (
+            <div className="ba-alert-stack">
+              {safeError ? <p className="ba-alert ba-alert-error">{safeError}</p> : null}
+              {safeMessage ? <p className="ba-alert ba-alert-ok">{safeMessage}</p> : null}
+            </div>
+          )}
+
+          <form className="ba-login-form" onSubmit={handleLogin}>
+            <label className="ba-field">
+              Correo
+              <input
+                className="ba-input"
+                type="email"
+                autoComplete="email"
+                value={email}
+                onChange={(event) => setEmail(event.target.value)}
+                required
+              />
+            </label>
+            <label className="ba-field">
+              Password
+              <input
+                className="ba-input"
+                type="password"
+                autoComplete="current-password"
+                value={password}
+                onChange={(event) => setPassword(event.target.value)}
+                required
+              />
+            </label>
+            <button className="ba-btn-main" type="submit" disabled={saving || !identity}>
+              {saving ? "Validando..." : "Entrar"}
+            </button>
+          </form>
+          <p className="ba-login-meta">id: {identity?.barberia_id ?? "-"} / slug: {(identity?.slug ?? currentSlug) || "-"}</p>
+        </section>
+      </main>
+    );
+  }
 
   return (
     <main className="ba-dashboard-shell">
@@ -97,6 +165,7 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
 
           <nav className="ba-nav">
             {NAV_ITEMS.map((item) => {
+              if (!permissions[item.permission as keyof DashboardPermissions]) return null;
               const isActive = pathname === item.href;
               const Icon = item.icon;
               const href =
@@ -129,8 +198,13 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
           </nav>
 
           <div className="ba-sidebar-footer">
+            <p>rol: {roleLabel}</p>
             <p>id: {identity?.barberia_id ?? "-"}</p>
             <p>slug: {identity?.slug ?? "-"}</p>
+            <button type="button" className="ba-logout-btn" onClick={logout}>
+              <LogOut size={13} />
+              Salir
+            </button>
           </div>
         </aside>
 
@@ -155,7 +229,15 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
             </section>
           )}
 
-          {children}
+          {canViewCurrentPath ? (
+            children
+          ) : (
+            <section className="ba-card ba-access-denied">
+              <h1>Acceso restringido</h1>
+              <p>Tu rol actual no tiene permiso para ver este modulo.</p>
+              <small>Rol: {roleLabel}</small>
+            </section>
+          )}
         </section>
       </div>
     </main>
