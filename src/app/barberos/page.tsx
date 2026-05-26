@@ -33,7 +33,8 @@ type BarberCard = {
 };
 
 function text(value: unknown): string {
-  return typeof value === "string" ? value.trim() : "";
+  if (value === null || value === undefined) return "";
+  return String(value).trim();
 }
 
 function num(value: unknown, fallback: number): number {
