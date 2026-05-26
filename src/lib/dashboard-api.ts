@@ -1,4 +1,4 @@
-import { apiGetJson, apiPostJson } from "@/lib/api";
+import { apiFetch, apiGetJson, apiPostJson } from "@/lib/api";
 import { env } from "@/lib/env";
 import type {
   DashboardIdentity,
@@ -370,4 +370,65 @@ export async function publishBarbershopViaRpc(barberiaId: number): Promise<Publi
     { p_barberia_id: barberiaId }
   );
   return normalizeRpcJsonb<PublishResponse>(response);
+}
+
+export async function getBarberDescansos(barberiaId: number): Promise<Array<{ barbero_id: number; fecha: string }>> {
+  try {
+    const rows = await apiGetJson<Array<{ barbero_id: number; fecha: string }>>(
+      `/barberos_descansos?select=barbero_id,fecha&barberia_id=eq.${encodeURIComponent(String(barberiaId))}`
+    );
+    return Array.isArray(rows) ? rows : [];
+  } catch {
+    return [];
+  }
+}
+
+export async function addBarberDescanso(payload: {
+  barberia_id: number;
+  barbero_id: number;
+  fecha: string;
+}): Promise<{ ok: boolean; message?: string }> {
+  try {
+    await apiPostJson<Record<string, unknown>, Record<string, unknown>>("/barberos_descansos", {
+      barberia_id: payload.barberia_id,
+      barbero_id: payload.barbero_id,
+      fecha: payload.fecha
+    });
+    return { ok: true };
+  } catch (err) {
+    return { ok: false, message: err instanceof Error ? err.message : "Error al guardar descanso" };
+  }
+}
+
+export async function deleteBarberDescanso(barberoId: number, fecha: string): Promise<{ ok: boolean; message?: string }> {
+  try {
+    const response = await apiFetch(
+      `/barberos_descansos?barbero_id=eq.${encodeURIComponent(String(barberoId))}&fecha=eq.${encodeURIComponent(fecha)}`,
+      { method: "DELETE" }
+    );
+    if (!response.ok) {
+      throw new Error(`DELETE -> ${response.status}`);
+    }
+    return { ok: true };
+  } catch (err) {
+    return { ok: false, message: err instanceof Error ? err.message : "Error al eliminar descanso" };
+  }
+}
+
+export async function updateBarberActiveStatus(barberoId: number, active: boolean): Promise<{ ok: boolean; message?: string }> {
+  try {
+    const response = await apiFetch(`/barberos?id=eq.${encodeURIComponent(String(barberoId))}`, {
+      method: "PATCH",
+      headers: {
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify({ activo: active })
+    });
+    if (!response.ok) {
+      throw new Error(`PATCH -> ${response.status}`);
+    }
+    return { ok: true };
+  } catch (err) {
+    return { ok: false, message: err instanceof Error ? err.message : "Error al actualizar estado del barbero" };
+  }
 }

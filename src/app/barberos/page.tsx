@@ -4,6 +4,12 @@ import { useEffect, useMemo, useState } from "react";
 import { CalendarDays, ChevronLeft, ChevronRight, MoreHorizontal, Plus, Search, Star, X } from "lucide-react";
 import { DashboardShell } from "@/components/dashboard-shell";
 import { useDashboard } from "@/store/dashboard-context";
+import {
+  getBarberDescansos,
+  addBarberDescanso,
+  deleteBarberDescanso,
+  updateBarberActiveStatus
+} from "@/lib/dashboard-api";
 
 const FALLBACK = [
   "https://barberagency-barberagency.gymh5g.easypanel.host/wp-content/uploads/2026/04/barbero1.1.png",
@@ -82,15 +88,12 @@ function buildCalendar(date: Date) {
 }
 
 export default function BarberosPage() {
-  const { merged } = useDashboard();
+  const { merged, identity, refresh } = useDashboard();
   const [query, setQuery] = useState("");
   const [selectedId, setSelectedId] = useState<string | null>(null);
-  const [manualAvailability, setManualAvailability] = useState<Record<string, boolean | undefined>>({});
   const [calendarMonth, setCalendarMonth] = useState(() => new Date());
-  const [offDaysByBarber, setOffDaysByBarber] = useState<Record<string, number[]>>({});
+  const [offDaysByBarber, setOffDaysByBarber] = useState<Record<string, string[]>>({});
   const [reservations, setReservations] = useState<ReservationRecord[]>([]);
-  const [manualHydrated, setManualHydrated] = useState(false);
-  const [offDaysHydrated, setOffDaysHydrated] = useState(false);
 
   const cards = useMemo<BarberCard[]>(() => {
     return merged.barbers.map((item, index) => {
@@ -103,7 +106,7 @@ export default function BarberosPage() {
         month: Math.max(120, Math.round(score * 80 + (index + 1) * 8)),
         rank: 40 + index * 7,
         image: imageFrom(item, index),
-        isActive: index % 2 === 0,
+        isActive: Boolean(item.activo ?? true),
         clientsToday: 4 + ((index + 1) * 2),
         servicesToday: 0,
         servicesMonth: 0
@@ -115,9 +118,29 @@ export default function BarberosPage() {
   const todayDay = now.getDate();
   const todayMonth = now.getMonth();
   const todayYear = now.getFullYear();
+
+  // Load descansos from PostgreSQL
+  useEffect(() => {
+    if (!identity?.barberia_id) return;
+    let active = true;
+    getBarberDescansos(identity.barberia_id).then((rows) => {
+      if (!active) return;
+      const map: Record<string, string[]> = {};
+      for (const row of rows) {
+        const bId = String(row.barbero_id);
+        if (!map[bId]) map[bId] = [];
+        map[bId].push(row.fecha);
+      }
+      setOffDaysByBarber(map);
+    });
+    return () => {
+      active = false;
+    };
+  }, [identity, merged.barbers]);
+
   const cardsWithAvailability = useMemo(
     () =>
-      cards.map((card, index) => {
+      cards.map((card) => {
         const byBarber = reservations.filter(
           (r) => String(r.barber || "").trim().toLowerCase() === card.name.trim().toLowerCase()
         );
@@ -133,42 +156,38 @@ export default function BarberosPage() {
             .map((r) => String(r.client || "").trim().toLowerCase())
             .filter(Boolean)
         ).size;
-        const hasRestToday = (offDaysByBarber[card.id] ?? []).includes(todayDay);
-        const autoActive = !hasRestToday;
-        const effectiveActive = manualAvailability[card.id] ?? autoActive;
+
+        const todayStr = `${todayYear}-${String(todayMonth + 1).padStart(2, "0")}-${String(todayDay).padStart(2, "0")}`;
+        const hasRestToday = (offDaysByBarber[card.id] ?? []).includes(todayStr);
+        const effectiveActive = card.isActive && !hasRestToday;
+
         const servicesToday = effectiveActive ? servicesTodayRaw : 0;
         const servicesMonth = effectiveActive ? servicesMonthRaw : servicesMonthRaw;
         const clientsToday = effectiveActive ? clientsTodayRaw : clientsTodayRaw;
-        return { ...card, isActive: effectiveActive, servicesToday, servicesMonth, clientsToday };
+        
+        return { 
+          ...card, 
+          isEmployeeActive: card.isActive, 
+          isActive: effectiveActive, 
+          servicesToday, 
+          servicesMonth, 
+          clientsToday 
+        };
       }),
-    [cards, reservations, offDaysByBarber, todayDay, todayMonth, todayYear, manualAvailability]
+    [cards, reservations, offDaysByBarber, todayDay, todayMonth, todayYear]
   );
+
   const listWithAvailability = useMemo(() => {
     const q = query.trim().toLowerCase();
     if (!q) return cardsWithAvailability;
     return cardsWithAvailability.filter((card) => card.name.toLowerCase().includes(q) || card.role.toLowerCase().includes(q));
   }, [cardsWithAvailability, query]);
+
   const selected = listWithAvailability.find((card) => card.id === selectedId) ?? null;
   const calendarBarberId = selectedId ?? listWithAvailability[0]?.id ?? null;
   const calendarCells = useMemo(() => buildCalendar(calendarMonth), [calendarMonth]);
   const monthLabel = `${MONTHS[calendarMonth.getMonth()]} ${calendarMonth.getFullYear()}`;
   const barberOffDays = calendarBarberId ? offDaysByBarber[calendarBarberId] ?? [] : [];
-
-  useEffect(() => {
-    try {
-      const raw = window.localStorage.getItem(BARBER_MANUAL_AVAILABILITY_STORAGE_KEY);
-      if (raw) {
-        const parsed = JSON.parse(raw);
-        if (parsed && typeof parsed === "object") {
-          setManualAvailability(parsed as Record<string, boolean | undefined>);
-        }
-      }
-    } catch {
-      // ignore parse errors
-    } finally {
-      setManualHydrated(true);
-    }
-  }, []);
 
   useEffect(() => {
     const loadReservations = () => {
@@ -193,90 +212,51 @@ export default function BarberosPage() {
     };
   }, []);
 
-  useEffect(() => {
-    try {
-      const raw = window.localStorage.getItem(BARBER_OFF_DAYS_STORAGE_KEY);
-      if (raw) {
-        const parsed = JSON.parse(raw);
-        if (parsed && typeof parsed === "object") {
-          setOffDaysByBarber(parsed as Record<string, number[]>);
-        }
-      }
-    } catch {
-      // ignore parse errors
-    } finally {
-      setOffDaysHydrated(true);
-    }
-  }, []);
-
-  useEffect(() => {
-    if (!offDaysHydrated) return;
-    setOffDaysByBarber((prev) => {
-      const next = { ...prev };
-      for (const [index, card] of cards.entries()) {
-        if (!next[card.id]) next[card.id] = [((index + 1) * 3) % 28 || 7];
-      }
-      return next;
-    });
-  }, [cards, offDaysHydrated]);
-
-  useEffect(() => {
-    if (!manualHydrated) return;
-    setManualAvailability((prev) => {
-      const next = { ...prev };
-      for (const card of cards) {
-        if (!(card.id in next)) next[card.id] = undefined;
-      }
-      return next;
-    });
-  }, [cards, manualHydrated]);
-
-  useEffect(() => {
-    if (!offDaysHydrated) return;
-    window.localStorage.setItem(BARBER_OFF_DAYS_STORAGE_KEY, JSON.stringify(offDaysByBarber));
-    window.dispatchEvent(new CustomEvent("ba-barberos-descanso-updated"));
-  }, [offDaysByBarber, offDaysHydrated]);
-
-  useEffect(() => {
-    if (!manualHydrated) return;
-    window.localStorage.setItem(BARBER_MANUAL_AVAILABILITY_STORAGE_KEY, JSON.stringify(manualAvailability));
-    window.dispatchEvent(new CustomEvent("ba-barberos-manual-availability-updated"));
-  }, [manualAvailability, manualHydrated]);
-
-  const toggleAvailability = (id: string) => {
+  const toggleAvailability = async (id: string) => {
     const card = cards.find((c) => c.id === id);
     if (!card) return;
-    const hasRestToday = (offDaysByBarber[id] ?? []).includes(todayDay);
-    const autoActive = !hasRestToday;
-    const effectiveActive = manualAvailability[id] ?? autoActive;
-    const nextActive = !effectiveActive;
-    setManualAvailability((prev) => ({ ...prev, [id]: nextActive }));
-    setOffDaysByBarber((prev) => {
-      const current = prev[id] ?? [];
-      const hasToday = current.includes(todayDay);
-      if (nextActive) {
-        return hasToday ? { ...prev, [id]: current.filter((d) => d !== todayDay) } : prev;
-      }
-      return hasToday ? prev : { ...prev, [id]: [...current, todayDay].sort((a, b) => a - b) };
-    });
+    const nextActive = !card.isActive;
+    const res = await updateBarberActiveStatus(Number(id), nextActive);
+    if (res.ok) {
+      await refresh();
+    } else {
+      alert(res.message || "Error al actualizar disponibilidad en la BD.");
+    }
   };
 
   const toggleOffDay = (day: number) => {
     if (!calendarBarberId) return;
-    setOffDaysByBarber((prev) => {
-      const current = prev[calendarBarberId] ?? [];
-      const exists = current.includes(day);
-      const nextDays = exists ? current.filter((d) => d !== day) : [...current, day].sort((a, b) => a - b);
-      return { ...prev, [calendarBarberId]: nextDays };
-    });
-    const isCurrentMonth =
-      calendarMonth.getMonth() === todayMonth && calendarMonth.getFullYear() === todayYear;
-    const isToday = day === todayDay && isCurrentMonth;
-    if (isToday) {
-      setManualAvailability((prev) => ({
-        ...prev,
-        [calendarBarberId]: undefined
-      }));
+    const dateStr = `${calendarMonth.getFullYear()}-${String(calendarMonth.getMonth() + 1).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
+    const current = offDaysByBarber[calendarBarberId] ?? [];
+    const exists = current.includes(dateStr);
+
+    if (exists) {
+      deleteBarberDescanso(Number(calendarBarberId), dateStr).then((res) => {
+        if (res.ok) {
+          setOffDaysByBarber((prev) => ({
+            ...prev,
+            [calendarBarberId]: (prev[calendarBarberId] ?? []).filter((d) => d !== dateStr)
+          }));
+        } else {
+          alert(res.message || "Error al eliminar descanso.");
+        }
+      });
+    } else {
+      if (!identity?.barberia_id) return;
+      addBarberDescanso({
+        barberia_id: identity.barberia_id,
+        barbero_id: Number(calendarBarberId),
+        fecha: dateStr
+      }).then((res) => {
+        if (res.ok) {
+          setOffDaysByBarber((prev) => ({
+            ...prev,
+            [calendarBarberId]: [...(prev[calendarBarberId] ?? []), dateStr]
+          }));
+        } else {
+          alert(res.message || "Error al guardar descanso.");
+        }
+      });
     }
   };
 
@@ -352,7 +332,7 @@ export default function BarberosPage() {
                       toggleAvailability(card.id);
                     }}
                   >
-                    {card.isActive ? "Poner Inactivo" : "Poner Activo"}
+                    {card.isEmployeeActive ? "Poner Inactivo" : "Poner Activo"}
                   </button>
                   <div className="ba-stars">
                     <Star size={10} />
@@ -395,7 +375,7 @@ export default function BarberosPage() {
                   className="ba-btn-ghost"
                   onClick={() => toggleAvailability(selected.id)}
                 >
-                  {selected.isActive ? "Poner Inactivo" : "Poner Activo"}
+                  {selected.isEmployeeActive ? "Poner Inactivo" : "Poner Activo"}
                 </button>
                 <button type="button" className="ba-card-gold">Ver Perfil</button>
               </footer>
@@ -418,8 +398,8 @@ export default function BarberosPage() {
                     <small>{card.servicesToday} servicios hoy</small>
                   </div>
                   <div className="ba-performance-metrics">
-                    <span className={card.isActive ? "is-active" : "is-inactive"}>
-                      {card.isActive ? "Activo" : "Inactivo"}
+                    <span className={card.isEmployeeActive ? "is-active" : "is-inactive"}>
+                      {card.isEmployeeActive ? "Activo" : "Inactivo"}
                     </span>
                     <small>{card.servicesToday}</small>
                     <button
@@ -427,7 +407,7 @@ export default function BarberosPage() {
                       className="ba-availability-toggle"
                       onClick={() => toggleAvailability(card.id)}
                     >
-                      {card.isActive ? "Inactivar" : "Activar"}
+                      {card.isEmployeeActive ? "Inactivar" : "Activar"}
                     </button>
                   </div>
                 </li>
@@ -471,7 +451,10 @@ export default function BarberosPage() {
                 </span>
               ))}
               {calendarCells.map((cell) => {
-                const isBlocked = cell.day !== null && barberOffDays.includes(cell.day);
+                const cellDateStr = cell.day !== null
+                  ? `${calendarMonth.getFullYear()}-${String(calendarMonth.getMonth() + 1).padStart(2, "0")}-${String(cell.day).padStart(2, "0")}`
+                  : "";
+                const isBlocked = cell.day !== null && barberOffDays.includes(cellDateStr);
                 const isTodayCell =
                   cell.day !== null &&
                   cell.day === todayDay &&
