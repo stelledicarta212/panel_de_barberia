@@ -1,9 +1,10 @@
-﻿"use client";
+"use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Cake, CalendarDays, ChevronLeft, ChevronRight, Clock3, Eye, Gift, MoreHorizontal, Pencil, Plus, RefreshCcw, Scissors, Send, Trash2, X } from "lucide-react";
 import { DashboardShell } from "@/components/dashboard-shell";
 import { useDashboard } from "@/store/dashboard-context";
+import { getBarberDescansos } from "@/lib/dashboard-api";
 
 type RequestStatus = "Pendiente" | "Enviada" | "Aceptada";
 
@@ -48,52 +49,10 @@ type ServiceOption = {
 type BarberOption = {
   id: string;
   name: string;
+  isActive: boolean;
 };
 
-const INITIAL_REQUESTS: RequestItem[] = [
-  {
-    id: "R-01",
-    client: "Juan Perez",
-    service: "Corte de Pelo",
-    date: "15/05/2023",
-    status: "Pendiente",
-    avatar: "https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=120&auto=format&fit=crop",
-    stampCurrent: 5,
-    stampRequired: 8,
-    birthdayBenefit: "20% OFF en cumpleanos",
-    inactiveDays: 11,
-    reactivationBenefit: "10% OFF si regresa esta semana",
-    offPeakBenefit: "15% OFF Lun-Jue 2pm-5pm"
-  },
-  {
-    id: "R-02",
-    client: "Juan Perez",
-    service: "Corte de Pelo",
-    date: "11/06/2023",
-    status: "Enviada",
-    avatar: "https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=120&auto=format&fit=crop",
-    stampCurrent: 5,
-    stampRequired: 8,
-    birthdayBenefit: "20% OFF en cumpleanos",
-    inactiveDays: 11,
-    reactivationBenefit: "10% OFF si regresa esta semana",
-    offPeakBenefit: "15% OFF Lun-Jue 2pm-5pm"
-  },
-  {
-    id: "R-03",
-    client: "Olivik",
-    service: "Corte de Pelo",
-    date: "19/09/2023",
-    status: "Aceptada",
-    avatar: "https://images.unsplash.com/photo-1542909168-82c3e7fdca5c?w=120&auto=format&fit=crop",
-    stampCurrent: 7,
-    stampRequired: 8,
-    birthdayBenefit: "Servicio de barba gratis",
-    inactiveDays: 4,
-    reactivationBenefit: "Mensaje no programado",
-    offPeakBenefit: "12% OFF Lun-Mie 3pm-5pm"
-  }
-];
+
 
 const MONTHS = [
   "Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio",
@@ -101,8 +60,6 @@ const MONTHS = [
 ];
 const DAYS = ["L", "M", "X", "J", "V", "S", "D"];
 const RESERVATIONS_STORAGE_KEY = "ba_dashboard_reservas";
-const BARBER_OFF_DAYS_STORAGE_KEY = "ba_barberos_descansos";
-const BARBER_MANUAL_AVAILABILITY_STORAGE_KEY = "ba_barberos_manual_availability";
 
 function statusClass(status: RequestStatus): string {
   if (status === "Pendiente") return "is-pending";
@@ -155,13 +112,14 @@ function mapServiceOptions(services: Array<Record<string, unknown>>): ServiceOpt
 function mapBarberOptions(barbers: Array<Record<string, unknown>>): BarberOption[] {
   const mapped = barbers.map((item, index) => ({
     id: textValue(item.id) || `barber-${index + 1}`,
-    name: textValue(item.nombre ?? item.name) || `Barbero ${index + 1}`
+    name: textValue(item.nombre ?? item.name) || `Barbero ${index + 1}`,
+    isActive: Boolean(item.activo ?? true)
   }));
   return mapped.length
     ? mapped
     : [
-        { id: "barber-default-1", name: "Alex M." },
-        { id: "barber-default-2", name: "James R." }
+        { id: "barber-default-1", name: "Alex M.", isActive: true },
+        { id: "barber-default-2", name: "James R.", isActive: true }
       ];
 }
 
@@ -231,7 +189,7 @@ function phoneToWhatsappUrl(phone: string, clientName: string): string | null {
 }
 
 export default function CitasPage() {
-  const { merged } = useDashboard();
+  const { merged, identity } = useDashboard();
   const [requests, setRequests] = useState<RequestItem[]>([]);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [detailOpen, setDetailOpen] = useState(false);
@@ -257,8 +215,7 @@ export default function CitasPage() {
   const [selectedServiceIds, setSelectedServiceIds] = useState<string[]>([]);
   const [created, setCreated] = useState<CreatedAppointment | null>(null);
   const [editingRequestId, setEditingRequestId] = useState<string | null>(null);
-  const [barberOffDays, setBarberOffDays] = useState<Record<string, number[]>>({});
-  const [barberManualAvailability, setBarberManualAvailability] = useState<Record<string, boolean | undefined>>({});
+  const [barberOffDays, setBarberOffDays] = useState<Record<string, string[]>>({});
   const [agendaBarberFilter, setAgendaBarberFilter] = useState<string>("global");
   const [nowTime, setNowTime] = useState(() =>
     new Intl.DateTimeFormat("es-CO", { hour: "2-digit", minute: "2-digit", second: "2-digit", hour12: false }).format(new Date())
@@ -267,6 +224,7 @@ export default function CitasPage() {
 
   useEffect(() => {
     const remoteRequests = mapAppointmentRequests(merged.appointments);
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setRequests(remoteRequests);
     setSelectedId((current) => (current && remoteRequests.some((req) => req.id === current) ? current : null));
   }, [merged.appointments]);
@@ -311,16 +269,21 @@ export default function CitasPage() {
     setIsDayPickerOpen(false);
   };
 
+  const reserveDateStr = reserveDay && reserveMonth
+    ? `${reserveMonth.getFullYear()}-${String(reserveMonth.getMonth() + 1).padStart(2, "0")}-${String(reserveDay).padStart(2, "0")}`
+    : null;
+
   const availableBarberOptions = useMemo(() => {
     return barberOptions.filter((barber) => {
-      const manualFlag = barberManualAvailability[barber.id];
-      if (manualFlag === false) return false;
-      if (!reserveDay) return true;
-      if (manualFlag === true) return true;
+      // 1. Must be active in the DB
+      if (!barber.isActive) return false;
+
+      // 2. Must not be on rest on the selected date
+      if (!reserveDateStr) return true;
       const restDays = barberOffDays[barber.id] ?? [];
-      return !restDays.includes(reserveDay);
+      return !restDays.includes(reserveDateStr);
     });
-  }, [barberOptions, barberOffDays, barberManualAvailability, reserveDay]);
+  }, [barberOptions, barberOffDays, reserveDateStr]);
 
   const nextMonth = () => {
     setCurrentMonth((prev) => new Date(prev.getFullYear(), prev.getMonth() + 1, 1));
@@ -446,35 +409,26 @@ export default function CitasPage() {
     ? requests.filter((req) => req.date === selectedDateString)
     : requests;
   const boardDateString = selectedDateString ?? formatDate(new Date().getDate(), currentMonth.getMonth(), currentMonth.getFullYear());
-  const [boardDayPart, boardMonthPart, boardYearPart] = boardDateString.split("/");
+  const [boardDayPart] = boardDateString.split("/");
   const agendaDayNumber = Number(boardDayPart);
-  const agendaMonthNumber = Number(boardMonthPart);
-  const agendaYearNumber = Number(boardYearPart);
+
+  const boardDateStr = agendaDayNumber && currentMonth
+    ? `${currentMonth.getFullYear()}-${String(currentMonth.getMonth() + 1).padStart(2, "0")}-${String(agendaDayNumber).padStart(2, "0")}`
+    : null;
+
   const agendaBarberStatus = useMemo(() => {
     const map = new Map<string, boolean>();
     for (const barber of barberOptions) {
-      const manualFlag = barberManualAvailability[barber.id];
+      if (!barber.isActive) {
+        map.set(barber.name, false);
+        continue;
+      }
       const offDays = barberOffDays[barber.id] ?? [];
-      const isRestDay = offDays.includes(agendaDayNumber);
-      const isSameMonthAsBoard =
-        Number.isFinite(agendaMonthNumber) &&
-        Number.isFinite(agendaYearNumber) &&
-        agendaMonthNumber === currentMonth.getMonth() + 1 &&
-        agendaYearNumber === currentMonth.getFullYear();
-      const autoActive = isSameMonthAsBoard ? !isRestDay : true;
-      const isActive = manualFlag === undefined ? autoActive : manualFlag;
-      map.set(barber.name, isActive);
+      const isRestDay = boardDateStr ? offDays.includes(boardDateStr) : false;
+      map.set(barber.name, !isRestDay);
     }
     return map;
-  }, [
-    barberOptions,
-    barberManualAvailability,
-    barberOffDays,
-    agendaDayNumber,
-    agendaMonthNumber,
-    agendaYearNumber,
-    currentMonth
-  ]);
+  }, [barberOptions, barberOffDays, boardDateStr]);
   const agendaHours = useMemo(() => {
     const slots: string[] = [];
     for (let h = 9; h <= 19; h += 1) {
@@ -531,30 +485,22 @@ export default function CitasPage() {
     return () => window.clearInterval(timer);
   }, []);
 
+  const loadDescansos = useCallback(async () => {
+    if (!identity?.barberia_id) return;
+    const rows = await getBarberDescansos(identity.barberia_id);
+    const map: Record<string, string[]> = {};
+    for (const row of rows) {
+      const bId = String(row.barbero_id);
+      if (!map[bId]) map[bId] = [];
+      map[bId].push(String(row.fecha || "").split("T")[0]);
+    }
+    setBarberOffDays(map);
+  }, [identity]);
+
   useEffect(() => {
-    const loadManualAvailability = () => {
-      try {
-        const raw = window.localStorage.getItem(BARBER_MANUAL_AVAILABILITY_STORAGE_KEY);
-        if (!raw) {
-          setBarberManualAvailability({});
-          return;
-        }
-        const parsed = JSON.parse(raw);
-        setBarberManualAvailability(
-          parsed && typeof parsed === "object" ? (parsed as Record<string, boolean | undefined>) : {}
-        );
-      } catch {
-        setBarberManualAvailability({});
-      }
-    };
-    loadManualAvailability();
-    window.addEventListener("storage", loadManualAvailability);
-    window.addEventListener("ba-barberos-manual-availability-updated", loadManualAvailability as EventListener);
-    return () => {
-      window.removeEventListener("storage", loadManualAvailability);
-      window.removeEventListener("ba-barberos-manual-availability-updated", loadManualAvailability as EventListener);
-    };
-  }, []);
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    loadDescansos();
+  }, [loadDescansos]);
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -563,32 +509,10 @@ export default function CitasPage() {
   }, [requests]);
 
   useEffect(() => {
-    const loadBarberOffDays = () => {
-      try {
-        const raw = window.localStorage.getItem(BARBER_OFF_DAYS_STORAGE_KEY);
-        if (!raw) {
-          setBarberOffDays({});
-          return;
-        }
-        const parsed = JSON.parse(raw);
-        setBarberOffDays(parsed && typeof parsed === "object" ? (parsed as Record<string, number[]>) : {});
-      } catch {
-        setBarberOffDays({});
-      }
-    };
-    loadBarberOffDays();
-    window.addEventListener("storage", loadBarberOffDays);
-    window.addEventListener("ba-barberos-descanso-updated", loadBarberOffDays as EventListener);
-    return () => {
-      window.removeEventListener("storage", loadBarberOffDays);
-      window.removeEventListener("ba-barberos-descanso-updated", loadBarberOffDays as EventListener);
-    };
-  }, []);
-
-  useEffect(() => {
     if (!form.barbero) return;
     const stillAvailable = availableBarberOptions.some((barber) => barber.name === form.barbero);
     if (!stillAvailable) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setForm((prev) => ({ ...prev, barbero: "" }));
     }
   }, [availableBarberOptions, form.barbero]);
