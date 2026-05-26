@@ -130,7 +130,7 @@ export default function BarberosPage() {
       for (const row of rows) {
         const bId = String(row.barbero_id);
         if (!map[bId]) map[bId] = [];
-        map[bId].push(row.fecha);
+        map[bId].push(String(row.fecha || "").split("T")[0]);
       }
       setOffDaysByBarber(map);
     });
@@ -333,7 +333,7 @@ export default function BarberosPage() {
                       toggleAvailability(card.id);
                     }}
                   >
-                    {card.isEmployeeActive ? "Poner Inactivo" : "Poner Activo"}
+                    {card.isActive ? "Poner Inactivo" : "Poner Activo"}
                   </button>
                   <div className="ba-stars">
                     <Star size={10} />
@@ -376,7 +376,7 @@ export default function BarberosPage() {
                   className="ba-btn-ghost"
                   onClick={() => toggleAvailability(selected.id)}
                 >
-                  {selected.isEmployeeActive ? "Poner Inactivo" : "Poner Activo"}
+                  {selected.isActive ? "Poner Inactivo" : "Poner Activo"}
                 </button>
                 <button type="button" className="ba-card-gold">Ver Perfil</button>
               </footer>
@@ -399,8 +399,8 @@ export default function BarberosPage() {
                     <small>{card.servicesToday} servicios hoy</small>
                   </div>
                   <div className="ba-performance-metrics">
-                    <span className={card.isEmployeeActive ? "is-active" : "is-inactive"}>
-                      {card.isEmployeeActive ? "Activo" : "Inactivo"}
+                    <span className={card.isActive ? "is-active" : "is-inactive"}>
+                      {card.isActive ? "Activo" : "Inactivo"}
                     </span>
                     <small>{card.servicesToday}</small>
                     <button
@@ -408,7 +408,7 @@ export default function BarberosPage() {
                       className="ba-availability-toggle"
                       onClick={() => toggleAvailability(card.id)}
                     >
-                      {card.isEmployeeActive ? "Inactivar" : "Activar"}
+                      {card.isActive ? "Inactivar" : "Activar"}
                     </button>
                   </div>
                 </li>
