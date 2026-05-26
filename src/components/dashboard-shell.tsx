@@ -135,6 +135,13 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
       {showWelcome && (
         <div className="ba-welcome-overlay" onClick={() => setShowWelcome(false)}>
           <div className="ba-welcome-card" onClick={(e) => e.stopPropagation()}>
+            <div className="ba-welcome-image-wrapper">
+              <img
+                src="https://barberagency-barberagency.gymh5g.easypanel.host/wp-content/uploads/2026/02/Sin-titulo-600-x-700-px.png"
+                alt="Welcome illustration"
+                className="ba-welcome-image"
+              />
+            </div>
             <div className="ba-welcome-icon-wrapper">
               <Sparkles size={36} />
             </div>
