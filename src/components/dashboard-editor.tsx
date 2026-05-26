@@ -300,8 +300,10 @@ export function DashboardEditor() {
 
   return (
     <section className="ba-overview-v3">
+      <div className="ba-overview-layout">
+        <div className="ba-overview-content">
       <div className="ba-overview-top">
-        {topStats.map((stat) => (
+        {topStats.slice(0, 3).map((stat) => (
           <article key={stat.label} className="ba-card ba-overview-kpi">
             <header>
               <span>{stat.label}</span>
@@ -459,7 +461,20 @@ export function DashboardEditor() {
         </article>
       </div>
 
-      <section className="ba-editor-grid ba-editor-grid-compact">
+        </div>
+
+        <aside className="ba-overview-side">
+          {topStats.slice(3, 4).map((stat) => (
+            <article key={stat.label} className="ba-card ba-overview-kpi">
+              <header>
+                <span>{stat.label}</span>
+                <stat.icon size={14} />
+              </header>
+              <strong>{stat.value}</strong>
+              <small>{stat.delta}</small>
+            </article>
+          ))}
+
         <article className="ba-card ba-publication-card">
           <div className="ba-card-title"><h2>Publicacion</h2><Send size={16} /></div>
           <div className="ba-form-grid ba-publication-form">
@@ -490,7 +505,8 @@ export function DashboardEditor() {
             <button className="ba-btn-main" onClick={() => publish()} disabled={publishing || saving} type="button"><Send size={15} />Publicar</button>
           </div>
         </article>
-      </section>
+        </aside>
+      </div>
     </section>
   );
 }

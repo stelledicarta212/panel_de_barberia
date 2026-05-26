@@ -411,10 +411,30 @@ body {
   gap: 12px;
 }
 
+.ba-overview-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(292px, 340px);
+  gap: 12px;
+  align-items: stretch;
+}
+
+.ba-overview-content {
+  display: grid;
+  gap: 12px;
+  min-width: 0;
+}
+
+.ba-overview-side {
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr);
+  gap: 12px;
+  min-width: 0;
+}
+
 .ba-overview-top {
   display: grid;
   gap: 12px;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
+  grid-template-columns: repeat(3, minmax(0, 1fr));
 }
 
 .ba-overview-kpi {
@@ -446,7 +466,7 @@ body {
 .ba-overview-main-grid {
   display: grid;
   gap: 12px;
-  grid-template-columns: 1.5fr 1fr 0.9fr;
+  grid-template-columns: minmax(0, 1.45fr) minmax(260px, 0.95fr);
   align-items: start;
 }
 
@@ -606,6 +626,10 @@ body {
   gap: 6px;
 }
 
+.ba-overview-main-grid .ba-overview-loyalty {
+  grid-column: 1 / -1;
+}
+
 .ba-overview-bottom-grid {
   display: grid;
   gap: 12px;
@@ -620,11 +644,14 @@ body {
   background:
     radial-gradient(circle at 88% 18%, rgba(212, 175, 90, 0.12), transparent 34%),
     linear-gradient(180deg, rgba(20, 27, 39, 0.86), rgba(13, 19, 29, 0.9));
+  display: flex;
+  flex-direction: column;
 }
 
 .ba-publication-form {
-  grid-template-columns: minmax(0, 1fr) minmax(220px, 320px);
+  grid-template-columns: 1fr;
   align-items: stretch;
+  flex: 1;
 }
 
 .ba-public-url-link {
@@ -642,7 +669,7 @@ body {
 }
 
 .ba-publication-qr-frame {
-  min-height: 210px;
+  min-height: 230px;
   border: 1px solid rgba(212, 175, 90, 0.25);
   border-radius: 12px;
   background: rgba(255, 255, 255, 0.025);
@@ -660,8 +687,15 @@ body {
 }
 
 .ba-publication-card .ba-action-row {
-  align-items: center;
-  justify-content: flex-start;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  align-items: stretch;
+  margin-top: auto;
+}
+
+.ba-publication-card .ba-btn-main,
+.ba-publication-card .ba-btn-ghost {
+  justify-content: center;
 }
 
 .ba-btn-main,
@@ -4448,6 +4482,14 @@ body {
 @media (max-width: 1200px) {
   .ba-dashboard-frame {
     grid-template-columns: 220px minmax(0, 1fr);
+  }
+
+  .ba-overview-layout {
+    grid-template-columns: 1fr;
+  }
+
+  .ba-overview-side {
+    grid-template-rows: auto;
   }
 
   .ba-stats-grid {
