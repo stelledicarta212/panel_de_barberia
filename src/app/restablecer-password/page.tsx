@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { LockKeyhole } from "lucide-react";
 import { recoverPasswordReset } from "@/lib/dashboard-api";
+import { resolveBarbershopIdentity, resolveIdentityFromUrl, setBarbershopContext } from "@/lib/barbershop-context";
 
 export default function ResetPasswordPage() {
   const router = useRouter();
@@ -12,11 +13,24 @@ export default function ResetPasswordPage() {
   const [confirmPassword, setConfirmPassword] = useState("");
   const [status, setStatus] = useState<{ type: "success" | "error" | null; text: string | null }>({ type: null, text: null });
   const [loading, setLoading] = useState(false);
+  const [returnPath, setReturnPath] = useState("/barberia");
 
   useEffect(() => {
     if (typeof window !== "undefined") {
       const params = new URLSearchParams(window.location.search);
       setToken(params.get("token") || "");
+
+      const fromUrl = resolveIdentityFromUrl();
+      if (fromUrl.id || fromUrl.slug) {
+        setBarbershopContext(fromUrl.id || "", fromUrl.slug || "");
+      }
+
+      const identity = fromUrl.id || fromUrl.slug ? fromUrl : resolveBarbershopIdentity();
+      const nextParams = new URLSearchParams();
+      if (identity.slug) nextParams.set("slug", identity.slug);
+      if (identity.id) nextParams.set("barberia_id", identity.id);
+      const query = nextParams.toString();
+      setReturnPath(query ? `/barberia?${query}` : "/barberia");
     }
   }, []);
 
@@ -25,7 +39,7 @@ export default function ResetPasswordPage() {
     if (!token) {
       setStatus({
         type: "error",
-        text: "Falta el token de recuperación. Por favor, utiliza el enlace que recibiste en tu correo."
+        text: "Falta el token de recuperacion. Por favor, utiliza el enlace que recibiste en tu correo."
       });
       return;
     }
@@ -33,7 +47,7 @@ export default function ResetPasswordPage() {
     if (password.length < 6) {
       setStatus({
         type: "error",
-        text: "La contraseña debe tener al menos 6 caracteres."
+        text: "La contrasena debe tener al menos 6 caracteres."
       });
       return;
     }
@@ -41,7 +55,7 @@ export default function ResetPasswordPage() {
     if (password !== confirmPassword) {
       setStatus({
         type: "error",
-        text: "Las contraseñas no coinciden."
+        text: "Las contrasenas no coinciden."
       });
       return;
     }
@@ -54,21 +68,21 @@ export default function ResetPasswordPage() {
       if (res.ok) {
         setStatus({
           type: "success",
-          text: res.message || "Tu contraseña se ha restablecido con éxito. Redirigiendo..."
+          text: res.message || "Tu contrasena se ha restablecido con exito. Redirigiendo..."
         });
         setTimeout(() => {
-          router.push("/barberia");
+          router.push(returnPath);
         }, 3000);
       } else {
         setStatus({
           type: "error",
-          text: res.message || "No se pudo restablecer la contraseña."
+          text: res.message || "No se pudo restablecer la contrasena."
         });
       }
     } catch (err) {
       setStatus({
         type: "error",
-        text: err instanceof Error ? err.message : "Error al intentar restablecer contraseña."
+        text: err instanceof Error ? err.message : "Error al intentar restablecer contrasena."
       });
     } finally {
       setLoading(false);
@@ -83,8 +97,8 @@ export default function ResetPasswordPage() {
         </div>
         <div>
           <p className="ba-login-kicker">Panel BarberAgency</p>
-          <h1>Nueva contraseña</h1>
-          <p className="ba-login-copy">Ingresa y confirma tu nueva contraseña de acceso.</p>
+          <h1>Nueva contrasena</h1>
+          <p className="ba-login-copy">Ingresa y confirma tu nueva contrasena de acceso.</p>
         </div>
 
         {status.text && (
@@ -98,13 +112,13 @@ export default function ResetPasswordPage() {
         {!token ? (
           <div className="ba-alert-stack" style={{ marginTop: "16px" }}>
             <p className="ba-alert ba-alert-error">
-              Enlace inválido: Falta el token de recuperación en la URL.
+              Enlace invalido: Falta el token de recuperacion en la URL.
             </p>
           </div>
         ) : (
           <form className="ba-login-form" onSubmit={handleSubmit}>
             <label className="ba-field">
-              Nueva contraseña
+              Nueva contrasena
               <input
                 className="ba-input"
                 type="password"
@@ -112,11 +126,11 @@ export default function ResetPasswordPage() {
                 onChange={(event) => setPassword(event.target.value)}
                 required
                 minLength={6}
-                placeholder="Mínimo 6 caracteres"
+                placeholder="Minimo 6 caracteres"
               />
             </label>
             <label className="ba-field">
-              Confirmar nueva contraseña
+              Confirmar nueva contrasena
               <input
                 className="ba-input"
                 type="password"
@@ -124,11 +138,11 @@ export default function ResetPasswordPage() {
                 onChange={(event) => setConfirmPassword(event.target.value)}
                 required
                 minLength={6}
-                placeholder="Repite la contraseña"
+                placeholder="Repite la contrasena"
               />
             </label>
             <button className="ba-btn-main" type="submit" disabled={loading}>
-              {loading ? "Restableciendo..." : "Restablecer contraseña"}
+              {loading ? "Restableciendo..." : "Restablecer contrasena"}
             </button>
           </form>
         )}
@@ -136,7 +150,7 @@ export default function ResetPasswordPage() {
         <div style={{ display: "flex", justifyContent: "center", marginTop: "16px" }}>
           <button
             type="button"
-            onClick={() => router.push("/barberia")}
+            onClick={() => router.push(returnPath)}
             style={{
               background: "none",
               border: "none",
@@ -147,7 +161,7 @@ export default function ResetPasswordPage() {
               padding: 0
             }}
           >
-            Ir al inicio de sesión
+            Ir al inicio de sesion
           </button>
         </div>
       </section>

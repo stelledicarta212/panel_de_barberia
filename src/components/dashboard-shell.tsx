@@ -88,7 +88,7 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
     setRecoverStatus({ type: null, text: null });
     try {
       const { recoverPasswordRequest } = await import("@/lib/dashboard-api");
-      const res = await recoverPasswordRequest({ email: recoverEmail });
+      const res = await recoverPasswordRequest({ email: recoverEmail, identity });
       if (res.ok) {
         setRecoverStatus({
           type: "success",

@@ -330,10 +330,16 @@ export async function loginDashboard(payload: {
 
 export async function recoverPasswordRequest(payload: {
   email: string;
+  identity?: IdentityInput | null;
 }): Promise<{ ok: boolean; message: string }> {
   return apiPostJson<{ ok: boolean; message: string }, Record<string, unknown>>(
     env.dashboardRecoverRequestEndpoint,
-    { email: payload.email }
+    {
+      email: payload.email,
+      barberia_id: payload.identity?.barberia_id ?? null,
+      slug: payload.identity?.slug ?? null,
+      identity: payload.identity ?? null
+    }
   );
 }
 
