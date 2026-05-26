@@ -37,6 +37,16 @@ const NAV_ITEMS = [
 
 const CORE_BASE_URL = "https://barberagency-barberagency.gymh5g.easypanel.host";
 
+function labelFromSlug(slug: string): string {
+  const clean = slug.trim();
+  if (!clean) return "";
+  return clean
+    .split("-")
+    .filter(Boolean)
+    .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+    .join(" ");
+}
+
 function buildEditorUrl(slug: string, templateId: string): string {
   const cleanSlug = slug.trim();
   if (!cleanSlug) return "/configuracion";
@@ -75,6 +85,9 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
   const currentSlug = String(merged.biz_slug || identity?.slug || "").trim();
   const editorUrl = buildEditorUrl(currentSlug, String(merged.template_id || "v2"));
   const roleLabel = access.role === "owner" ? "admin" : access.role.replace("_", " ");
+  const sessionSlug = String(session?.identity?.slug || identity?.slug || currentSlug || "").trim();
+  const sessionBarbershopName = labelFromSlug(sessionSlug);
+  const welcomeBarbershopName = sessionBarbershopName || brandName;
 
   async function handleLogin(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -271,8 +284,9 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
             <div className="ba-welcome-role-badge">
               <span>{roleLabel}</span>
             </div>
+            <div className="ba-welcome-shop">{welcomeBarbershopName}</div>
             <p className="ba-welcome-text">
-              Has iniciado sesión con éxito en el panel de **{brandName}**. Todo tu espacio de trabajo está listo y configurado para ti.
+              Has iniciado sesion con exito en el panel de {welcomeBarbershopName}. Todo tu espacio de trabajo esta listo y configurado para ti.
             </p>
             <button className="ba-welcome-btn" type="button" onClick={() => setShowWelcome(false)}>
               Comenzar a trabajar
