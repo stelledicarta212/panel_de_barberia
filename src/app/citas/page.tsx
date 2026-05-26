@@ -566,11 +566,33 @@ export default function CitasPage() {
                     aria-label="Filtrar agenda por barbero"
                   >
                     <option value="global">Citas hoy</option>
-                    {barberOptions.map((barber) => (
-                      <option key={`agenda-filter-${barber.id}`} value={barber.name}>
-                        {`Citas ${barber.name}`}
-                      </option>
-                    ))}
+                    {barberOptions.map((barber) => {
+                      const offDays = barberOffDays[barber.id] ?? [];
+                      const isRestDay = boardDateStr ? offDays.includes(boardDateStr) : false;
+
+                      let label = barber.name;
+                      let color = "#10b981"; // green
+
+                      if (!barber.isActive) {
+                        label = `${barber.name} (Inactivo)`;
+                        color = "#ef4444"; // red
+                      } else if (isRestDay) {
+                        label = `${barber.name} (Descanso)`;
+                        color = "#ef4444"; // red
+                      } else {
+                        label = `${barber.name} (Activo)`;
+                      }
+
+                      return (
+                        <option 
+                          key={`agenda-filter-${barber.id}`} 
+                          value={barber.name}
+                          style={{ color }}
+                        >
+                          {label}
+                        </option>
+                      );
+                    })}
                   </select>
                   <em
                     className={`ba-agenda-status-chip ${
@@ -915,9 +937,35 @@ export default function CitasPage() {
                 onChange={(e) => setForm((prev) => ({ ...prev, barbero: e.target.value }))}
               >
                 <option value="">Selecciona barbero</option>
-                {availableBarberOptions.map((barber) => (
-                  <option key={barber.id} value={barber.name}>{barber.name}</option>
-                ))}
+                {barberOptions.map((barber) => {
+                  const restDays = barberOffDays[barber.id] ?? [];
+                  const isResting = reserveDateStr ? restDays.includes(reserveDateStr) : false;
+                  const isEffectiveActive = barber.isActive && !isResting;
+
+                  let label = barber.name;
+                  let color = "#10b981"; // green
+
+                  if (!barber.isActive) {
+                    label = `${barber.name} (Inactivo)`;
+                    color = "#ef4444"; // red
+                  } else if (isResting) {
+                    label = `${barber.name} (Descanso)`;
+                    color = "#ef4444"; // red
+                  } else {
+                    label = `${barber.name} (Activo)`;
+                  }
+
+                  return (
+                    <option 
+                      key={barber.id} 
+                      value={barber.name}
+                      style={{ color }}
+                      disabled={!isEffectiveActive}
+                    >
+                      {label}
+                    </option>
+                  );
+                })}
               </select>
               {reserveDay && availableBarberOptions.length === 0 ? (
                 <small className="ba-loyal-note">No hay barberos disponibles para ese día (descanso).</small>
