@@ -10,7 +10,6 @@ import {
   Scissors,
   Send,
   Sparkles,
-  Store,
   Users
 } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
@@ -113,21 +112,6 @@ export function DashboardEditor() {
   const [offDaysByBarber, setOffDaysByBarber] = useState<Record<string, number[]>>({});
   const [reservations, setReservations] = useState<ReservationRecord[]>([]);
   const qrPanelValue = merged.qr_url;
-  const editorUrl = useMemo(() => {
-    const slug = String(merged.biz_slug || "").trim();
-    if (!slug) return "https://barberagency-barberagency.gymh5g.easypanel.host/registro-barberias/";
-    const params = new URLSearchParams({
-      edit: "1",
-      modo: "editar",
-      mode: "edit",
-      is_edit: "1",
-      editing: "1",
-      tpl: String(merged.template_id || "v2"),
-      slug,
-      barberia_slug: slug
-    });
-    return `https://barberagency-barberagency.gymh5g.easypanel.host/landing_editor_v2/?${params.toString()}`;
-  }, [merged.biz_slug, merged.template_id]);
 
   const services = useMemo(
     () => merged.services.slice(0, 5).map((item, i) => ({
@@ -475,21 +459,6 @@ export function DashboardEditor() {
       </div>
 
       <section className="ba-editor-grid ba-editor-grid-compact">
-        <article className="ba-card">
-          <div className="ba-card-title"><h2>Barberia</h2><Store size={16} /></div>
-          <p className="ba-overview-loyalty-title">Gestiona la informacion completa de tu barberia desde el modulo de configuracion.</p>
-          <div className="ba-action-row">
-            <a
-              href={editorUrl}
-              target="_blank"
-              rel="noreferrer"
-              className="ba-btn-main"
-            >
-              Editar barberia
-            </a>
-          </div>
-        </article>
-
         <article className="ba-card">
           <div className="ba-card-title"><h2>Publicacion</h2><Send size={16} /></div>
           <div className="ba-form-grid">
