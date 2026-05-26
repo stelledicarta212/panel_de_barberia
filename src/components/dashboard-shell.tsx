@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 
 import { useState } from "react";
 import Link from "next/link";
@@ -14,6 +14,7 @@ import {
   Scissors,
   Settings,
   ShieldQuestion,
+  Sparkles,
   UserRound,
   Users
 } from "lucide-react";
@@ -54,9 +55,10 @@ function buildEditorUrl(slug: string, templateId: string): string {
 
 export function DashboardShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
-  const { identity, merged, error, message, access, isAuthenticated, login, logout, saving } = useDashboard();
+  const { identity, merged, error, message, access, isAuthenticated, login, logout, saving, session } = useDashboard();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [showWelcome, setShowWelcome] = useState(false);
   const permissions = access.permissions;
   const canViewCurrentPath = canAccessPath(pathname, permissions);
   const safeError =
@@ -72,6 +74,7 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
   async function handleLogin(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
     await login(email, password);
+    setShowWelcome(true);
   }
 
   if (!isAuthenticated) {
@@ -129,6 +132,28 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
 
   return (
     <main className="ba-dashboard-shell">
+      {showWelcome && (
+        <div className="ba-welcome-overlay" onClick={() => setShowWelcome(false)}>
+          <div className="ba-welcome-card" onClick={(e) => e.stopPropagation()}>
+            <div className="ba-welcome-icon-wrapper">
+              <Sparkles size={36} />
+            </div>
+            <h2 className="ba-welcome-title">¡Bienvenido de vuelta!</h2>
+            <div className="ba-welcome-name">
+              {String(session?.user?.nombre ?? session?.user?.name ?? email.split("@")[0])}
+            </div>
+            <div className="ba-welcome-role-badge">
+              <span>{roleLabel}</span>
+            </div>
+            <p className="ba-welcome-text">
+              Has iniciado sesión con éxito en el panel de **{brandName}**. Todo tu espacio de trabajo está listo y configurado para ti.
+            </p>
+            <button className="ba-welcome-btn" type="button" onClick={() => setShowWelcome(false)}>
+              Comenzar a trabajar
+            </button>
+          </div>
+        </div>
+      )}
       <div className="ba-dashboard-frame">
         <aside className="ba-sidebar">
           <div className="ba-mobile-head">

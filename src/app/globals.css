@@ -5073,3 +5073,164 @@ body {
     grid-template-columns: 1fr;
   }
 }
+
+/* ==========================================
+   TARJETA DE BIENVENIDA PREMIUM (WELCOME CARD)
+   ========================================== */
+.ba-welcome-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100vw;
+  height: 100vh;
+  background: rgba(2, 6, 23, 0.7);
+  backdrop-filter: blur(12px);
+  z-index: 9999;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  animation: ba-fade-in 0.4s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+.ba-welcome-card {
+  width: 90%;
+  max-width: 440px;
+  background: linear-gradient(135deg, rgba(30, 41, 59, 0.9), rgba(15, 23, 42, 0.95));
+  border: 1px solid rgba(209, 172, 61, 0.25);
+  border-radius: 20px;
+  padding: 40px 32px;
+  text-align: center;
+  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5), 0 0 40px rgba(209, 172, 61, 0.1);
+  position: relative;
+  overflow: hidden;
+  animation: ba-slide-up 0.5s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
+}
+
+.ba-welcome-card::before {
+  content: "";
+  position: absolute;
+  top: -50%;
+  left: -50%;
+  width: 200%;
+  height: 200%;
+  background: radial-gradient(circle, rgba(209, 172, 61, 0.08) 0%, transparent 60%);
+  pointer-events: none;
+}
+
+.ba-welcome-icon-wrapper {
+  width: 80px;
+  height: 80px;
+  background: linear-gradient(135deg, #ebcc72, #d1a638);
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin: 0 auto 24px;
+  color: #0f172a;
+  box-shadow: 0 10px 20px rgba(209, 172, 61, 0.3), inset 0 2px 4px rgba(255, 255, 255, 0.4);
+  position: relative;
+}
+
+.ba-welcome-icon-wrapper::after {
+  content: "";
+  position: absolute;
+  width: 100%;
+  height: 100%;
+  border-radius: 50%;
+  border: 2px solid #ebcc72;
+  animation: ba-pulse 2s infinite;
+}
+
+.ba-welcome-title {
+  font-size: 26px;
+  font-weight: 800;
+  color: #ffffff;
+  margin-bottom: 8px;
+  letter-spacing: -0.5px;
+}
+
+.ba-welcome-name {
+  font-size: 22px;
+  font-weight: 700;
+  color: #ebcc72;
+  margin-bottom: 16px;
+  text-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
+}
+
+.ba-welcome-role-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: rgba(209, 172, 61, 0.15);
+  border: 1px solid rgba(209, 172, 61, 0.3);
+  color: #ebcc72;
+  font-size: 13px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  padding: 6px 16px;
+  border-radius: 100px;
+  margin-bottom: 28px;
+}
+
+.ba-welcome-text {
+  font-size: 14px;
+  color: #94a3b8;
+  line-height: 1.6;
+  margin-bottom: 32px;
+}
+
+.ba-welcome-btn {
+  width: 100%;
+  background: linear-gradient(180deg, #ebcc72, #d1a638);
+  color: #0f172a;
+  border: none;
+  font-size: 15px;
+  font-weight: 700;
+  padding: 14px 28px;
+  border-radius: 12px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  box-shadow: 0 4px 12px rgba(209, 172, 61, 0.2);
+}
+
+.ba-welcome-btn:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 20px rgba(209, 172, 61, 0.3);
+}
+
+.ba-welcome-btn:active {
+  transform: translateY(0);
+}
+
+/* Animations */
+@keyframes ba-fade-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes ba-slide-up {
+  from {
+    opacity: 0;
+    transform: translateY(30px) scale(0.95);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+@keyframes ba-pulse {
+  0% {
+    transform: scale(1);
+    opacity: 0.8;
+  }
+  50% {
+    transform: scale(1.15);
+    opacity: 0;
+  }
+  100% {
+    transform: scale(1);
+    opacity: 0;
+  }
+}
