@@ -158,8 +158,9 @@ export default function BarberosPage() {
 
         const todayStr = `${todayYear}-${String(todayMonth + 1).padStart(2, "0")}-${String(todayDay).padStart(2, "0")}`;
         const dateToCheck = selectedCalendarDate ?? todayStr;
+        const isEmployeeActive = card.isActive;
         const hasRestOnCheckedDate = (offDaysByBarber[card.id] ?? []).includes(dateToCheck);
-        const effectiveActive = card.isActive && !hasRestOnCheckedDate;
+        const effectiveActive = isEmployeeActive && !hasRestOnCheckedDate;
 
         const servicesToday = effectiveActive ? servicesTodayRaw : 0;
         const servicesMonth = effectiveActive ? servicesMonthRaw : servicesMonthRaw;
@@ -167,7 +168,7 @@ export default function BarberosPage() {
         
         return { 
           ...card, 
-          isEmployeeActive: card.isActive, 
+          isEmployeeActive, 
           isActive: effectiveActive, 
           servicesToday, 
           servicesMonth, 
@@ -332,7 +333,7 @@ export default function BarberosPage() {
                       toggleAvailability(card.id);
                     }}
                   >
-                    {card.isActive ? "Poner Inactivo" : "Poner Activo"}
+                    {card.isEmployeeActive ? "Poner Inactivo" : "Poner Activo"}
                   </button>
                   <div className="ba-stars">
                     <Star size={10} />
@@ -375,7 +376,7 @@ export default function BarberosPage() {
                   className="ba-btn-ghost"
                   onClick={() => toggleAvailability(selected.id)}
                 >
-                  {selected.isActive ? "Poner Inactivo" : "Poner Activo"}
+                  {selected.isEmployeeActive ? "Poner Inactivo" : "Poner Activo"}
                 </button>
                 <button type="button" className="ba-card-gold">Ver Perfil</button>
               </footer>
@@ -407,7 +408,7 @@ export default function BarberosPage() {
                       className="ba-availability-toggle"
                       onClick={() => toggleAvailability(card.id)}
                     >
-                      {card.isActive ? "Inactivar" : "Activar"}
+                      {card.isEmployeeActive ? "Inactivar" : "Activar"}
                     </button>
                   </div>
                 </li>

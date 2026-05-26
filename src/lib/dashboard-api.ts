@@ -383,55 +383,63 @@ export async function getBarberDescansos(barberiaId: number): Promise<Array<{ ba
   }
 }
 
+const BARBEROS_ADMIN_WEBHOOK =
+  "https://barberagency-n8n.gymh5g.easypanel.host/webhook/barberagency/dashboard/barberos";
+
+async function callBarberosAdminGateway(payload: Record<string, unknown>): Promise<{ ok: boolean; message?: string; data?: unknown }> {
+  try {
+    const response = await fetch(BARBEROS_ADMIN_WEBHOOK, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify(payload)
+    });
+
+    const data = await response.json().catch(() => ({}));
+
+    if (!response.ok || data?.ok === false) {
+      return {
+        ok: false,
+        message: data?.message || data?.error || "Error en gateway de barberos."
+      };
+    }
+
+    return {
+      ok: true,
+      data
+    };
+  } catch (err) {
+    return {
+      ok: false,
+      message: err instanceof Error ? err.message : "Error de red en el gateway."
+    };
+  }
+}
+
 export async function addBarberDescanso(payload: {
   barberia_id: number;
   barbero_id: number;
   fecha: string;
 }): Promise<{ ok: boolean; message?: string }> {
-  try {
-    const response = await apiPostJson<{ ok: boolean; message?: string }, Record<string, unknown>>(
-      "https://barberagency-n8n.gymh5g.easypanel.host/webhook/barberagency/dashboard/barberos",
-      {
-        action: "add_descanso",
-        barberia_id: payload.barberia_id,
-        barbero_id: payload.barbero_id,
-        fecha: payload.fecha
-      }
-    );
-    return response;
-  } catch (err) {
-    return { ok: false, message: err instanceof Error ? err.message : "Error al guardar descanso" };
-  }
+  return callBarberosAdminGateway({
+    action: "add_descanso",
+    ...payload
+  });
 }
 
 export async function deleteBarberDescanso(barberoId: number, fecha: string): Promise<{ ok: boolean; message?: string }> {
-  try {
-    const response = await apiPostJson<{ ok: boolean; message?: string }, Record<string, unknown>>(
-      "https://barberagency-n8n.gymh5g.easypanel.host/webhook/barberagency/dashboard/barberos",
-      {
-        action: "delete_descanso",
-        barbero_id: barberoId,
-        fecha: fecha
-      }
-    );
-    return response;
-  } catch (err) {
-    return { ok: false, message: err instanceof Error ? err.message : "Error al eliminar descanso" };
-  }
+  return callBarberosAdminGateway({
+    action: "delete_descanso",
+    barbero_id: barberoId,
+    fecha
+  });
 }
 
-export async function updateBarberActiveStatus(barberoId: number, active: boolean): Promise<{ ok: boolean; message?: string }> {
-  try {
-    const response = await apiPostJson<{ ok: boolean; message?: string }, Record<string, unknown>>(
-      "https://barberagency-n8n.gymh5g.easypanel.host/webhook/barberagency/dashboard/barberos",
-      {
-        action: "update_active",
-        barbero_id: barberoId,
-        activo: active
-      }
-    );
-    return response;
-  } catch (err) {
-    return { ok: false, message: err instanceof Error ? err.message : "Error al actualizar estado del barbero" };
-  }
+export async function updateBarberActiveStatus(barberoId: number, activo: boolean): Promise<{ ok: boolean; message?: string }> {
+  return callBarberosAdminGateway({
+    action: "update_active",
+    barbero_id: barberoId,
+    activo
+  });
 }
