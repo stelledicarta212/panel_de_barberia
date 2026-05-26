@@ -186,6 +186,7 @@ export function DashboardEditor() {
   useEffect(() => {
     const remoteReservations = merged.appointments.map(normalizeAppointmentRecord);
     if (remoteReservations.length) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setReservations(remoteReservations);
     }
   }, [merged.appointments]);

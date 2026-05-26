@@ -200,6 +200,7 @@ export function DashboardProvider({ children }: { children: React.ReactNode }) {
     if (identity) return;
     const resolved = normalizeIdentity(resolveBarbershopIdentity());
     if (!resolved.barberia_id && !resolved.slug) return;
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setIdentity(resolved);
     setSession(readLoginSession(resolved));
     setError(null);

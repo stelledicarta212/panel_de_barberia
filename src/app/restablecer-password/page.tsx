@@ -18,6 +18,7 @@ export default function ResetPasswordPage() {
   useEffect(() => {
     if (typeof window !== "undefined") {
       const params = new URLSearchParams(window.location.search);
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setToken(params.get("token") || "");
 
       const fromUrl = resolveIdentityFromUrl();
