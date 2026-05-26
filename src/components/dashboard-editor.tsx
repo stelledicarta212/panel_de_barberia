@@ -112,6 +112,7 @@ export function DashboardEditor() {
   const [offDaysByBarber, setOffDaysByBarber] = useState<Record<string, number[]>>({});
   const [reservations, setReservations] = useState<ReservationRecord[]>([]);
   const qrPanelValue = merged.qr_url;
+  const publicLandingLabel = String(merged.biz_name || merged.biz_slug || "Landing publica").trim();
 
   const services = useMemo(
     () => merged.services.slice(0, 5).map((item, i) => ({
@@ -459,18 +460,20 @@ export function DashboardEditor() {
       </div>
 
       <section className="ba-editor-grid ba-editor-grid-compact">
-        <article className="ba-card">
+        <article className="ba-card ba-publication-card">
           <div className="ba-card-title"><h2>Publicacion</h2><Send size={16} /></div>
-          <div className="ba-form-grid">
-            <div className="ba-field ba-span-2">
+          <div className="ba-form-grid ba-publication-form">
+            <div className="ba-field">
               <span>URL pública</span>
-              <input value={merged.public_landing_url} readOnly />
+              <a className="ba-public-url-link" href={merged.public_landing_url || "#"} target="_blank" rel="noreferrer" aria-disabled={!merged.public_landing_url}>
+                {publicLandingLabel}
+              </a>
             </div>
-            <div className="ba-field ba-span-2">
+            <div className="ba-field ba-publication-qr">
               <span>QR publico</span>
-              <div style={{ display: "flex", justifyContent: "center", padding: "10px", border: "1px solid rgba(212,175,55,0.25)", borderRadius: "12px" }}>
+              <div className="ba-publication-qr-frame">
                 {qrPanelValue ? (
-                  <img src={qrPanelValue} alt="QR Barberia" width={170} height={170} style={{ borderRadius: "8px", background: "#fff", padding: "8px" }} />
+                  <img src={qrPanelValue} alt="QR Barberia" width={170} height={170} />
                 ) : (
                   <small>Publica para generar el QR estable.</small>
                 )}
