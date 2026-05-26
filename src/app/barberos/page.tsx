@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { CalendarDays, ChevronLeft, ChevronRight, MoreHorizontal, Plus, Search, Star, X } from "lucide-react";
 import { DashboardShell } from "@/components/dashboard-shell";
 import { useDashboard } from "@/store/dashboard-context";
@@ -120,12 +120,9 @@ export default function BarberosPage() {
   const todayMonth = now.getMonth();
   const todayYear = now.getFullYear();
 
-  // Load descansos from PostgreSQL
-  useEffect(() => {
+  const loadDescansos = useCallback(() => {
     if (!identity?.barberia_id) return;
-    let active = true;
     getBarberDescansos(identity.barberia_id).then((rows) => {
-      if (!active) return;
       const map: Record<string, string[]> = {};
       for (const row of rows) {
         const bId = String(row.barbero_id);
@@ -134,10 +131,12 @@ export default function BarberosPage() {
       }
       setOffDaysByBarber(map);
     });
-    return () => {
-      active = false;
-    };
-  }, [identity, merged.barbers]);
+  }, [identity]);
+
+  // Load descansos from PostgreSQL
+  useEffect(() => {
+    loadDescansos();
+  }, [loadDescansos]);
 
   const cardsWithAvailability = useMemo(
     () =>
@@ -225,39 +224,37 @@ export default function BarberosPage() {
     }
   };
 
-  const toggleOffDay = (day: number) => {
+  const toggleOffDay = async (day: number) => {
     if (!calendarBarberId) return;
     const dateStr = `${calendarMonth.getFullYear()}-${String(calendarMonth.getMonth() + 1).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
     const current = offDaysByBarber[calendarBarberId] ?? [];
     const exists = current.includes(dateStr);
 
-    if (exists) {
-      deleteBarberDescanso(Number(calendarBarberId), dateStr).then((res) => {
+    try {
+      if (exists) {
+        const res = await deleteBarberDescanso(Number(calendarBarberId), dateStr);
         if (res.ok) {
-          setOffDaysByBarber((prev) => ({
-            ...prev,
-            [calendarBarberId]: (prev[calendarBarberId] ?? []).filter((d) => d !== dateStr)
-          }));
+          loadDescansos();
+          await refresh();
         } else {
           alert(res.message || "Error al eliminar descanso.");
         }
-      });
-    } else {
-      if (!identity?.barberia_id) return;
-      addBarberDescanso({
-        barberia_id: identity.barberia_id,
-        barbero_id: Number(calendarBarberId),
-        fecha: dateStr
-      }).then((res) => {
+      } else {
+        if (!identity?.barberia_id) return;
+        const res = await addBarberDescanso({
+          barberia_id: identity.barberia_id,
+          barbero_id: Number(calendarBarberId),
+          fecha: dateStr
+        });
         if (res.ok) {
-          setOffDaysByBarber((prev) => ({
-            ...prev,
-            [calendarBarberId]: [...(prev[calendarBarberId] ?? []), dateStr]
-          }));
+          loadDescansos();
+          await refresh();
         } else {
           alert(res.message || "Error al guardar descanso.");
         }
-      });
+      }
+    } catch (err) {
+      alert("Error de red al actualizar descanso.");
     }
   };
 
