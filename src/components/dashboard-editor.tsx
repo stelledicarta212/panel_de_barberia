@@ -12,13 +12,12 @@ import {
   Sparkles,
   Users
 } from "lucide-react";
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useDashboard } from "@/store/dashboard-context";
+import { getBarberDescansos } from "@/lib/dashboard-api";
 
 const RESERVATIONS_STORAGE_KEY = "ba_dashboard_reservas";
-const BARBER_OFF_DAYS_STORAGE_KEY = "ba_barberos_descansos";
-const BARBER_MANUAL_AVAILABILITY_STORAGE_KEY = "ba_barberos_manual_availability";
 
 type ReservationRecord = {
   id?: string;
@@ -32,48 +31,6 @@ type ReservationRecord = {
   total?: number;
 };
 
-function normalizeManualAvailability(input: unknown): Record<string, boolean | undefined> {
-  if (!input || typeof input !== "object") return {};
-  const source = input as Record<string, unknown>;
-  const out: Record<string, boolean | undefined> = {};
-  for (const [key, raw] of Object.entries(source)) {
-    if (raw === true || raw === false) {
-      out[key] = raw;
-      continue;
-    }
-    if (typeof raw === "string") {
-      const v = raw.trim().toLowerCase();
-      if (v === "true") out[key] = true;
-      else if (v === "false") out[key] = false;
-      else out[key] = undefined;
-      continue;
-    }
-    out[key] = undefined;
-  }
-  return out;
-}
-
-function normalizeOffDays(input: unknown): Record<string, number[]> {
-  if (!input || typeof input !== "object") return {};
-  const source = input as Record<string, unknown>;
-  const out: Record<string, number[]> = {};
-  for (const [key, raw] of Object.entries(source)) {
-    const arr = Array.isArray(raw) ? raw : [];
-    out[key] = arr
-      .map((d) => Number(d))
-      .filter((d) => Number.isFinite(d) && d > 0 && d <= 31);
-  }
-  return out;
-}
-
-function normalizeNameKey(value: string): string {
-  return value
-    .normalize("NFD")
-    .replace(/[\u0300-\u036f]/g, "")
-    .trim()
-    .toLowerCase();
-}
-
 function money(value: unknown): string {
   const num = Number(value);
   if (!Number.isFinite(num)) return "$0";
@@ -81,7 +38,8 @@ function money(value: unknown): string {
 }
 
 function textValue(value: unknown): string {
-  return typeof value === "string" ? value.trim() : "";
+  if (value === null || value === undefined) return "";
+  return String(value).trim();
 }
 
 function formatDbDate(value: unknown): string {
@@ -107,9 +65,9 @@ function normalizeAppointmentRecord(item: Record<string, unknown>, index: number
 
 export function DashboardEditor() {
   const router = useRouter();
-  const { merged, loading, saving, publishing, refresh, saveDraft, publish } = useDashboard();
-  const [manualAvailability, setManualAvailability] = useState<Record<string, boolean | undefined>>({});
-  const [offDaysByBarber, setOffDaysByBarber] = useState<Record<string, number[]>>({});
+  const { merged, identity, loading, saving, publishing, refresh, saveDraft, publish } = useDashboard();
+  const barberiaId = identity?.barberia_id;
+  const [offDaysByBarber, setOffDaysByBarber] = useState<Record<string, string[]>>({});
   const [reservations, setReservations] = useState<ReservationRecord[]>([]);
   const qrPanelValue = merged.qr_url;
   const publicLandingLabel = String(merged.biz_name || merged.biz_slug || "Landing publica").trim();
@@ -123,45 +81,22 @@ export function DashboardEditor() {
     [merged.services]
   );
 
-  useEffect(() => {
-    const loadManualAvailability = () => {
-      try {
-        const raw = window.localStorage.getItem(BARBER_MANUAL_AVAILABILITY_STORAGE_KEY);
-        if (!raw) return setManualAvailability({});
-        const parsed = JSON.parse(raw);
-        setManualAvailability(normalizeManualAvailability(parsed));
-      } catch {
-        setManualAvailability({});
-      }
-    };
-    loadManualAvailability();
-    window.addEventListener("storage", loadManualAvailability);
-    window.addEventListener("ba-barberos-manual-availability-updated", loadManualAvailability as EventListener);
-    return () => {
-      window.removeEventListener("storage", loadManualAvailability);
-      window.removeEventListener("ba-barberos-manual-availability-updated", loadManualAvailability as EventListener);
-    };
-  }, []);
+  const loadDescansos = useCallback(async () => {
+    if (!barberiaId) return;
+    const rows = await getBarberDescansos(barberiaId);
+    const map: Record<string, string[]> = {};
+    for (const row of rows) {
+      const bId = String(row.barbero_id);
+      if (!map[bId]) map[bId] = [];
+      map[bId].push(String(row.fecha || "").split("T")[0]);
+    }
+    setOffDaysByBarber(map);
+  }, [barberiaId]);
 
   useEffect(() => {
-    const loadOffDays = () => {
-      try {
-        const raw = window.localStorage.getItem(BARBER_OFF_DAYS_STORAGE_KEY);
-        if (!raw) return setOffDaysByBarber({});
-        const parsed = JSON.parse(raw);
-        setOffDaysByBarber(normalizeOffDays(parsed));
-      } catch {
-        setOffDaysByBarber({});
-      }
-    };
-    loadOffDays();
-    window.addEventListener("storage", loadOffDays);
-    window.addEventListener("ba-barberos-descanso-updated", loadOffDays as EventListener);
-    return () => {
-      window.removeEventListener("storage", loadOffDays);
-      window.removeEventListener("ba-barberos-descanso-updated", loadOffDays as EventListener);
-    };
-  }, []);
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    loadDescansos();
+  }, [loadDescansos]);
 
   useEffect(() => {
     const loadReservations = () => {
@@ -197,28 +132,18 @@ export function DashboardEditor() {
     const todayMonth = now.getMonth();
     const todayYear = now.getFullYear();
     const todayDateString = `${String(todayDay).padStart(2, "0")}/${String(todayMonth + 1).padStart(2, "0")}/${todayYear}`;
+    const todayDbDateString = `${todayYear}-${String(todayMonth + 1).padStart(2, "0")}-${String(todayDay).padStart(2, "0")}`;
 
     return merged.barbers.slice(0, 5).map((item, i) => {
-      const id = String(item.id ?? `barber-${i + 1}`);
+      const id = textValue(item.id ?? item.barbero_id ?? item.id_barbero) || `barber-${i + 1}`;
       const name = String(item.nombre ?? item.name ?? `Barber ${i + 1}`);
-      const legacyId = `barber-${i + 1}`;
-      const nameKey = normalizeNameKey(name);
       const baseActive =
         typeof item.activo === "boolean"
           ? item.activo
           : String(item.activo ?? "").toLowerCase() !== "false";
-      const restDays =
-        offDaysByBarber[id] ??
-        offDaysByBarber[legacyId] ??
-        offDaysByBarber[nameKey] ??
-        [];
-      const hasRestToday = restDays.includes(todayDay);
-      const autoActive = baseActive && !hasRestToday;
-      const manualOverride =
-        manualAvailability[id] ??
-        manualAvailability[legacyId] ??
-        manualAvailability[nameKey];
-      const effectiveActive = manualOverride ?? autoActive;
+      const restDays = offDaysByBarber[id] ?? [];
+      const hasRestToday = restDays.includes(todayDbDateString);
+      const effectiveActive = baseActive && !hasRestToday;
       const servicesToday = reservations.filter(
         (r) =>
           String(r.barber || "").trim().toLowerCase() === name.trim().toLowerCase() &&
@@ -229,11 +154,10 @@ export function DashboardEditor() {
         name,
         isActive: effectiveActive,
         servicesToday,
-        hasRestToday,
-        manualOverride
+        hasRestToday
       };
     });
-  }, [merged.barbers, manualAvailability, offDaysByBarber, reservations]);
+  }, [merged.barbers, offDaysByBarber, reservations]);
 
   const todayReservations = useMemo(() => {
     const now = new Date();
@@ -370,9 +294,7 @@ export function DashboardEditor() {
                     ? `Activo (${barber.servicesToday})`
                     : barber.hasRestToday
                       ? "Inactivo (Descanso hoy)"
-                      : barber.manualOverride === false
-                        ? "Inactivo (Manual)"
-                        : "Inactivo"}
+                      : "Inactivo"}
                 </em>
               </li>
             ))}
