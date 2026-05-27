@@ -86,7 +86,8 @@ function toCurrency(value: number): string {
 }
 
 function textValue(value: unknown): string {
-  return typeof value === "string" ? value.trim() : "";
+  if (value === null || value === undefined) return "";
+  return String(value).trim();
 }
 
 function numberValue(value: unknown): number {
@@ -97,7 +98,7 @@ function numberValue(value: unknown): number {
 function mapServiceOptions(services: Array<Record<string, unknown>>): ServiceOption[] {
   const mapped = services.map((item, index) => {
     const name = textValue(item.nombre ?? item.name) || `Servicio ${index + 1}`;
-    const id = textValue(item.id) || `srv-${index + 1}`;
+    const id = textValue(item.id ?? item.servicio_id ?? item.id_servicio) || `srv-${index + 1}`;
     const price = Math.max(0, numberValue(item.precio ?? item.price));
     return { id, name, price };
   });
@@ -111,7 +112,7 @@ function mapServiceOptions(services: Array<Record<string, unknown>>): ServiceOpt
 
 function mapBarberOptions(barbers: Array<Record<string, unknown>>): BarberOption[] {
   const mapped = barbers.map((item, index) => ({
-    id: textValue(item.id) || `barber-${index + 1}`,
+    id: textValue(item.id ?? item.barbero_id ?? item.id_barbero) || `barber-${index + 1}`,
     name: textValue(item.nombre ?? item.name) || `Barbero ${index + 1}`,
     isActive: Boolean(item.activo ?? true)
   }));
@@ -190,6 +191,7 @@ function phoneToWhatsappUrl(phone: string, clientName: string): string | null {
 
 export default function CitasPage() {
   const { merged, identity } = useDashboard();
+  const barberiaId = identity?.barberia_id;
   const [requests, setRequests] = useState<RequestItem[]>([]);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [detailOpen, setDetailOpen] = useState(false);
@@ -293,6 +295,21 @@ export default function CitasPage() {
 
   const handleCreateCita = () => {
     if (!reserveDateString) return;
+    const selectedBarber = barberOptions.find((barber) => barber.name === form.barbero);
+    if (!selectedBarber) {
+      alert("Selecciona un barbero disponible para crear la cita.");
+      return;
+    }
+
+    const barberIsResting = reserveDateStr
+      ? (barberOffDays[selectedBarber.id] ?? []).includes(reserveDateStr)
+      : false;
+
+    if (!selectedBarber.isActive || barberIsResting) {
+      alert("El barbero seleccionado no esta disponible para la fecha elegida.");
+      return;
+    }
+
     const date = reserveDateString;
     const firstService = computedItems[0]?.name ?? "Servicio";
     const isEditing = Boolean(editingRequestId);
@@ -450,6 +467,9 @@ export default function CitasPage() {
     if (agendaBarberFilter === "global") return dayRequests;
     return dayRequests.filter((req) => (req.barber ?? "").trim() === agendaBarberFilter);
   }, [dayRequests, agendaBarberFilter]);
+  const selectedAgendaBarberIsUnavailable =
+    agendaBarberFilter !== "global" &&
+    agendaBarberStatus.get(agendaBarberFilter) === false;
 
   const daysWithAppointments = useMemo(() => {
     const set = new Set<number>();
@@ -466,10 +486,10 @@ export default function CitasPage() {
   }, [requests, currentMonth]);
   const occupancyRate = useMemo(() => {
     const reserved = visibleDayRequests.length;
-    const totalSlots = agendaHours.length;
+    const totalSlots = selectedAgendaBarberIsUnavailable ? 0 : agendaHours.length;
     if (!totalSlots) return 0;
     return Math.min(100, Math.round((reserved / totalSlots) * 100));
-  }, [visibleDayRequests, agendaHours]);
+  }, [visibleDayRequests, agendaHours, selectedAgendaBarberIsUnavailable]);
 
   useEffect(() => {
     const timer = window.setInterval(() => {
@@ -486,8 +506,8 @@ export default function CitasPage() {
   }, []);
 
   const loadDescansos = useCallback(async () => {
-    if (!identity?.barberia_id) return;
-    const rows = await getBarberDescansos(identity.barberia_id);
+    if (!barberiaId) return;
+    const rows = await getBarberDescansos(barberiaId);
     const map: Record<string, string[]> = {};
     for (const row of rows) {
       const bId = String(row.barbero_id);
@@ -495,7 +515,7 @@ export default function CitasPage() {
       map[bId].push(String(row.fecha || "").split("T")[0]);
     }
     setBarberOffDays(map);
-  }, [identity]);
+  }, [barberiaId]);
 
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect
@@ -545,7 +565,9 @@ export default function CitasPage() {
               <div className="ba-client-progress">
                 <span style={{ width: `${occupancyRate}%` }} />
               </div>
-              <small>{visibleDayRequests.length} reservas del dia / {agendaHours.length} turnos</small>
+              <small>
+                {visibleDayRequests.length} reservas del dia / {selectedAgendaBarberIsUnavailable ? 0 : agendaHours.length} turnos
+              </small>
             </article>
           </section>
 
@@ -662,18 +684,25 @@ export default function CitasPage() {
                     .slice(0, 2)
                     .join(", ");
                   const hasMoreBarbers = reqsAtHour.length > 2;
+                  const isBlockedByRest = selectedAgendaBarberIsUnavailable && !reqAtHour;
                   return (
                     <div key={`row-${hour}`} className="ba-citas-board-row">
                       <div className="ba-citas-board-time">{hour}</div>
                       <button
                         type="button"
                         className={`ba-citas-board-slot ${reqAtHour ? "is-booked" : "is-empty"}`}
+                        disabled={isBlockedByRest}
                         onClick={() => {
+                          if (isBlockedByRest) return;
                           if (reqAtHour) {
                             handleOpenDetail(reqAtHour.id);
                             return;
                           }
-                          setForm((prev) => ({ ...prev, hora: hour }));
+                          setForm((prev) => ({
+                            ...prev,
+                            hora: hour,
+                            barbero: agendaBarberFilter !== "global" ? agendaBarberFilter : prev.barbero
+                          }));
                           setIsCreateOpen(true);
                         }}
                       >
@@ -686,12 +715,18 @@ export default function CitasPage() {
                                 : reqAtHour.service}
                             </small>
                           </>
+                        ) : isBlockedByRest ? (
+                          <small>Descanso</small>
                         ) : (
                           <small>Disponible</small>
                         )}
                       </button>
                       <div className={`ba-citas-board-state ${reqAtHour ? statusClass(reqAtHour.status) : ""}`}>
-                        {reqAtHour ? (reqsAtHour.length > 1 ? `${reqsAtHour.length} citas` : reqAtHour.status) : "-"}
+                        {reqAtHour
+                          ? (reqsAtHour.length > 1 ? `${reqsAtHour.length} citas` : reqAtHour.status)
+                          : isBlockedByRest
+                            ? "No disponible"
+                            : "-"}
                       </div>
                     </div>
                   );
@@ -992,7 +1027,7 @@ export default function CitasPage() {
                 <strong>{toCurrency(total)}</strong>
               </div>
 
-              <button type="button" className="ba-card-gold" onClick={handleCreateCita} disabled={!reserveDateString || !selectedServiceIds.length}>
+              <button type="button" className="ba-card-gold" onClick={handleCreateCita} disabled={!reserveDateString || !selectedServiceIds.length || !form.barbero}>
                 {editingRequestId ? "Guardar cambios" : "Enviar Cita"}
               </button>
             </article>
