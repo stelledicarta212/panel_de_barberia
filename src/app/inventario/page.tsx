@@ -4,6 +4,7 @@ import { useMemo, useState } from "react";
 import { Calculator, CreditCard, DollarSign, Receipt, Scissors, Wallet } from "lucide-react";
 import { DashboardShell } from "@/components/dashboard-shell";
 import { useDashboard } from "@/store/dashboard-context";
+import { savePosSale } from "@/lib/dashboard-api";
 
 type Movement = {
   id: string;
@@ -68,13 +69,16 @@ function mapAppointment(item: Record<string, unknown>, index: number): Movement 
 }
 
 export default function InventarioPage() {
-  const { merged } = useDashboard();
+  const { identity, merged, refresh } = useDashboard();
   const [posClient, setPosClient] = useState("");
   const [posBarber, setPosBarber] = useState("");
   const [posMethod, setPosMethod] = useState("Efectivo");
   const [posReceived, setPosReceived] = useState("");
   const [selectedServiceIds, setSelectedServiceIds] = useState<string[]>([]);
   const [localMovements, setLocalMovements] = useState<Movement[]>([]);
+  const [charging, setCharging] = useState(false);
+  const [chargeError, setChargeError] = useState<string | null>(null);
+  const [serviceSearch, setServiceSearch] = useState("");
 
   const services = useMemo(
     () =>
@@ -85,6 +89,12 @@ export default function InventarioPage() {
       })),
     [merged.services]
   );
+
+  const filteredServices = useMemo(() => {
+    return services.filter((s) =>
+      s.name.toLowerCase().includes(serviceSearch.toLowerCase())
+    );
+  }, [services, serviceSearch]);
 
   const barbers = useMemo(
     () =>
@@ -105,14 +115,26 @@ export default function InventarioPage() {
     [localMovements, sourceMovements]
   );
 
-  const selectedServices = useMemo(() => {
-    const ids = new Set(selectedServiceIds);
-    return services.filter((service) => ids.has(service.id));
+  const selectedServicesGrouped = useMemo(() => {
+    const counts = new Map<string, number>();
+    for (const id of selectedServiceIds) {
+      counts.set(id, (counts.get(id) ?? 0) + 1);
+    }
+    return Array.from(counts.entries())
+      .map(([id, quantity]) => {
+        const service = services.find((s) => s.id === id);
+        return {
+          ...service,
+          quantity,
+          totalAmount: (service?.amount ?? 0) * quantity
+        };
+      })
+      .filter((item) => item.id);
   }, [selectedServiceIds, services]);
 
   const subtotal = useMemo(
-    () => selectedServices.reduce((acc, item) => acc + item.amount, 0),
-    [selectedServices]
+    () => selectedServicesGrouped.reduce((acc, item) => acc + (item.totalAmount ?? 0), 0),
+    [selectedServicesGrouped]
   );
   const receivedAmount = Number(posReceived || 0);
   const changeAmount = Math.max(0, receivedAmount - subtotal);
@@ -144,23 +166,55 @@ export default function InventarioPage() {
     }));
   }, [movements]);
 
-  const handleChargeNow = () => {
-    if (!canCharge) return;
-    const now = new Date();
-    const movement: Movement = {
-      id: `local-${Date.now()}`,
-      client: posClient.trim() || "Cliente mostrador",
-      service: selectedServices.map((item) => item.name).join(", "),
-      method: posMethod,
-      amount: subtotal,
-      status: "Aceptada",
-      date: `${String(now.getDate()).padStart(2, "0")}/${String(now.getMonth() + 1).padStart(2, "0")}/${now.getFullYear()}`,
-      hour: `${String(now.getHours()).padStart(2, "0")}:${String(now.getMinutes()).padStart(2, "0")}`,
-      barber: posBarber || "Sin barbero"
-    };
-    setLocalMovements((prev) => [movement, ...prev]);
-    setSelectedServiceIds([]);
-    setPosReceived("");
+  const handleChargeNow = async () => {
+    if (!canCharge || charging) return;
+    setCharging(true);
+    setChargeError(null);
+    try {
+      const barberiaId = Number(identity?.barberia_id ?? 0);
+      if (!barberiaId) {
+        throw new Error("No se pudo obtener el ID de la barbería activa.");
+      }
+
+      // Buscar el objeto del barbero seleccionado para enviar su ID real en la DB
+      const selectedBarberObj = merged.barbers.find(
+        (b) => text(b.nombre ?? b.name) === posBarber
+      );
+      const barberoIdReal = selectedBarberObj ? text(selectedBarberObj.id) : "";
+
+      const payload = {
+        barberia_id: barberiaId,
+        cliente_nombre: posClient.trim() || "Cliente mostrador",
+        barbero_id: barberoIdReal || posBarber || "Sin barbero",
+        metodo_pago: posMethod,
+        monto_total: subtotal,
+        servicios: selectedServicesGrouped.map((item) => ({
+          id: item.id || "",
+          name: item.name || "",
+          amount: item.amount || 0,
+          quantity: item.quantity || 1
+        }))
+      };
+
+      const res = await savePosSale(payload);
+      if (!res.ok) {
+        throw new Error(res.message || "Error al procesar el cobro en el servidor.");
+      }
+
+      // Limpiar campos de la estación de cobro tras éxito
+      setSelectedServiceIds([]);
+      setPosReceived("");
+      setPosClient("");
+      setPosBarber("");
+
+      // Forzar rehidratación desde el servidor de forma inmediata
+      await refresh();
+    } catch (err) {
+      console.error("Error procesando cobro POS:", err);
+      setChargeError(err instanceof Error ? err.message : "Error al procesar el cobro.");
+    } finally {
+      setCharging(false);
+    }
   };
 
   return (
@@ -197,12 +251,51 @@ export default function InventarioPage() {
             </header>
 
             <div className="ba-pos-ticket">
-              <div className="ba-pos-lines">
-                {selectedServices.map((item) => (
-                  <div key={item.id}><span>{item.name}</span><strong>{money(item.amount)}</strong></div>
+              <div className="ba-pos-lines flex flex-col gap-2 max-h-[180px] overflow-y-auto pr-1">
+                {selectedServicesGrouped.map((item) => (
+                  <div key={item.id} className="flex justify-between items-center py-2 border-b border-gray-100/10 last:border-b-0">
+                    <div className="flex flex-col text-left">
+                      <span className="font-semibold text-xs text-gray-200">{item.name}</span>
+                      <span className="text-[10px] text-gray-400">
+                        {item.quantity} x {money(item.amount ?? 0)}
+                      </span>
+                    </div>
+                    <div className="flex items-center gap-1">
+                      <button
+                        type="button"
+                        className="w-5 h-5 border border-gray-600 rounded-md flex items-center justify-center font-bold text-xs text-gray-400 hover:text-white hover:border-gray-400 transition-colors"
+                        onClick={() => setSelectedServiceIds(prev => {
+                          const idx = prev.indexOf(item.id!);
+                          if (idx > -1) {
+                            const next = [...prev];
+                            next.splice(idx, 1);
+                            return next;
+                          }
+                          return prev;
+                        })}
+                      >
+                        -
+                      </button>
+                      <button
+                        type="button"
+                        className="w-5 h-5 border border-gray-600 rounded-md flex items-center justify-center font-bold text-xs text-gray-400 hover:text-white hover:border-gray-400 transition-colors"
+                        onClick={() => setSelectedServiceIds(prev => [...prev, item.id!])}
+                      >
+                        +
+                      </button>
+                      <button
+                        type="button"
+                        className="w-5 h-5 border border-red-900 bg-red-950/20 text-red-400 hover:bg-red-950 hover:text-red-300 rounded-md flex items-center justify-center text-[10px] transition-colors ml-1"
+                        onClick={() => setSelectedServiceIds(prev => prev.filter(id => id !== item.id))}
+                        aria-label="Eliminar"
+                      >
+                        🗑️
+                      </button>
+                    </div>
+                  </div>
                 ))}
-                {!selectedServices.length ? (
-                  <div><span>Selecciona servicios reales</span><strong>$0</strong></div>
+                {!selectedServicesGrouped.length ? (
+                  <div className="text-center py-4 text-xs text-gray-500">Selecciona servicios del catálogo</div>
                 ) : null}
               </div>
               <div className="ba-pos-summary">
@@ -234,27 +327,76 @@ export default function InventarioPage() {
               <label className="ba-field">
                 <span>Recibido</span>
                 <input className="ba-input" type="number" min={0} step="1000" value={posReceived} onChange={(e) => setPosReceived(e.target.value)} placeholder="Ej: 50000" />
+                {posMethod === "Efectivo" && (
+                  <div className="flex gap-1.5 mt-2 flex-wrap">
+                    {[10000, 20000, 50000, 100000].map((bill) => (
+                      <button
+                        key={bill}
+                        type="button"
+                        className="px-2 py-1 text-[10px] border border-gray-600 rounded-lg bg-gray-800 text-gray-300 hover:text-white hover:bg-gray-700 font-semibold transition-colors active:scale-95"
+                        onClick={() => setPosReceived(String(bill))}
+                      >
+                        ${bill / 1000}k
+                      </button>
+                    ))}
+                    <button
+                      type="button"
+                      className="px-2 py-1 text-[10px] border border-red-900 bg-red-950/20 text-red-400 hover:bg-red-950 hover:text-red-300 rounded-lg font-semibold transition-colors active:scale-95"
+                      onClick={() => setPosReceived("")}
+                    >
+                      Limpiar
+                    </button>
+                  </div>
+                )}
               </label>
             </div>
 
-            <div className="ba-pos-lines">
-              {services.map((service) => {
-                const selected = selectedServiceIds.includes(service.id);
-                return (
-                  <button
-                    key={service.id}
-                    type="button"
-                    className="ba-btn-ghost"
-                    onClick={() =>
-                      setSelectedServiceIds((prev) =>
-                        selected ? prev.filter((id) => id !== service.id) : [...prev, service.id]
-                      )
-                    }
-                  >
-                    {selected ? "Quitar" : "Agregar"} {service.name} {money(service.amount)}
-                  </button>
-                );
-              })}
+            <div className="mt-4 mb-2">
+              <span className="text-xs font-semibold text-gray-400 block mb-2">Catálogo de Servicios</span>
+              <input
+                type="text"
+                className="ba-input mb-3 text-xs py-2"
+                value={serviceSearch}
+                onChange={(e) => setServiceSearch(e.target.value)}
+                placeholder="🔍 Buscar servicio..."
+              />
+              <div className="grid grid-cols-2 md:grid-cols-3 gap-2 max-h-[220px] overflow-y-auto pr-1">
+                {filteredServices.map((service) => {
+                  const quantity = selectedServiceIds.filter((id) => id === service.id).length;
+                  const isSelected = quantity > 0;
+                  return (
+                    <button
+                      key={service.id}
+                      type="button"
+                      className={`flex flex-col justify-between p-3 border rounded-xl text-left transition-all active:scale-[0.96] duration-100 min-h-[90px] ${
+                        isSelected
+                          ? "border-amber-500 bg-amber-500/10"
+                          : "border-gray-800 bg-gray-900/40 hover:border-gray-700"
+                      }`}
+                      onClick={() =>
+                        setSelectedServiceIds((prev) => [...prev, service.id!])
+                      }
+                    >
+                      <div className="flex justify-between items-start w-full gap-1">
+                        <span className="font-semibold text-xs text-gray-200 line-clamp-2 leading-tight">
+                          {service.name}
+                        </span>
+                        {quantity > 0 && (
+                          <span className="w-4 h-4 bg-amber-500 text-white rounded-full flex items-center justify-center text-[9px] font-bold shrink-0">
+                            {quantity}
+                          </span>
+                        )}
+                      </div>
+                      <span className="font-bold text-xs text-amber-500 mt-2">
+                        {money(service.amount)}
+                      </span>
+                    </button>
+                  );
+                })}
+                {!filteredServices.length ? (
+                  <div className="col-span-full text-center py-6 text-xs text-gray-500">Sin servicios coincidentes</div>
+                ) : null}
+              </div>
             </div>
 
             <div className="ba-pos-station">
@@ -265,10 +407,21 @@ export default function InventarioPage() {
               </div>
             </div>
 
+            {chargeError && (
+              <div className="text-red-500 text-xs px-2 text-center font-semibold mb-2">
+                {chargeError}
+              </div>
+            )}
+
             <div className="ba-pos-actions">
               <button type="button" className="ba-btn-ghost"><Calculator size={14} />Calculadora</button>
-              <button type="button" className="ba-card-gold" onClick={handleChargeNow} disabled={!canCharge}>
-                {canCharge ? "Cobrar ahora" : "Falta pago"}
+              <button
+                type="button"
+                className="ba-card-gold"
+                onClick={handleChargeNow}
+                disabled={!canCharge || charging}
+              >
+                {charging ? "Cargando..." : canCharge ? "Cobrar ahora" : "Falta pago"}
               </button>
             </div>
           </article>

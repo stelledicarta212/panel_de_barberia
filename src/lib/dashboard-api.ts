@@ -443,3 +443,18 @@ export async function updateBarberActiveStatus(barberoId: number, activo: boolea
     activo
   });
 }
+
+export async function savePosSale(payload: {
+  barberia_id: number;
+  cliente_nombre: string;
+  cliente_id?: string;
+  barbero_id: string;
+  metodo_pago: string;
+  monto_total: number;
+  servicios: Array<{ id: string; name: string; amount: number }>;
+}): Promise<{ ok: boolean; message: string }> {
+  return apiPostJson<{ ok: boolean; message: string }, Record<string, unknown>>(
+    env.posSaleEndpoint,
+    payload as unknown as Record<string, unknown>
+  );
+}

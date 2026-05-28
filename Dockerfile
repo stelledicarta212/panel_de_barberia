@@ -1,7 +1,7 @@
 FROM node:22-alpine AS deps
 WORKDIR /app
 
-COPY apps/dashboard/package.json apps/dashboard/package-lock.json ./
+COPY package.json package-lock.json ./
 RUN npm ci
 
 FROM node:22-alpine AS builder
@@ -15,7 +15,7 @@ ENV NEXT_PUBLIC_DRAFT_SAVE_ENDPOINT=/webhook/barberagency/landing/draft/save
 ENV NEXT_PUBLIC_PUBLISH_ENDPOINT=/webhook/barberagency/landing/save-v2
 
 COPY --from=deps /app/node_modules ./node_modules
-COPY apps/dashboard ./
+COPY . ./
 RUN npm run build
 
 FROM node:22-alpine AS runner

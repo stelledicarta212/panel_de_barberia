@@ -30,6 +30,10 @@ export const env = {
     ((process.env.NEXT_PUBLIC_PUBLISH_ENDPOINT ?? "").startsWith("http")
       ? process.env.NEXT_PUBLIC_PUBLISH_ENDPOINT
       : "https://barberagency-n8n.gymh5g.easypanel.host/webhook/barberagency/landing/save-v2") as string,
+  posSaleEndpoint:
+    ((process.env.NEXT_PUBLIC_POS_SALE_ENDPOINT ?? "").startsWith("http")
+      ? process.env.NEXT_PUBLIC_POS_SALE_ENDPOINT
+      : "https://barberagency-n8n.gymh5g.easypanel.host/webhook/barberagency/pos/create-sale") as string,
   publishRpcEndpoint:
     process.env.NEXT_PUBLIC_PUBLISH_RPC_ENDPOINT ??
     "/rpc/ba_publicar_barberia",
