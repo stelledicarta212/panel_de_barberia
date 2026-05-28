@@ -220,6 +220,7 @@ export default function InventarioPage() {
   return (
     <DashboardShell>
       <section className="ba-pos-layout">
+        {/* KPI Panel */}
         <div className="ba-pos-top-grid">
           <article className="ba-card ba-pos-kpi">
             <header><span>Ventas del dia</span><DollarSign size={14} /></header>
@@ -243,191 +244,221 @@ export default function InventarioPage() {
           </article>
         </div>
 
+        {/* Main Work Area: Catalog Left | Checkout Right */}
         <div className="ba-pos-main-grid">
-          <article className="ba-card ba-pos-checkout">
-            <header className="ba-card-title">
-              <h2>Caja Rapida POS</h2>
-              <span className="ba-editable-chip">Fuente real</span>
+          {/* Catalog Column (Left) */}
+          <article className="ba-card flex flex-col gap-3 min-h-[500px]">
+            <header className="ba-card-title flex justify-between items-center mb-1">
+              <h2>Catálogo de Servicios</h2>
+              <span className="text-[10px] text-amber-500 font-semibold uppercase tracking-wider bg-amber-500/10 px-2 py-0.5 rounded-full">
+                {filteredServices.length} disponibles
+              </span>
             </header>
-
-            <div className="ba-pos-ticket">
-              <div className="ba-pos-lines flex flex-col gap-2 max-h-[180px] overflow-y-auto pr-1">
-                {selectedServicesGrouped.map((item) => (
-                  <div key={item.id} className="flex justify-between items-center py-2 border-b border-gray-100/10 last:border-b-0">
-                    <div className="flex flex-col text-left">
-                      <span className="font-semibold text-xs text-gray-200">{item.name}</span>
-                      <span className="text-[10px] text-gray-400">
-                        {item.quantity} x {money(item.amount ?? 0)}
+            <input
+              type="text"
+              className="ba-input text-xs py-2 px-3 w-full"
+              value={serviceSearch}
+              onChange={(e) => setServiceSearch(e.target.value)}
+              placeholder="🔍 Escribe para buscar servicios..."
+            />
+            <div className="grid grid-cols-2 md:grid-cols-3 gap-3 overflow-y-auto max-h-[480px] pr-1">
+              {filteredServices.map((service) => {
+                const quantity = selectedServiceIds.filter((id) => id === service.id).length;
+                const isSelected = quantity > 0;
+                return (
+                  <button
+                    key={service.id}
+                    type="button"
+                    className={`flex flex-col justify-between p-4 border rounded-xl text-left transition-all active:scale-[0.96] duration-150 min-h-[110px] cursor-pointer hover:shadow-md ${
+                      isSelected
+                        ? "border-amber-500 bg-amber-500/10 shadow-amber-500/5"
+                        : "border-gray-800 bg-gray-900/30 hover:border-gray-700"
+                    }`}
+                    onClick={() =>
+                      setSelectedServiceIds((prev) => [...prev, service.id!])
+                    }
+                  >
+                    <div className="flex justify-between items-start w-full gap-2">
+                      <span className="font-semibold text-xs text-gray-200 line-clamp-2 leading-tight">
+                        {service.name}
                       </span>
-                    </div>
-                    <div className="flex items-center gap-1">
-                      <button
-                        type="button"
-                        className="w-5 h-5 border border-gray-600 rounded-md flex items-center justify-center font-bold text-xs text-gray-400 hover:text-white hover:border-gray-400 transition-colors"
-                        onClick={() => setSelectedServiceIds(prev => {
-                          const idx = prev.indexOf(item.id!);
-                          if (idx > -1) {
-                            const next = [...prev];
-                            next.splice(idx, 1);
-                            return next;
-                          }
-                          return prev;
-                        })}
-                      >
-                        -
-                      </button>
-                      <button
-                        type="button"
-                        className="w-5 h-5 border border-gray-600 rounded-md flex items-center justify-center font-bold text-xs text-gray-400 hover:text-white hover:border-gray-400 transition-colors"
-                        onClick={() => setSelectedServiceIds(prev => [...prev, item.id!])}
-                      >
-                        +
-                      </button>
-                      <button
-                        type="button"
-                        className="w-5 h-5 border border-red-900 bg-red-950/20 text-red-400 hover:bg-red-950 hover:text-red-300 rounded-md flex items-center justify-center text-[10px] transition-colors ml-1"
-                        onClick={() => setSelectedServiceIds(prev => prev.filter(id => id !== item.id))}
-                        aria-label="Eliminar"
-                      >
-                        🗑️
-                      </button>
-                    </div>
-                  </div>
-                ))}
-                {!selectedServicesGrouped.length ? (
-                  <div className="text-center py-4 text-xs text-gray-500">Selecciona servicios del catálogo</div>
-                ) : null}
-              </div>
-              <div className="ba-pos-summary">
-                <p><span>Subtotal</span><strong>{money2(subtotal)}</strong></p>
-                <p><span>Descuento lealtad</span><strong>$0.00</strong></p>
-                <p className="is-total"><span>Total</span><strong>{money2(subtotal)}</strong></p>
-              </div>
-            </div>
-
-            <div className="ba-form-grid">
-              <label className="ba-field">
-                <span>Cliente</span>
-                <input className="ba-input" value={posClient} onChange={(e) => setPosClient(e.target.value)} placeholder="Cliente mostrador" />
-              </label>
-              <label className="ba-field">
-                <span>Barbero</span>
-                <select className="ba-input" value={posBarber} onChange={(e) => setPosBarber(e.target.value)}>
-                  <option value="">Selecciona barbero</option>
-                  {barbers.map((barber) => <option key={barber.id} value={barber.name}>{barber.name}</option>)}
-                </select>
-              </label>
-              <label className="ba-field">
-                <span>Metodo</span>
-                <select className="ba-input" value={posMethod} onChange={(e) => setPosMethod(e.target.value)}>
-                  <option>Efectivo</option>
-                  <option>Digital</option>
-                </select>
-              </label>
-              <label className="ba-field">
-                <span>Recibido</span>
-                <input className="ba-input" type="number" min={0} step="1000" value={posReceived} onChange={(e) => setPosReceived(e.target.value)} placeholder="Ej: 50000" />
-                {posMethod === "Efectivo" && (
-                  <div className="flex gap-1.5 mt-2 flex-wrap">
-                    {[10000, 20000, 50000, 100000].map((bill) => (
-                      <button
-                        key={bill}
-                        type="button"
-                        className="px-2 py-1 text-[10px] border border-gray-600 rounded-lg bg-gray-800 text-gray-300 hover:text-white hover:bg-gray-700 font-semibold transition-colors active:scale-95"
-                        onClick={() => setPosReceived(String(bill))}
-                      >
-                        ${bill / 1000}k
-                      </button>
-                    ))}
-                    <button
-                      type="button"
-                      className="px-2 py-1 text-[10px] border border-red-900 bg-red-950/20 text-red-400 hover:bg-red-950 hover:text-red-300 rounded-lg font-semibold transition-colors active:scale-95"
-                      onClick={() => setPosReceived("")}
-                    >
-                      Limpiar
-                    </button>
-                  </div>
-                )}
-              </label>
-            </div>
-
-            <div className="mt-4 mb-2">
-              <span className="text-xs font-semibold text-gray-400 block mb-2">Catálogo de Servicios</span>
-              <input
-                type="text"
-                className="ba-input mb-3 text-xs py-2"
-                value={serviceSearch}
-                onChange={(e) => setServiceSearch(e.target.value)}
-                placeholder="🔍 Buscar servicio..."
-              />
-              <div className="grid grid-cols-2 md:grid-cols-3 gap-2 max-h-[220px] overflow-y-auto pr-1">
-                {filteredServices.map((service) => {
-                  const quantity = selectedServiceIds.filter((id) => id === service.id).length;
-                  const isSelected = quantity > 0;
-                  return (
-                    <button
-                      key={service.id}
-                      type="button"
-                      className={`flex flex-col justify-between p-3 border rounded-xl text-left transition-all active:scale-[0.96] duration-100 min-h-[90px] ${
-                        isSelected
-                          ? "border-amber-500 bg-amber-500/10"
-                          : "border-gray-800 bg-gray-900/40 hover:border-gray-700"
-                      }`}
-                      onClick={() =>
-                        setSelectedServiceIds((prev) => [...prev, service.id!])
-                      }
-                    >
-                      <div className="flex justify-between items-start w-full gap-1">
-                        <span className="font-semibold text-xs text-gray-200 line-clamp-2 leading-tight">
-                          {service.name}
+                      {quantity > 0 && (
+                        <span className="w-5 h-5 bg-amber-500 text-white rounded-full flex items-center justify-center text-[10px] font-bold shrink-0">
+                          {quantity}
                         </span>
-                        {quantity > 0 && (
-                          <span className="w-4 h-4 bg-amber-500 text-white rounded-full flex items-center justify-center text-[9px] font-bold shrink-0">
-                            {quantity}
-                          </span>
-                        )}
-                      </div>
-                      <span className="font-bold text-xs text-amber-500 mt-2">
-                        {money(service.amount)}
-                      </span>
-                    </button>
-                  );
-                })}
-                {!filteredServices.length ? (
-                  <div className="col-span-full text-center py-6 text-xs text-gray-500">Sin servicios coincidentes</div>
-                ) : null}
-              </div>
-            </div>
-
-            <div className="ba-pos-station">
-              <div className="ba-pos-payment-grid">
-                <div className="ba-pos-payment-pill"><span>Monto recibido</span><strong>{money2(receivedAmount)}</strong></div>
-                <div className="ba-pos-payment-pill is-change"><span>Vueltas</span><strong>{money2(changeAmount)}</strong></div>
-                <div className={`ba-pos-payment-pill ${pendingAmount > 0 ? "is-pending" : ""}`}><span>Faltante</span><strong>{money2(pendingAmount)}</strong></div>
-              </div>
-            </div>
-
-            {chargeError && (
-              <div className="text-red-500 text-xs px-2 text-center font-semibold mb-2">
-                {chargeError}
-              </div>
-            )}
-
-            <div className="ba-pos-actions">
-              <button type="button" className="ba-btn-ghost"><Calculator size={14} />Calculadora</button>
-              <button
-                type="button"
-                className="ba-card-gold"
-                onClick={handleChargeNow}
-                disabled={!canCharge || charging}
-              >
-                {charging ? "Cargando..." : canCharge ? "Cobrar ahora" : "Falta pago"}
-              </button>
+                      )}
+                    </div>
+                    <span className="font-bold text-sm text-amber-500 mt-3">
+                      {money(service.amount)}
+                    </span>
+                  </button>
+                );
+              })}
+              {!filteredServices.length ? (
+                <div className="col-span-full text-center py-12 text-xs text-gray-500 font-medium">
+                  No se encontraron servicios
+                </div>
+              ) : null}
             </div>
           </article>
 
+          {/* Checkout Column (Right) */}
+          <article className="ba-card flex flex-col justify-between min-h-[500px]">
+            <div>
+              <header className="ba-card-title flex justify-between items-center mb-3">
+                <h2>Caja Rápida POS</h2>
+                <span className="ba-editable-chip">Fuente real</span>
+              </header>
+
+              {/* El Recibo Vivo */}
+              <div className="ba-pos-ticket mb-4">
+                <div className="text-[10px] uppercase tracking-wider font-semibold text-gray-400 border-b border-gray-800/80 pb-2 mb-2">
+                  Resumen de Compra
+                </div>
+                <div className="ba-pos-lines flex flex-col gap-2 max-h-[160px] overflow-y-auto pr-1">
+                  {selectedServicesGrouped.map((item) => (
+                    <div key={item.id} className="flex justify-between items-center py-2 border-b border-gray-800/40 last:border-b-0">
+                      <div className="flex flex-col text-left">
+                        <span className="font-semibold text-xs text-gray-200">{item.name}</span>
+                        <span className="text-[10px] text-gray-400">
+                          {item.quantity} x {money(item.amount ?? 0)}
+                        </span>
+                      </div>
+                      <div className="flex items-center gap-1 shrink-0">
+                        <button
+                          type="button"
+                          className="w-5 h-5 border border-gray-700 rounded flex items-center justify-center font-bold text-xs text-gray-400 hover:text-white hover:border-gray-500 transition-colors cursor-pointer"
+                          onClick={() => setSelectedServiceIds(prev => {
+                            const idx = prev.indexOf(item.id!);
+                            if (idx > -1) {
+                              const next = [...prev];
+                              next.splice(idx, 1);
+                              return next;
+                            }
+                            return prev;
+                          })}
+                        >
+                          -
+                        </button>
+                        <button
+                          type="button"
+                          className="w-5 h-5 border border-gray-700 rounded flex items-center justify-center font-bold text-xs text-gray-400 hover:text-white hover:border-gray-500 transition-colors cursor-pointer"
+                          onClick={() => setSelectedServiceIds(prev => [...prev, item.id!])}
+                        >
+                          +
+                        </button>
+                        <button
+                          type="button"
+                          className="w-5 h-5 border border-red-900 bg-red-950/20 text-red-400 hover:bg-red-950 hover:text-red-300 rounded flex items-center justify-center text-[10px] transition-colors ml-1 cursor-pointer"
+                          onClick={() => setSelectedServiceIds(prev => prev.filter(id => id !== item.id))}
+                          aria-label="Eliminar"
+                        >
+                          🗑
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                  {!selectedServicesGrouped.length ? (
+                    <div className="text-center py-6 text-xs text-gray-500">
+                      Agrega servicios desde el catálogo izquierdo
+                    </div>
+                  ) : null}
+                </div>
+                <div className="ba-pos-summary mt-2 pt-2 border-t border-gray-800">
+                  <p><span>Subtotal</span><strong>{money2(subtotal)}</strong></p>
+                  <p><span>Descuento lealtad</span><strong>$0.00</strong></p>
+                  <p className="is-total"><span>Total cobro</span><strong>{money2(subtotal)}</strong></p>
+                </div>
+              </div>
+
+              {/* Formulario Cliente/Barbero */}
+              <div className="ba-form-grid mb-4">
+                <label className="ba-field">
+                  <span>Cliente</span>
+                  <input className="ba-input" value={posClient} onChange={(e) => setPosClient(e.target.value)} placeholder="Cliente mostrador" />
+                </label>
+                <label className="ba-field">
+                  <span>Barbero</span>
+                  <select className="ba-input" value={posBarber} onChange={(e) => setPosBarber(e.target.value)}>
+                    <option value="">Selecciona barbero</option>
+                    {barbers.map((barber) => <option key={barber.id} value={barber.name}>{barber.name}</option>)}
+                  </select>
+                </label>
+                <label className="ba-field">
+                  <span>Método de Pago</span>
+                  <select className="ba-input" value={posMethod} onChange={(e) => setPosMethod(e.target.value)}>
+                    <option>Efectivo</option>
+                    <option>Digital</option>
+                  </select>
+                </label>
+                <label className="ba-field">
+                  <span>Recibido</span>
+                  <input className="ba-input" type="number" min={0} step="1000" value={posReceived} onChange={(e) => setPosReceived(e.target.value)} placeholder="Ej: 50000" />
+                  {posMethod === "Efectivo" && (
+                    <div className="flex gap-1.5 mt-2 flex-wrap">
+                      {[10000, 20000, 50000, 100000].map((bill) => (
+                        <button
+                          key={bill}
+                          type="button"
+                          className="px-2 py-1 text-[10px] border border-gray-700 rounded-lg bg-gray-850 text-gray-300 hover:text-white hover:bg-gray-700 font-semibold transition-colors active:scale-95 cursor-pointer"
+                          onClick={() => setPosReceived(String(bill))}
+                        >
+                          ${bill / 1000}k
+                        </button>
+                      ))}
+                      <button
+                        type="button"
+                        className="px-2 py-1 text-[10px] border border-red-900 bg-red-950/20 text-red-400 hover:bg-red-950 hover:text-red-300 rounded-lg font-semibold transition-colors active:scale-95 cursor-pointer"
+                        onClick={() => setPosReceived("")}
+                      >
+                        Limpiar
+                      </button>
+                    </div>
+                  )}
+                </label>
+              </div>
+
+              {/* KPIs de Estación */}
+              <div className="ba-pos-station mb-4">
+                <div className="ba-pos-payment-grid">
+                  <div className="ba-pos-payment-pill"><span>Recibido</span><strong>{money2(receivedAmount)}</strong></div>
+                  <div className="ba-pos-payment-pill is-change"><span>Vueltas</span><strong>{money2(changeAmount)}</strong></div>
+                  <div className={`ba-pos-payment-pill ${pendingAmount > 0 ? "is-pending" : ""}`}><span>Faltante</span><strong>{money2(pendingAmount)}</strong></div>
+                </div>
+              </div>
+            </div>
+
+            <div>
+              {chargeError && (
+                <div className="text-red-500 text-xs px-2 text-center font-semibold mb-3">
+                  {chargeError}
+                </div>
+              )}
+
+              {/* Acciones */}
+              <div className="ba-pos-actions">
+                <button type="button" className="ba-btn-ghost"><Calculator size={14} />Calculadora</button>
+                <button
+                  type="button"
+                  className="ba-card-gold flex-grow justify-center font-bold"
+                  onClick={handleChargeNow}
+                  disabled={!canCharge || charging}
+                >
+                  {charging ? "Cargando..." : canCharge ? "Cobrar ahora" : "Falta pago"}
+                </button>
+              </div>
+            </div>
+          </article>
+        </div>
+
+        {/* Lower Details Area: Cierre General | Cierre por Barbero | Movimientos */}
+        <div className="ba-pos-bottom-grid">
+          {/* Cierre General */}
           <article className="ba-card ba-pos-close">
-            <header className="ba-card-title"><h2>Cierre de Caja del Dia</h2><Scissors size={14} /></header>
+            <header className="ba-card-title flex justify-between items-center mb-3">
+              <h2>Cierre de Caja del Dia</h2>
+              <Scissors size={14} />
+            </header>
             <div className="ba-pos-close-grid">
               <p><span>Servicios cobrados</span><strong>{money2(salesDay)}</strong></p>
               <p><span>Servicios pendientes</span><strong>{money2(movements.filter((item) => item.status === "Pendiente").reduce((acc, item) => acc + item.amount, 0))}</strong></p>
@@ -436,48 +467,51 @@ export default function InventarioPage() {
               <p className="is-net"><span>Neto cierre</span><strong>{money2(salesDay)}</strong></p>
             </div>
           </article>
-        </div>
 
-        <div className="ba-pos-bottom-grid">
-          <article className="ba-card ba-pos-table">
-            <header className="ba-card-title"><h2>Movimientos recientes</h2></header>
-            <div className="ba-pos-table-head ba-pos-table-head-movements">
-              <span>Cliente</span><span>Servicio</span><span>Barbero</span><span>Metodo</span><span>Monto</span>
-            </div>
-            {movements.map((item) => (
-              <div key={item.id} className="ba-pos-table-row ba-pos-table-row-movements">
-                <span>{item.client}</span>
-                <span>{item.service}</span>
-                <span className="ba-pos-user-cell"><span className="ba-overlay-initials">{initialsFrom(item.barber)}</span>{item.barber}</span>
-                <span>{item.method}</span>
-                <strong>{money2(item.amount)}</strong>
-              </div>
-            ))}
-            {!movements.length ? (
-              <div className="ba-pos-table-row ba-pos-table-row-movements">
-                <span>Sin movimientos reales</span><span>Reservas/cobros apareceran aqui</span><span>-</span><span>-</span><strong>$0.00</strong>
-              </div>
-            ) : null}
-          </article>
-
+          {/* Cierre por Barbero */}
           <article className="ba-card ba-pos-table">
             <header className="ba-card-title"><h2>Cierre por barbero</h2></header>
             <div className="ba-pos-table-head">
               <span>Barbero</span><span>Cortes</span><span>Ticket prom.</span><span>Total</span>
             </div>
-            {closeRows.map((item) => (
-              <div key={item.barber} className="ba-pos-table-row">
-                <span className="ba-pos-user-cell"><span className="ba-overlay-initials">{initialsFrom(item.barber)}</span>{item.barber}</span>
-                <span>{item.cuts}</span>
-                <span>{money2(item.ticketAvg)}</span>
-                <strong>{money2(item.total)}</strong>
-              </div>
-            ))}
-            {!closeRows.length ? (
-              <div className="ba-pos-table-row">
-                <span>Sin cierre por barbero</span><span>0</span><span>$0.00</span><strong>$0.00</strong>
-              </div>
-            ) : null}
+            <div className="max-h-[160px] overflow-y-auto flex flex-col gap-1 pr-1">
+              {closeRows.map((item) => (
+                <div key={item.barber} className="ba-pos-table-row">
+                  <span className="ba-pos-user-cell"><span className="ba-overlay-initials">{initialsFrom(item.barber)}</span>{item.barber}</span>
+                  <span>{item.cuts}</span>
+                  <span>{money2(item.ticketAvg)}</span>
+                  <strong>{money2(item.total)}</strong>
+                </div>
+              ))}
+              {!closeRows.length ? (
+                <div className="ba-pos-table-row text-center py-4 text-xs text-gray-500">
+                  Sin cierres por barbero
+                </div>
+              ) : null}
+            </div>
+          </article>
+
+          {/* Movimientos Recientes */}
+          <article className="ba-card ba-pos-table">
+            <header className="ba-card-title"><h2>Movimientos recientes</h2></header>
+            <div className="ba-pos-table-head ba-pos-table-head-movements">
+              <span>Cliente</span><span>Servicio</span><span>Metodo</span><span>Monto</span>
+            </div>
+            <div className="max-h-[160px] overflow-y-auto flex flex-col gap-1 pr-1">
+              {movements.map((item) => (
+                <div key={item.id} className="ba-pos-table-row ba-pos-table-row-movements text-xs py-2">
+                  <span className="truncate max-w-[80px] font-semibold">{item.client}</span>
+                  <span className="truncate max-w-[90px]">{item.service}</span>
+                  <span>{item.method}</span>
+                  <strong>{money2(item.amount)}</strong>
+                </div>
+              ))}
+              {!movements.length ? (
+                <div className="ba-pos-table-row text-center py-4 text-xs text-gray-500">
+                  Sin movimientos registrados
+                </div>
+              ) : null}
+            </div>
           </article>
         </div>
       </section>
