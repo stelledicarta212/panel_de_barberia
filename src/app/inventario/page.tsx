@@ -139,7 +139,6 @@ export default function InventarioPage() {
   const [posMethod, setPosMethod] = useState("Efectivo");
   const [posReceived, setPosReceived] = useState("");
   const [selectedServiceIds, setSelectedServiceIds] = useState<string[]>([]);
-  const [localMovements, setLocalMovements] = useState<Movement[]>([]);
   const [charging, setCharging] = useState(false);
   const [chargeError, setChargeError] = useState<string | null>(null);
   const [serviceSearch, setServiceSearch] = useState("");
@@ -153,43 +152,21 @@ export default function InventarioPage() {
   const [showReceipt, setShowReceipt] = useState(false);
   const [whatsappPhone, setWhatsappPhone] = useState("");
 
-  // Optimismo de citas cargadas y cobros locales en tiempo real
+  // Control de vinculación de cita agendada en checkout y estados de sincronización en caliente
   const [loadedAppointmentId, setLoadedAppointmentId] = useState<string | null>(null);
-  const [locallyPaidAppointmentIds, setLocallyPaidAppointmentIds] = useState<Record<string, string>>({});
+  const [syncingAppointmentIds, setSyncingAppointmentIds] = useState<Record<string, boolean>>({});
 
   // Control de Reporte Z
   const [showZReport, setShowZReport] = useState(false);
   const [zReportWhatsappPhone, setZReportWhatsappPhone] = useState("");
 
-  // Load locally paid appointments from localStorage safely post-mount (hydration resilient)
+  // Autolimpieza de IDs de citas en proceso de sincronización cuando el backend confirma el pago real
   useEffect(() => {
-    if (typeof window !== "undefined") {
-      const saved = localStorage.getItem("ba_locally_paid_appointments");
-      if (saved) {
-        try {
-          setLocallyPaidAppointmentIds(JSON.parse(saved));
-        } catch (e) {
-          console.error("Error parsing ba_locally_paid_appointments", e);
-        }
-      }
-    }
-  }, []);
-
-  // Sync locally paid appointments to localStorage on updates
-  useEffect(() => {
-    if (typeof window !== "undefined") {
-      localStorage.setItem("ba_locally_paid_appointments", JSON.stringify(locallyPaidAppointmentIds));
-    }
-  }, [locallyPaidAppointmentIds]);
-
-  // Autolimpieza inteligente de citas cobradas localmente en base al estado real del backend
-  useEffect(() => {
-    if (merged.appointments && Object.keys(locallyPaidAppointmentIds).length > 0) {
-      setLocallyPaidAppointmentIds((prev) => {
+    if (merged.appointments && Object.keys(syncingAppointmentIds).length > 0) {
+      setSyncingAppointmentIds((prev) => {
         let hasChanges = false;
         const next = { ...prev };
         for (const apptId of Object.keys(next)) {
-          // Buscar si la cita correspondiente en el backend ya viene marcada como pagada
           const dbAppt = merged.appointments.find((item) => text(item.id) === apptId);
           if (dbAppt) {
             const rawMethod = dbAppt.metodo_pago || dbAppt.pago_metodo || dbAppt.metodo || dbAppt.method;
@@ -203,40 +180,7 @@ export default function InventarioPage() {
         return hasChanges ? next : prev;
       });
     }
-  }, [merged.appointments, locallyPaidAppointmentIds]);
-
-  // Autolimpieza inteligente de cobros rápidos mostrador optimistas
-  useEffect(() => {
-    if (merged.appointments && localMovements.length > 0) {
-      setLocalMovements((prev) => {
-        const next = prev.filter((local) => {
-          // Buscamos si hay alguna cita en el backend que coincida con este cobro rápido de mostrador
-          const isAlreadyInDb = merged.appointments.some((item) => {
-            const rawMethod = item.metodo_pago || item.pago_metodo || item.metodo || item.method;
-            const hasPayment = typeof rawMethod === "string" && rawMethod.trim().length > 0;
-            if (!hasPayment) return false;
-
-            const dbClient = text(item.cliente_nombre ?? item.client ?? item.nombre_cliente) || "Cliente";
-            const dbBarber = text(item.barbero_nombre ?? item.barber ?? item.nombre_barbero) || "Sin barbero";
-            const dbAmount = num(item.total);
-            const dbMethod = text(rawMethod);
-
-            return (
-              dbClient === local.client &&
-              dbBarber === local.barber &&
-              dbAmount === local.amount &&
-              dbMethod === local.method
-            );
-          });
-          return !isAlreadyInDb;
-        });
-        if (next.length !== prev.length) {
-          return next;
-        }
-        return prev;
-      });
-    }
-  }, [merged.appointments, localMovements]);
+  }, [merged.appointments, syncingAppointmentIds]);
 
   const [receiptDetails, setReceiptDetails] = useState<{
     client: string;
@@ -293,24 +237,10 @@ export default function InventarioPage() {
   );
 
   const sourceMovements = useMemo(() => {
-    return merged.appointments.map((item, index) => {
-      const appt = mapAppointment(item, index);
-      const localMethod = locallyPaidAppointmentIds[appt.id];
-      if (localMethod) {
-        return {
-          ...appt,
-          status: "Aceptada" as const,
-          method: localMethod
-        };
-      }
-      return appt;
-    });
-  }, [merged.appointments, locallyPaidAppointmentIds]);
+    return merged.appointments.map((item, index) => mapAppointment(item, index));
+  }, [merged.appointments]);
 
-  const movements = useMemo(
-    () => [...localMovements, ...sourceMovements],
-    [localMovements, sourceMovements]
-  );
+  const movements = sourceMovements;
 
   const selectedServicesGrouped = useMemo(() => {
     const counts = new Map<string, number>();
@@ -512,26 +442,11 @@ export default function InventarioPage() {
         }))
       });
 
-      // Crear movimiento optimista en tiempo real para actualizar KPIs e histórico al instante
-      const optimisticMovement: Movement = {
-        id: `sale-${Date.now()}`,
-        client: posClient.trim() || "Cliente mostrador",
-        service: selectedServicesGrouped.map(item => item.name).join(", "),
-        method: posMethod,
-        amount: subtotal,
-        status: "Aceptada",
-        date: dateStr, // "28/05/2026"
-        hour: timeStr,
-        barber: posBarber || "Sin barbero"
-      };
-
-      setLocalMovements(prev => [optimisticMovement, ...prev]);
-
-      // Si había una cita cargada en el checkout, la marcamos como pagada localmente al instante
+      // Registrar que la cita se encuentra en proceso de sincronización en caliente
       if (loadedAppointmentId) {
-        setLocallyPaidAppointmentIds(prev => ({
+        setSyncingAppointmentIds((prev) => ({
           ...prev,
-          [loadedAppointmentId]: posMethod
+          [loadedAppointmentId]: true
         }));
         setLoadedAppointmentId(null);
       }
@@ -565,8 +480,12 @@ export default function InventarioPage() {
       setWhatsappPhone("");
       setShowReceipt(true);
 
-      // Forzar rehidratación desde el servidor en segundo plano
-      refresh().catch(err => console.error("Error al rehidratar el contexto del POS:", err));
+      // Forzar rehidratación desde el servidor de forma síncrona para actualizar datos reales
+      try {
+        await refresh();
+      } catch (err) {
+        console.error("Error al rehidratar el contexto del POS:", err);
+      }
     } catch (err) {
       console.error("Error procesando cobro POS:", err);
       setChargeError(err instanceof Error ? err.message : "Error al procesar el cobro.");
@@ -704,50 +623,70 @@ export default function InventarioPage() {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-[var(--panel-stroke)]/40">
-                  {pendingAppointments.map((appt) => (
-                    <tr
-                      key={appt.id}
-                      className="hover:bg-amber-500/5 transition-colors cursor-pointer group"
-                      onClick={() => {
-                        setPosClient(appt.client);
-                        setPosBarber(appt.barber);
-                        setLoadedAppointmentId(appt.id); // Guardar vinculación de la cita agendada
-                        
-                        let matchedService = services.find(s => s.id === appt.serviceId);
-                        if (!matchedService) {
-                          matchedService = services.find(s => s.name.toLowerCase() === appt.service.toLowerCase());
-                        }
+                  {pendingAppointments.map((appt) => {
+                    const isSyncing = syncingAppointmentIds[appt.id];
+                    return (
+                      <tr
+                        key={appt.id}
+                        className={`transition-colors cursor-pointer group ${isSyncing ? "bg-amber-500/[0.02] cursor-not-allowed opacity-80" : "hover:bg-amber-500/5"}`}
+                        onClick={() => {
+                          if (isSyncing) return;
+                          setPosClient(appt.client);
+                          setPosBarber(appt.barber);
+                          setLoadedAppointmentId(appt.id); // Guardar vinculación de la cita agendada
+                          
+                          let matchedService = services.find(s => s.id === appt.serviceId);
+                          if (!matchedService) {
+                            matchedService = services.find(s => s.name.toLowerCase() === appt.service.toLowerCase());
+                          }
 
-                        if (matchedService) {
-                          setSelectedServiceIds([matchedService.id]);
-                        }
-                      }}
-                    >
-                      <td className="p-3 font-semibold text-[var(--text)] flex items-center gap-2">
-                        <span className="w-6 h-6 rounded-full bg-amber-500/10 border border-amber-500/30 text-amber-500 text-[9px] font-extrabold flex items-center justify-center shrink-0">
-                          {initialsFrom(appt.client)}
-                        </span>
-                        <span className="group-hover:text-amber-500 transition-colors">{appt.client}</span>
-                      </td>
-                      <td className="p-3 text-[var(--text)] font-medium">
-                        {appt.hour}
-                      </td>
-                      <td className="p-3 text-[var(--muted)]">
-                        {appt.service}
-                      </td>
-                      <td className="p-3 text-[var(--muted)]">
-                        {appt.barber}
-                      </td>
-                      <td className="p-3 text-right">
-                        <button
-                          type="button"
-                          className="px-3 py-1.5 bg-amber-500 hover:bg-amber-400 text-black font-extrabold text-[10px] rounded-lg uppercase tracking-wider transition-all active:scale-95 shadow-sm shadow-amber-500/10 cursor-pointer"
-                        >
-                          Cargar Cita ⚡
-                        </button>
-                      </td>
-                    </tr>
-                  ))}
+                          if (matchedService) {
+                            setSelectedServiceIds([matchedService.id]);
+                          }
+                        }}
+                      >
+                        <td className="p-3 font-semibold text-[var(--text)] flex items-center gap-2">
+                          <span className="w-6 h-6 rounded-full bg-amber-500/10 border border-amber-500/30 text-amber-500 text-[9px] font-extrabold flex items-center justify-center shrink-0">
+                            {initialsFrom(appt.client)}
+                          </span>
+                          <span className={`${isSyncing ? "text-amber-500/80" : "group-hover:text-amber-500"} transition-colors`}>{appt.client}</span>
+                          {isSyncing && (
+                            <span className="px-2 py-0.5 rounded-full bg-amber-500/10 border border-amber-500/30 text-amber-500 text-[9px] font-bold animate-pulse">
+                              Cobro enviado (Sincronizando...)
+                            </span>
+                          )}
+                        </td>
+                        <td className="p-3 text-[var(--text)] font-medium">
+                          {appt.hour}
+                        </td>
+                        <td className="p-3 text-[var(--muted)]">
+                          {appt.service}
+                        </td>
+                        <td className="p-3 text-[var(--muted)]">
+                          {appt.barber}
+                        </td>
+                        <td className="p-3 text-right">
+                          {isSyncing ? (
+                            <button
+                              type="button"
+                              disabled
+                              className="px-3 py-1.5 bg-slate-500/20 text-slate-500 border border-slate-500/30 font-extrabold text-[10px] rounded-lg uppercase tracking-wider cursor-not-allowed flex items-center gap-1.5 ml-auto"
+                            >
+                              <span className="w-1.5 h-1.5 rounded-full bg-amber-500 animate-ping" />
+                              Sincronizando...
+                            </button>
+                          ) : (
+                            <button
+                              type="button"
+                              className="px-3 py-1.5 bg-amber-500 hover:bg-amber-400 text-black font-extrabold text-[10px] rounded-lg uppercase tracking-wider transition-all active:scale-95 shadow-sm shadow-amber-500/10 cursor-pointer"
+                            >
+                              Cargar Cita ⚡
+                            </button>
+                          )}
+                        </td>
+                      </tr>
+                    );
+                  })}
                 </tbody>
               </table>
             </div>
