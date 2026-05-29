@@ -182,6 +182,62 @@ export default function InventarioPage() {
     }
   }, [locallyPaidAppointmentIds]);
 
+  // Autolimpieza inteligente de citas cobradas localmente en base al estado real del backend
+  useEffect(() => {
+    if (merged.appointments && Object.keys(locallyPaidAppointmentIds).length > 0) {
+      setLocallyPaidAppointmentIds((prev) => {
+        let hasChanges = false;
+        const next = { ...prev };
+        for (const apptId of Object.keys(next)) {
+          // Buscar si la cita correspondiente en el backend ya viene marcada como pagada
+          const dbAppt = merged.appointments.find((item) => text(item.id) === apptId);
+          if (dbAppt) {
+            const rawMethod = dbAppt.metodo_pago || dbAppt.pago_metodo || dbAppt.metodo || dbAppt.method;
+            const hasPaymentInDb = typeof rawMethod === "string" && rawMethod.trim().length > 0;
+            if (hasPaymentInDb) {
+              delete next[apptId];
+              hasChanges = true;
+            }
+          }
+        }
+        return hasChanges ? next : prev;
+      });
+    }
+  }, [merged.appointments, locallyPaidAppointmentIds]);
+
+  // Autolimpieza inteligente de cobros rápidos mostrador optimistas
+  useEffect(() => {
+    if (merged.appointments && localMovements.length > 0) {
+      setLocalMovements((prev) => {
+        const next = prev.filter((local) => {
+          // Buscamos si hay alguna cita en el backend que coincida con este cobro rápido de mostrador
+          const isAlreadyInDb = merged.appointments.some((item) => {
+            const rawMethod = item.metodo_pago || item.pago_metodo || item.metodo || item.method;
+            const hasPayment = typeof rawMethod === "string" && rawMethod.trim().length > 0;
+            if (!hasPayment) return false;
+
+            const dbClient = text(item.cliente_nombre ?? item.client ?? item.nombre_cliente) || "Cliente";
+            const dbBarber = text(item.barbero_nombre ?? item.barber ?? item.nombre_barbero) || "Sin barbero";
+            const dbAmount = num(item.total);
+            const dbMethod = text(rawMethod);
+
+            return (
+              dbClient === local.client &&
+              dbBarber === local.barber &&
+              dbAmount === local.amount &&
+              dbMethod === local.method
+            );
+          });
+          return !isAlreadyInDb;
+        });
+        if (next.length !== prev.length) {
+          return next;
+        }
+        return prev;
+      });
+    }
+  }, [merged.appointments, localMovements]);
+
   const [receiptDetails, setReceiptDetails] = useState<{
     client: string;
     barber: string;
@@ -509,14 +565,8 @@ export default function InventarioPage() {
       setWhatsappPhone("");
       setShowReceipt(true);
 
-      // Forzar rehidratación desde el servidor en segundo plano y limpiar optimistas
-      try {
-        await refresh();
-        setLocalMovements([]);
-        setLocallyPaidAppointmentIds({});
-      } catch (err) {
-        console.error("Error al rehidratar el contexto del POS:", err);
-      }
+      // Forzar rehidratación desde el servidor en segundo plano
+      refresh().catch(err => console.error("Error al rehidratar el contexto del POS:", err));
     } catch (err) {
       console.error("Error procesando cobro POS:", err);
       setChargeError(err instanceof Error ? err.message : "Error al procesar el cobro.");
