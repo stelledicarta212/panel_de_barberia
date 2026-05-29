@@ -55,9 +55,28 @@ function money2(value: number): string {
 
 function formatDate(value: unknown): string {
   const raw = text(value);
-  const match = raw.match(/^(\d{4})-(\d{2})-(\d{2})/);
-  if (!match) return raw || "-";
-  return `${match[3]}/${match[2]}/${match[1]}`;
+  if (!raw) return "-";
+  try {
+    // Si contiene 'T' o tiene hora completa, lo parseamos respetando la zona horaria del cliente
+    if (raw.includes("T") || (raw.includes(" ") && raw.length > 10)) {
+      const d = new Date(raw);
+      if (!isNaN(d.getTime())) {
+        const yyyy = d.getFullYear();
+        const mm = String(d.getMonth() + 1).padStart(2, "0");
+        const dd = String(d.getDate()).padStart(2, "0");
+        return `${dd}/${mm}/${yyyy}`;
+      }
+    }
+    
+    // Si es una fecha simple YYYY-MM-DD
+    const match = raw.match(/^(\d{4})-(\d{2})-(\d{2})/);
+    if (match) {
+      return `${match[3]}/${match[2]}/${match[1]}`;
+    }
+    return raw;
+  } catch {
+    return raw;
+  }
 }
 
 function formatHour(value: unknown): string {
