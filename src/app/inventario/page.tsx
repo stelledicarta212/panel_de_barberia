@@ -132,7 +132,6 @@ export default function InventarioPage() {
   // Estado para la Tirilla Flotante / Recibo de Éxito
   const [showReceipt, setShowReceipt] = useState(false);
   const [whatsappPhone, setWhatsappPhone] = useState("");
-  const [citasTab, setCitasTab] = useState<"pendientes" | "finalizadas">("pendientes");
   const [receiptDetails, setReceiptDetails] = useState<{
     client: string;
     barber: string;
@@ -490,169 +489,147 @@ export default function InventarioPage() {
           </article>
         </div>
 
-        {/* Citas Agendadas Hoy (Tabbed Layout: Pendientes vs Finalizadas) */}
-        {(pendingAppointments.length > 0 || finishedAppointments.length > 0) && (
-          <div className="ba-card p-5 relative overflow-hidden flex flex-col gap-4">
-            <div className="absolute top-0 left-0 right-0 h-[2px] bg-gradient-to-r from-amber-500 via-yellow-500 to-emerald-500" />
-            
-            <header className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-3">
+        {/* Citas Agendadas Hoy (Pendientes de Cobro) */}
+        {pendingAppointments.length > 0 && (
+          <div className="ba-card p-5 relative overflow-hidden flex flex-col gap-3">
+            <div className="absolute top-0 left-0 right-0 h-[2px] bg-gradient-to-r from-amber-500 to-amber-700" />
+            <header className="flex justify-between items-center">
               <div>
                 <h3 className="text-sm font-bold text-[var(--text)] flex items-center gap-2">
                   <Sparkles size={16} className="text-amber-500 animate-pulse" />
-                  Control de Citas del Día
+                  Citas Agendadas de Hoy Pendientes de Cobro
                 </h3>
                 <p className="text-[11px] text-[var(--muted)] mt-0.5">
-                  Gestiona las citas programadas para la jornada de hoy.
+                  Haz clic en cualquier fila para cargar automáticamente los datos y servicios al POS.
                 </p>
               </div>
-              
-              {/* Tabs Switcher */}
-              <div className="flex bg-[var(--bg-soft)] border border-[var(--panel-stroke)] rounded-xl p-1 shrink-0 gap-1 sm:self-center">
-                <button
-                  type="button"
-                  onClick={() => setCitasTab("pendientes")}
-                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
-                    citasTab === "pendientes"
-                      ? "bg-amber-500 text-black shadow-md shadow-amber-500/10"
-                      : "text-[var(--muted)] hover:text-[var(--text)]"
-                  }`}
-                >
-                  Pendientes ({pendingAppointments.length})
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setCitasTab("finalizadas")}
-                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
-                    citasTab === "finalizadas"
-                      ? "bg-emerald-500 text-black shadow-md shadow-emerald-500/10"
-                      : "text-[var(--muted)] hover:text-[var(--text)]"
-                  }`}
-                >
-                  Cobradas ({finishedAppointments.length})
-                </button>
-              </div>
+              <span className="text-[10px] text-amber-500 font-bold uppercase tracking-wider bg-amber-500/10 border border-amber-500/25 px-2.5 py-1 rounded-full">
+                {pendingAppointments.length} POR COBRAR
+              </span>
             </header>
 
-            {/* List for PENDING appointments */}
-            {citasTab === "pendientes" && (
-              <div className="overflow-x-auto w-full border border-[var(--panel-stroke)] rounded-2xl bg-[var(--bg-soft)]/20">
-                {pendingAppointments.length > 0 ? (
-                  <table className="w-full text-left text-xs border-collapse">
-                    <thead>
-                      <tr className="border-b border-[var(--panel-stroke)] bg-[var(--bg-soft)]/60 text-[var(--muted)] font-bold uppercase tracking-wider text-[10px]">
-                        <th className="p-3">Cliente</th>
-                        <th className="p-3">Hora</th>
-                        <th className="p-3">Servicio</th>
-                        <th className="p-3">Barbero</th>
-                        <th className="p-3 text-right">Acción</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-[var(--panel-stroke)]/40">
-                      {pendingAppointments.map((appt) => (
-                        <tr
-                          key={appt.id}
-                          className="hover:bg-amber-500/5 transition-colors cursor-pointer group"
-                          onClick={() => {
-                            setPosClient(appt.client);
-                            setPosBarber(appt.barber);
-                            
-                            let matchedService = services.find(s => s.id === appt.serviceId);
-                            if (!matchedService) {
-                              matchedService = services.find(s => s.name.toLowerCase() === appt.service.toLowerCase());
-                            }
+            <div className="overflow-x-auto w-full border border-[var(--panel-stroke)] rounded-2xl bg-[var(--bg-soft)]/20">
+              <table className="w-full text-left text-xs border-collapse">
+                <thead>
+                  <tr className="border-b border-[var(--panel-stroke)] bg-[var(--bg-soft)]/60 text-[var(--muted)] font-bold uppercase tracking-wider text-[10px]">
+                    <th className="p-3">Cliente</th>
+                    <th className="p-3">Hora</th>
+                    <th className="p-3">Servicio</th>
+                    <th className="p-3">Barbero</th>
+                    <th className="p-3 text-right">Acción</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-[var(--panel-stroke)]/40">
+                  {pendingAppointments.map((appt) => (
+                    <tr
+                      key={appt.id}
+                      className="hover:bg-amber-500/5 transition-colors cursor-pointer group"
+                      onClick={() => {
+                        setPosClient(appt.client);
+                        setPosBarber(appt.barber);
+                        
+                        let matchedService = services.find(s => s.id === appt.serviceId);
+                        if (!matchedService) {
+                          matchedService = services.find(s => s.name.toLowerCase() === appt.service.toLowerCase());
+                        }
 
-                            if (matchedService) {
-                              setSelectedServiceIds([matchedService.id]);
-                            }
-                          }}
+                        if (matchedService) {
+                          setSelectedServiceIds([matchedService.id]);
+                        }
+                      }}
+                    >
+                      <td className="p-3 font-semibold text-[var(--text)] flex items-center gap-2">
+                        <span className="w-6 h-6 rounded-full bg-amber-500/10 border border-amber-500/30 text-amber-500 text-[9px] font-extrabold flex items-center justify-center shrink-0">
+                          {initialsFrom(appt.client)}
+                        </span>
+                        <span className="group-hover:text-amber-500 transition-colors">{appt.client}</span>
+                      </td>
+                      <td className="p-3 text-[var(--text)] font-medium">
+                        {appt.hour}
+                      </td>
+                      <td className="p-3 text-[var(--muted)]">
+                        {appt.service}
+                      </td>
+                      <td className="p-3 text-[var(--muted)]">
+                        {appt.barber}
+                      </td>
+                      <td className="p-3 text-right">
+                        <button
+                          type="button"
+                          className="px-3 py-1.5 bg-amber-500 hover:bg-amber-400 text-black font-extrabold text-[10px] rounded-lg uppercase tracking-wider transition-all active:scale-95 shadow-sm shadow-amber-500/10 cursor-pointer"
                         >
-                          <td className="p-3 font-semibold text-[var(--text)] flex items-center gap-2">
-                            <span className="w-6 h-6 rounded-full bg-amber-500/10 border border-amber-500/30 text-amber-500 text-[9px] font-extrabold flex items-center justify-center shrink-0">
-                              {initialsFrom(appt.client)}
-                            </span>
-                            <span className="group-hover:text-amber-500 transition-colors">{appt.client}</span>
-                          </td>
-                          <td className="p-3 text-[var(--text)] font-medium">
-                            {appt.hour}
-                          </td>
-                          <td className="p-3 text-[var(--muted)]">
-                            {appt.service}
-                          </td>
-                          <td className="p-3 text-[var(--muted)]">
-                            {appt.barber}
-                          </td>
-                          <td className="p-3 text-right">
-                            <button
-                              type="button"
-                              className="px-3 py-1.5 bg-amber-500 hover:bg-amber-400 text-black font-extrabold text-[10px] rounded-lg uppercase tracking-wider transition-all active:scale-95 shadow-sm shadow-amber-500/10 cursor-pointer"
-                            >
-                              Cargar Cita ⚡
-                            </button>
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                ) : (
-                  <div className="text-center py-10 text-xs text-[var(--muted)] font-medium select-none">
-                    🎉 ¡Al día! No quedan citas programadas pendientes de cobro por hoy.
-                  </div>
-                )}
-              </div>
-            )}
+                          Cargar Cita ⚡
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        )}
 
-            {/* List for FINISHED appointments */}
-            {citasTab === "finalizadas" && (
-              <div className="overflow-x-auto w-full border border-[var(--panel-stroke)] rounded-2xl bg-[var(--bg-soft)]/20">
-                {finishedAppointments.length > 0 ? (
-                  <table className="w-full text-left text-xs border-collapse">
-                    <thead>
-                      <tr className="border-b border-[var(--panel-stroke)] bg-[var(--bg-soft)]/60 text-[var(--muted)] font-bold uppercase tracking-wider text-[10px]">
-                        <th className="p-3">Cliente</th>
-                        <th className="p-3">Hora</th>
-                        <th className="p-3">Servicio</th>
-                        <th className="p-3">Barbero</th>
-                        <th className="p-3 text-right">Estado</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-[var(--panel-stroke)]/40">
-                      {finishedAppointments.map((appt) => (
-                        <tr
-                          key={appt.id}
-                          className="bg-emerald-500/[0.01] hover:bg-emerald-500/[0.03] transition-colors"
-                        >
-                          <td className="p-3 font-semibold text-[var(--text)] flex items-center gap-2">
-                            <span className="w-6 h-6 rounded-full bg-emerald-500/10 border border-emerald-500/30 text-emerald-500 text-[9px] font-extrabold flex items-center justify-center shrink-0">
-                              {initialsFrom(appt.client)}
-                            </span>
-                            <span>{appt.client}</span>
-                          </td>
-                          <td className="p-3 text-[var(--text)] font-medium">
-                            {appt.hour}
-                          </td>
-                          <td className="p-3 text-[var(--muted)]">
-                            {appt.service}
-                          </td>
-                          <td className="p-3 text-[var(--muted)]">
-                            {appt.barber}
-                          </td>
-                          <td className="p-3 text-right select-none">
-                            <span className="inline-flex items-center gap-1 px-3 py-1.5 bg-emerald-950/20 text-emerald-400 font-extrabold text-[10px] rounded-lg uppercase tracking-wider border border-emerald-900/20">
-                              Cobrado ✓ ({appt.method})
-                            </span>
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                ) : (
-                  <div className="text-center py-10 text-xs text-[var(--muted)] font-medium select-none">
-                    Aún no se han cobrado citas agendadas el día de hoy.
-                  </div>
-                )}
+        {/* Citas Agendadas Hoy Cobradas / Finalizadas */}
+        {finishedAppointments.length > 0 && (
+          <div className="ba-card p-5 relative overflow-hidden flex flex-col gap-3">
+            <div className="absolute top-0 left-0 right-0 h-[2px] bg-gradient-to-r from-emerald-500 to-emerald-700" />
+            <header className="flex justify-between items-center">
+              <div>
+                <h3 className="text-sm font-bold text-[var(--text)] flex items-center gap-2">
+                  <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 shrink-0 animate-pulse" />
+                  Citas Cobradas / Finalizadas de Hoy
+                </h3>
+                <p className="text-[11px] text-[var(--muted)] mt-0.5">
+                  Registro de las citas programadas de hoy que ya han sido liquidadas.
+                </p>
               </div>
-            )}
+              <span className="text-[10px] text-emerald-500 font-bold uppercase tracking-wider bg-emerald-500/10 border border-emerald-500/25 px-2.5 py-1 rounded-full">
+                {finishedAppointments.length} COBRADAS
+              </span>
+            </header>
 
+            <div className="overflow-x-auto w-full border border-[var(--panel-stroke)] rounded-2xl bg-[var(--bg-soft)]/20">
+              <table className="w-full text-left text-xs border-collapse">
+                <thead>
+                  <tr className="border-b border-[var(--panel-stroke)] bg-[var(--bg-soft)]/60 text-[var(--muted)] font-bold uppercase tracking-wider text-[10px]">
+                    <th className="p-3">Cliente</th>
+                    <th className="p-3">Hora</th>
+                    <th className="p-3">Servicio</th>
+                    <th className="p-3">Barbero</th>
+                    <th className="p-3 text-right">Estado</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-[var(--panel-stroke)]/40">
+                  {finishedAppointments.map((appt) => (
+                    <tr
+                      key={appt.id}
+                      className="bg-emerald-500/[0.01] hover:bg-emerald-500/[0.02] transition-colors"
+                    >
+                      <td className="p-3 font-semibold text-[var(--text)] flex items-center gap-2">
+                        <span className="w-6 h-6 rounded-full bg-emerald-500/10 border border-emerald-500/30 text-emerald-500 text-[9px] font-extrabold flex items-center justify-center shrink-0">
+                          {initialsFrom(appt.client)}
+                        </span>
+                        <span>{appt.client}</span>
+                      </td>
+                      <td className="p-3 text-[var(--text)] font-medium">
+                        {appt.hour}
+                      </td>
+                      <td className="p-3 text-[var(--muted)]">
+                        {appt.service}
+                      </td>
+                      <td className="p-3 text-[var(--muted)]">
+                        {appt.barber}
+                      </td>
+                      <td className="p-3 text-right select-none">
+                        <span className="inline-flex items-center gap-1 px-3 py-1.5 bg-emerald-950/20 text-emerald-400 font-extrabold text-[10px] rounded-lg uppercase tracking-wider border border-emerald-900/20">
+                          Cobrado ✓ ({appt.method})
+                        </span>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
           </div>
         )}
 
