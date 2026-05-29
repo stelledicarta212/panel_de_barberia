@@ -210,10 +210,45 @@ export default function CitasPage() {
   });
   const serviceOptions = useMemo(() => mapServiceOptions(merged.services), [merged.services]);
   const barberOptions = useMemo(() => mapBarberOptions(merged.barbers), [merged.barbers]);
-  const hourOptions = useMemo(
-    () => ["09:00", "09:30", "10:00", "10:30", "11:00", "11:30", "12:00", "14:00", "15:00", "16:00", "17:00", "17:30", "18:00", "18:30", "19:00", "19:30", "20:00", "20:30", "21:00"],
-    []
-  );
+  const agendaHours = useMemo(() => {
+    const defaultStart = 9; // 9:00 AM
+    const defaultEnd = 21;  // 9:00 PM
+    
+    let startHour = defaultStart;
+    let endHour = defaultEnd;
+    
+    if (selectedDay && merged.hours && merged.hours.length > 0) {
+      const selectedDate = new Date(currentMonth.getFullYear(), currentMonth.getMonth(), selectedDay);
+      const dayOfWeekIndex = (selectedDate.getDay() + 6) % 7; // 0 = Lunes, 6 = Domingo
+      const DAY_NAMES = ["lunes", "martes", "miercoles", "jueves", "viernes", "sabado", "domingo"];
+      const dayName = DAY_NAMES[dayOfWeekIndex];
+      
+      const config = merged.hours.find((h: any) => {
+        const diaVal = String(h.dia || h.day || "").toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim();
+        return diaVal === dayName || diaVal.startsWith(dayName.slice(0, 3));
+      });
+      
+      if (config && config.activo !== false) {
+        const apStr = String(config.hora_apertura || config.opening_time || "09:00");
+        const ciStr = String(config.hora_cierre || config.closing_time || "21:00");
+        
+        const apMatch = apStr.match(/^(\d{1,2})/);
+        const ciMatch = ciStr.match(/^(\d{1,2})/);
+        
+        if (apMatch) startHour = Math.max(0, Math.min(23, Number(apMatch[1])));
+        if (ciMatch) endHour = Math.max(0, Math.min(23, Number(ciMatch[1])));
+      }
+    }
+    
+    const slots: string[] = [];
+    for (let h = startHour; h <= endHour; h += 1) {
+      slots.push(`${String(h).padStart(2, "0")}:00`);
+      if (h !== endHour) slots.push(`${String(h).padStart(2, "0")}:30`);
+    }
+    return slots;
+  }, [selectedDay, currentMonth, merged.hours]);
+
+  const hourOptions = useMemo(() => agendaHours, [agendaHours]);
   const [selectedServiceIds, setSelectedServiceIds] = useState<string[]>([]);
   const [created, setCreated] = useState<CreatedAppointment | null>(null);
   const [editingRequestId, setEditingRequestId] = useState<string | null>(null);
@@ -446,14 +481,7 @@ export default function CitasPage() {
     }
     return map;
   }, [barberOptions, barberOffDays, boardDateStr]);
-  const agendaHours = useMemo(() => {
-    const slots: string[] = [];
-    for (let h = 9; h <= 21; h += 1) {
-      slots.push(`${String(h).padStart(2, "0")}:00`);
-      if (h !== 21) slots.push(`${String(h).padStart(2, "0")}:30`);
-    }
-    return slots;
-  }, []);
+
   const dayRequests = useMemo(
     () =>
       requests
