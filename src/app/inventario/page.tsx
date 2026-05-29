@@ -282,7 +282,7 @@ export default function InventarioPage() {
   const pendingAmount = Math.max(0, subtotal - receivedAmount);
   const canCharge = subtotal > 0 && (posMethod !== "Efectivo" || receivedAmount >= subtotal);
 
-  const todayMovements = useMemo(() => {
+  const posSummary = useMemo(() => {
     const now = new Date();
     const yyyy = now.getFullYear();
     const mm = String(now.getMonth() + 1).padStart(2, "0");
@@ -290,90 +290,113 @@ export default function InventarioPage() {
     const todayStr = `${yyyy}-${mm}-${dd}`;
     const formattedToday = `${dd}/${mm}/${yyyy}`;
 
-    return movements.filter((m) => {
+    // 1. Movimientos del día
+    const todayMovements = movements.filter((m) => {
       const mDate = text(m.date);
       return mDate === formattedToday || mDate === todayStr;
     });
-  }, [movements]);
 
-  const paidMovements = useMemo(() => todayMovements.filter((item) => item.status !== "Pendiente"), [todayMovements]);
-  const salesDay = useMemo(() => paidMovements.reduce((acc, item) => acc + item.amount, 0), [paidMovements]);
-  const cashDay = useMemo(() => paidMovements
-    .filter((item) => item.method?.toLowerCase() === "efectivo")
-    .reduce((acc, item) => acc + item.amount, 0), [paidMovements]);
-  const digitalPayments = useMemo(() => paidMovements.filter((item) => item.method?.toLowerCase() !== "efectivo").length, [paidMovements]);
-  
-  // Total agendado/ingresado hoy (cobrados + pendientes)
-  const totalAgendadoHoy = useMemo(() => todayMovements.reduce((acc, item) => acc + item.amount, 0), [todayMovements]);
-  
-  // Total pendiente de cobro hoy
-  const totalPendienteHoy = useMemo(() => todayMovements.filter((item) => item.status === "Pendiente").reduce((acc, item) => acc + item.amount, 0), [todayMovements]);
+    // 2. Movimientos cobrados del día
+    const paidMovements = todayMovements.filter((item) => item.status !== "Pendiente");
 
-  // Filtrado robusto de citas del día pendientes por cobrar (citas programadas que no tienen pago)
-  const pendingAppointments = useMemo(() => {
-    const now = new Date();
-    const yyyy = now.getFullYear();
-    const mm = String(now.getMonth() + 1).padStart(2, "0");
-    const dd = String(now.getDate()).padStart(2, "0");
-    const todayStr = `${yyyy}-${mm}-${dd}`;
-    const formattedToday = `${dd}/${mm}/${yyyy}`;
+    // 3. Monto total cobrado (Ventas del día)
+    const salesDay = paidMovements.reduce((acc, item) => acc + item.amount, 0);
 
-    return movements.filter((m) => {
-      // 1. Debe estar pendiente de pago
+    // 4. Efectivo en caja
+    const cashDay = paidMovements
+      .filter((item) => item.method?.toLowerCase() === "efectivo")
+      .reduce((acc, item) => acc + item.amount, 0);
+
+    // 5. Pagos digitales (monto total cobrado digital)
+    const digitalPaymentsAmount = paidMovements
+      .filter((item) => item.method?.toLowerCase() !== "efectivo")
+      .reduce((acc, item) => acc + item.amount, 0);
+
+    // 6. Conteo de pagos digitales y porcentaje
+    const digitalPaymentsCount = paidMovements.filter((item) => item.method?.toLowerCase() !== "efectivo").length;
+    const totalPaymentsCount = paidMovements.length;
+    const digitalPercentage = totalPaymentsCount > 0 
+      ? Math.round((digitalPaymentsCount / totalPaymentsCount) * 100) 
+      : 0;
+
+    // 7. Total agendado hoy
+    const totalAgendadoHoy = todayMovements.reduce((acc, item) => acc + item.amount, 0);
+
+    // 8. Total pendiente de cobro hoy
+    const totalPendienteHoy = todayMovements.filter((item) => item.status === "Pendiente").reduce((acc, item) => acc + item.amount, 0);
+
+    // 9. Citas agendadas de hoy pendientes por cobrar (citas originales de hoy)
+    const pendingAppointments = todayMovements.filter((m) => {
       const isPending = m.status === "Pendiente";
-      
-      // 2. Debe ser del día de hoy
-      const apptDate = text(m.date);
-      const isToday = apptDate === formattedToday || apptDate === todayStr;
-
-      // 3. Debe ser una cita agendada original (no un cobro local directo)
       const isSourceAppointment = m.id.startsWith("cita-") || !isNaN(Number(m.id));
-
-      return isPending && isToday && isSourceAppointment;
+      return isPending && isSourceAppointment;
     });
-  }, [movements]);
 
-  // Citas agendadas de hoy ya cobradas / finalizadas
-  const finishedAppointments = useMemo(() => {
-    const now = new Date();
-    const yyyy = now.getFullYear();
-    const mm = String(now.getMonth() + 1).padStart(2, "0");
-    const dd = String(now.getDate()).padStart(2, "0");
-    const todayStr = `${yyyy}-${mm}-${dd}`;
-    const formattedToday = `${dd}/${mm}/${yyyy}`;
-
-    return movements.filter((m) => {
-      // 1. Debe estar cobrada
+    // 10. Citas agendadas de hoy cobradas / finalizadas (citas originales de hoy)
+    const finishedAppointments = todayMovements.filter((m) => {
       const isFinished = m.status !== "Pendiente";
-      
-      // 2. Debe ser del día de hoy
-      const apptDate = text(m.date);
-      const isToday = apptDate === formattedToday || apptDate === todayStr;
-
-      // 3. Debe ser una cita agendada original (no un cobro local directo)
       const isSourceAppointment = m.id.startsWith("cita-") || !isNaN(Number(m.id));
-
-      return isFinished && isToday && isSourceAppointment;
+      return isFinished && isSourceAppointment;
     });
-  }, [movements]);
 
-  const closeRows = useMemo(() => {
-    const grouped = new Map<string, { cuts: number; total: number; pending: number }>();
-    for (const item of todayMovements) {
-      const current = grouped.get(item.barber) ?? { cuts: 0, total: 0, pending: 0 };
-      current.cuts += 1;
-      if (item.status === "Pendiente") current.pending += item.amount;
-      else current.total += item.amount;
-      grouped.set(item.barber, current);
+    // 11. Cierre por barbero
+    const groupedBarbers = new Map<string, { cuts: number; total: number; pending: number }>();
+    // Inicializar con los barberos registrados de la barbería para que no se pierdan aunque no tengan cortes
+    for (const b of barbers) {
+      groupedBarbers.set(b.name, { cuts: 0, total: 0, pending: 0 });
     }
-    return Array.from(grouped.entries()).map(([barber, row]) => ({
+    
+    // Agrupar
+    for (const item of todayMovements) {
+      const barberName = item.barber || "Sin barbero";
+      const current = groupedBarbers.get(barberName) ?? { cuts: 0, total: 0, pending: 0 };
+      
+      if (item.status !== "Pendiente") {
+        current.cuts += 1;
+        current.total += item.amount;
+      } else {
+        current.pending += item.amount;
+      }
+      groupedBarbers.set(barberName, current);
+    }
+    
+    const closeRows = Array.from(groupedBarbers.entries()).map(([barber, row]) => ({
       barber,
       cuts: row.cuts,
       total: row.total,
       pending: row.pending,
       ticketAvg: row.cuts ? row.total / row.cuts : 0
     }));
-  }, [todayMovements]);
+
+    return {
+      todayMovements,
+      paidMovements,
+      salesDay,
+      cashDay,
+      digitalPaymentsAmount,
+      digitalPaymentsCount,
+      digitalPercentage,
+      totalAgendadoHoy,
+      totalPendienteHoy,
+      pendingAppointments,
+      finishedAppointments,
+      closeRows
+    };
+  }, [movements, barbers]);
+
+  // Desestructuración segura del sumario de verdad única para mantener compatibilidad
+  const {
+    todayMovements,
+    paidMovements,
+    salesDay,
+    cashDay,
+    digitalPercentage,
+    totalAgendadoHoy,
+    totalPendienteHoy,
+    pendingAppointments,
+    finishedAppointments,
+    closeRows
+  } = posSummary;
 
   const handleChargeNow = async () => {
     if (!canCharge || charging) return;
@@ -486,8 +509,14 @@ export default function InventarioPage() {
       setWhatsappPhone("");
       setShowReceipt(true);
 
-      // Forzar rehidratación desde el servidor en segundo plano
-      refresh().catch(err => console.error("Error refreshing background context", err));
+      // Forzar rehidratación desde el servidor en segundo plano y limpiar optimistas
+      try {
+        await refresh();
+        setLocalMovements([]);
+        setLocallyPaidAppointmentIds({});
+      } catch (err) {
+        console.error("Error al rehidratar el contexto del POS:", err);
+      }
     } catch (err) {
       console.error("Error procesando cobro POS:", err);
       setChargeError(err instanceof Error ? err.message : "Error al procesar el cobro.");
@@ -569,7 +598,7 @@ export default function InventarioPage() {
             </header>
             <strong className="text-2xl font-bold text-[var(--text)] tracking-tight">{paidMovements.length}</strong>
             <div className="text-[10px] text-[var(--muted)] mt-1">
-              {movements.filter((item) => item.status === "Pendiente").length} pendientes por cobrar
+              {pendingAppointments.length} pendientes por cobrar hoy
             </div>
           </article>
 
@@ -579,7 +608,7 @@ export default function InventarioPage() {
               <CreditCard size={14} className="text-amber-500" />
             </header>
             <strong className="text-2xl font-bold text-[var(--text)] tracking-tight">
-              {paidMovements.length ? `${Math.round((digitalPayments / paidMovements.length) * 100)}%` : "0%"}
+              {`${digitalPercentage}%`}
             </strong>
             <div className="text-[10px] text-[var(--muted)] mt-1">Tarjeta o Transferencia</div>
           </article>
@@ -1699,9 +1728,8 @@ export default function InventarioPage() {
                       .map(r => `• *${r.barber}*: ${r.cuts} cortes | $${Math.round(r.total).toLocaleString()}`)
                       .join("\n");
                     
-                    const pendingSum = movements.filter(m => m.status === "Pendiente").reduce((acc, m) => acc + m.amount, 0);
-                    
-                    const textMessage = `💈 *BARBERÍA ${merged.biz_name.toUpperCase()}* 💈\n================================\n🔒 *REPORTE DE CIERRE DE CAJA (Z)* 🔒\n--------------------------------\n📅 *Fecha Cierre:* ${new Date().toLocaleDateString("es-CO")}\n⏰ *Hora Cierre:* ${new Date().toLocaleTimeString("es-CO", { hour: "2-digit", minute: "2-digit" })}\n================================\n💰 *VENTAS TOTALES:* $${Math.round(salesDay).toLocaleString()}\n💵 *Efectivo en Caja:* $${Math.round(cashDay).toLocaleString()}\n💳 *Pago Digital:* $${Math.round(salesDay - cashDay).toLocaleString()}\n--------------------------------\n🛍️ *Servicios Realizados:* ${paidMovements.length}\n⏳ *Servicios Pendientes:* ${movements.filter(m => m.status === "Pendiente").length} ($${Math.round(pendingSum).toLocaleString()})\n================================\n💈 *VENTAS POR BARBERO:*\n${barbersText}\n================================\n¡Reporte Z de Caja generado con éxito! 🔥🔒`;
+                    // Consumir el estado unificado posSummary para evitar discrepancias
+                    const textMessage = `💈 *BARBERÍA ${merged.biz_name.toUpperCase()}* 💈\n================================\n🔒 *REPORTE DE CIERRE DE CAJA (Z)* 🔒\n--------------------------------\n📅 *Fecha Cierre:* ${new Date().toLocaleDateString("es-CO")}\n⏰ *Hora Cierre:* ${new Date().toLocaleTimeString("es-CO", { hour: "2-digit", minute: "2-digit" })}\n================================\n💰 *VENTAS TOTALES:* $${Math.round(salesDay).toLocaleString()}\n💵 *Efectivo en Caja:* $${Math.round(cashDay).toLocaleString()}\n💳 *Pago Digital:* $${Math.round(salesDay - cashDay).toLocaleString()}\n--------------------------------\n🛍️ *Servicios Realizados:* ${paidMovements.length}\n⏳ *Servicios Pendientes:* ${pendingAppointments.length} ($${Math.round(totalPendienteHoy).toLocaleString()})\n================================\n💈 *VENTAS POR BARBERO:*\n${barbersText}\n================================\n¡Reporte Z de Caja generado con éxito! 🔥🔒`;
                     
                     const cleanPhone = zReportWhatsappPhone.replace(/\D/g, "");
                     let targetPhone = cleanPhone;
