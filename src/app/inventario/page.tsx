@@ -131,6 +131,7 @@ export default function InventarioPage() {
 
   // Estado para la Tirilla Flotante / Recibo de Éxito
   const [showReceipt, setShowReceipt] = useState(false);
+  const [whatsappPhone, setWhatsappPhone] = useState("");
   const [receiptDetails, setReceiptDetails] = useState<{
     client: string;
     barber: string;
@@ -333,7 +334,27 @@ export default function InventarioPage() {
       setPosClient("");
       setPosBarber("");
 
-      // Activar el modal de la tirilla flotante
+      // Activar el modal de la tirilla flotante con pitido electrónico
+      try {
+        const AudioCtx = window.AudioContext || (window as any).webkitAudioContext;
+        if (AudioCtx) {
+          const ctx = new AudioCtx();
+          const osc = ctx.createOscillator();
+          const gain = ctx.createGain();
+          osc.type = "sine";
+          osc.frequency.setValueAtTime(1400, ctx.currentTime);
+          gain.gain.setValueAtTime(0.12, ctx.currentTime);
+          gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.15);
+          osc.connect(gain);
+          gain.connect(ctx.destination);
+          osc.start();
+          osc.stop(ctx.currentTime + 0.15);
+        }
+      } catch (e) {
+        console.warn("PITIDO POS audio error:", e);
+      }
+
+      setWhatsappPhone("");
       setShowReceipt(true);
 
       // Forzar rehidratación desde el servidor de forma inmediata
@@ -1143,91 +1164,198 @@ export default function InventarioPage() {
 
       {/* TIRILLA FLOTANTE MODAL (RECIBO DE VENTA) */}
       {showReceipt && receiptDetails && (
-        <div className="ba-pos-receipt-modal" onClick={() => setShowReceipt(false)}>
-          <div className="ba-pos-receipt-slip text-[var(--text)]" onClick={(e) => e.stopPropagation()}>
-            <header className="border-b border-dashed border-[var(--panel-stroke)] pb-2 flex justify-between items-center">
-              <div className="flex items-center gap-1.5">
-                <div className="w-5 h-5 rounded-full bg-emerald-500 text-black flex items-center justify-center font-bold text-xs shrink-0">
+        <div className="ba-pos-receipt-modal animate-fade-in" onClick={() => setShowReceipt(false)}>
+          {/* Virtual Metal Ejection Slot */}
+          <div className="ba-pos-printer-slot" onClick={(e) => e.stopPropagation()} />
+          
+          <div className="ba-pos-receipt-slip select-text text-slate-900" onClick={(e) => e.stopPropagation()}>
+            <header>
+              <div className="flex items-center gap-1">
+                <span className="w-3.5 h-3.5 rounded-full bg-emerald-600 text-white flex items-center justify-center font-bold text-[9px] select-none shrink-0">
                   ✓
-                </div>
-                <h3 className="font-extrabold text-xs uppercase tracking-wider text-[var(--text)]">Cobro Exitoso</h3>
+                </span>
+                <h3>Cobro Exitoso</h3>
               </div>
               <button 
                 type="button" 
                 onClick={() => setShowReceipt(false)}
                 aria-label="Cerrar"
-                className="w-5 h-5 rounded bg-[var(--bg-soft)] border border-[var(--panel-stroke)] hover:bg-[var(--panel)] text-[var(--muted)] hover:text-[var(--text)] flex items-center justify-center text-xs cursor-pointer transition-colors"
               >
                 <X size={10} />
               </button>
             </header>
 
-            <div className="text-center py-2 flex flex-col gap-0.5 border-b border-dashed border-[var(--panel-stroke)]">
-              <strong className="text-sm font-bold text-amber-500 uppercase tracking-widest">{merged.biz_name}</strong>
-              <p className="ba-pos-receipt-subtitle text-[10px]">{merged.address}</p>
-              <div className="flex justify-between items-center text-[9px] text-[var(--muted)] mt-1.5 px-1">
+            <div className="text-center py-1 flex flex-col gap-0.5">
+              <strong className="text-sm font-extrabold uppercase tracking-wider">{merged.biz_name || "Barber Agency"}</strong>
+              <p className="ba-pos-receipt-subtitle select-none">{merged.address || "Local Premium"}</p>
+              
+              <div className="text-[7px] text-slate-500 font-bold uppercase select-none mt-2">
+                ================================
+              </div>
+              <div className="flex justify-between items-center text-[9px] text-slate-600 px-1 font-semibold">
                 <span>Fecha: {receiptDetails.date}</span>
                 <span>Hora: {receiptDetails.hour}</span>
+              </div>
+              <div className="text-[7px] text-slate-500 font-bold uppercase select-none">
+                ================================
               </div>
             </div>
 
             <div className="py-1">
-              <p className="text-[9px] font-bold text-[var(--muted)] uppercase tracking-wider mb-1 px-1">Resumen de Consumo</p>
+              <p className="text-[8px] font-bold text-slate-500 uppercase tracking-wider mb-2 px-1 select-none">Resumen de Consumo</p>
               <div className="ba-pos-receipt-rows">
                 {receiptDetails.services.map((s, idx) => (
                   <p key={idx} className="flex justify-between text-xs my-0.5">
-                    <span className="text-[var(--muted)]">
-                      {s.name} <strong className="text-[var(--text)] font-semibold">x{s.quantity}</strong>
+                    <span className="text-slate-700">
+                      {s.name} <strong className="text-slate-900 font-bold font-mono">x{s.quantity}</strong>
                     </span>
-                    <strong className="text-[var(--text)]">{money(s.totalAmount)}</strong>
+                    <strong className="text-slate-900 font-mono font-bold">{money(s.totalAmount)}</strong>
                   </p>
                 ))}
                 
-                <p className="is-total flex justify-between text-xs pt-2 mt-2 border-t border-dashed border-[var(--panel-stroke)] text-amber-500">
-                  <span>Total</span>
-                  <strong className="font-extrabold">{money(receiptDetails.total)}</strong>
+                <p className="is-total flex justify-between text-xs pt-2 mt-2">
+                  <span>TOTAL COBRADO</span>
+                  <strong className="font-extrabold font-mono">{money(receiptDetails.total)}</strong>
                 </p>
               </div>
             </div>
 
-            <div className="p-3 bg-[var(--bg-soft)]/40 border border-[var(--panel-stroke)] rounded-xl text-[10px] text-[var(--muted)] flex flex-col gap-1">
+            {/* Metadatos transaccionales */}
+            <div className="p-3 bg-slate-50 border border-slate-200 rounded-xl text-[10px] text-slate-600 flex flex-col gap-1.5 select-none">
               <div className="flex justify-between">
                 <span>Cliente:</span>
-                <strong className="text-[var(--text)]">{receiptDetails.client}</strong>
+                <strong className="text-slate-800 font-bold">{receiptDetails.client}</strong>
               </div>
               <div className="flex justify-between">
                 <span>Atendido por:</span>
-                <strong className="text-[var(--text)]">{receiptDetails.barber}</strong>
+                <strong className="text-slate-800 font-bold">{receiptDetails.barber}</strong>
               </div>
               <div className="flex justify-between">
                 <span>Método de Pago:</span>
-                <strong className="text-[var(--text)]">{receiptDetails.method}</strong>
+                <strong className="text-slate-800 font-bold">{receiptDetails.method}</strong>
               </div>
               {receiptDetails.method === "Efectivo" && (
                 <>
-                  <div className="flex justify-between border-t border-[var(--panel-stroke)]/40 pt-1 mt-1">
+                  <div className="flex justify-between border-t border-slate-200/60 pt-1.5 mt-0.5">
                     <span>Efectivo Recibido:</span>
-                    <strong className="text-[var(--text)]">{money(receiptDetails.received)}</strong>
+                    <strong className="text-slate-800 font-bold font-mono">{money(receiptDetails.received)}</strong>
                   </div>
-                  <div className="flex justify-between text-emerald-500 font-semibold">
+                  <div className="flex justify-between text-emerald-700 font-bold">
                     <span>Vueltas (Cambio):</span>
-                    <strong className="font-bold">{money(receiptDetails.change)}</strong>
+                    <strong className="font-extrabold font-mono">{money(receiptDetails.change)}</strong>
                   </div>
                 </>
               )}
             </div>
 
-            <footer className="mt-2 flex gap-2 justify-end border-t border-dashed border-[var(--panel-stroke)] pt-3">
+            {/* WhatsApp invoice share drawer (Interactive) */}
+            <div className="ba-pos-whatsapp-box mt-3.5 p-3 bg-emerald-50 border border-emerald-200 rounded-xl flex flex-col gap-2 shrink-0 select-none">
+              <div className="flex items-center gap-1 text-[10px] font-bold text-emerald-800 uppercase tracking-wider">
+                <span>💬 Compartir Ticket Digital</span>
+              </div>
+              <div className="flex gap-1.5">
+                <div className="relative flex-1">
+                  <span className="absolute inset-y-0 left-0 pl-2.5 flex items-center text-[10px] font-bold text-emerald-600">
+                    +57
+                  </span>
+                  <input
+                    type="tel"
+                    maxLength={10}
+                    className="w-full bg-white border border-emerald-300 text-emerald-950 rounded-lg pl-9 pr-2 py-1.5 text-xs font-mono font-bold focus:outline-none focus:ring-1 focus:ring-emerald-500"
+                    placeholder="WhatsApp Celular"
+                    value={whatsappPhone}
+                    onChange={(e) => setWhatsappPhone(e.target.value.replace(/\D/g, ""))}
+                  />
+                </div>
+                <button
+                  type="button"
+                  onClick={() => {
+                    const servicesText = receiptDetails.services
+                      .map(s => `• *${s.name}* x${s.quantity} (_$${Math.round(s.totalAmount).toLocaleString()}_)`)
+                      .join("\n");
+                    const totalText = `*$${Math.round(receiptDetails.total).toLocaleString()}*`;
+                    const changeText = receiptDetails.method === "Efectivo" 
+                      ? `\n💵 *Recibido:* $${Math.round(receiptDetails.received).toLocaleString()}\n💵 *Vueltas:* $${Math.round(receiptDetails.change).toLocaleString()}`
+                      : "";
+                    
+                    const textMessage = `💈 *BARBERÍA ${merged.biz_name.toUpperCase()}* 💈\n================================\n🧾 *COMPROBANTE DE COMPRA POS*\n--------------------------------\n📅 *Fecha:* ${receiptDetails.date}\n⏰ *Hora:* ${receiptDetails.hour}\n👤 *Cliente:* ${receiptDetails.client}\n✂️ *Atendido por:* ${receiptDetails.barber}\n💳 *Método de Pago:* ${receiptDetails.method}\n================================\n🛍️ *SERVICIOS:*\n${servicesText}\n--------------------------------\n💰 *TOTAL PAGADO:* ${totalText}${changeText}\n================================\n¡Gracias por tu visita! Te esperamos pronto. ✂️🔥`;
+                    
+                    const cleanPhone = whatsappPhone.replace(/\D/g, "");
+                    let targetPhone = cleanPhone;
+                    if (cleanPhone.length === 10) {
+                      targetPhone = "57" + cleanPhone;
+                    }
+                    
+                    const waUrl = `https://wa.me/${targetPhone}?text=${encodeURIComponent(textMessage)}`;
+                    window.open(waUrl, "_blank");
+                  }}
+                  disabled={whatsappPhone.length < 10}
+                  className={`px-3 py-1.5 font-bold text-xs rounded-lg transition-all active:scale-95 flex items-center justify-center shrink-0 cursor-pointer ${
+                    whatsappPhone.length === 10
+                      ? "bg-emerald-600 hover:bg-emerald-500 text-white shadow-sm shadow-emerald-600/10"
+                      : "bg-emerald-200 text-emerald-400 cursor-not-allowed"
+                  }`}
+                >
+                  Enviar
+                </button>
+              </div>
+            </div>
+
+            {/* Simulated Printed Barcode */}
+            <div className="flex flex-col items-center justify-center my-3.5 gap-1 shrink-0 select-none">
+              <svg className="w-48 h-6 text-slate-800" viewBox="0 0 100 20" preserveAspectRatio="none">
+                <rect x="2" width="2" height="20" fill="currentColor"/>
+                <rect x="6" width="1" height="20" fill="currentColor"/>
+                <rect x="8" width="3" height="20" fill="currentColor"/>
+                <rect x="13" width="1" height="20" fill="currentColor"/>
+                <rect x="15" width="2" height="20" fill="currentColor"/>
+                <rect x="18" width="4" height="20" fill="currentColor"/>
+                <rect x="23" width="1" height="20" fill="currentColor"/>
+                <rect x="25" width="2" height="20" fill="currentColor"/>
+                <rect x="28" width="3" height="20" fill="currentColor"/>
+                <rect x="33" width="1" height="20" fill="currentColor"/>
+                <rect x="35" width="2" height="20" fill="currentColor"/>
+                <rect x="38" width="4" height="20" fill="currentColor"/>
+                <rect x="43" width="1" height="20" fill="currentColor"/>
+                <rect x="45" width="2" height="20" fill="currentColor"/>
+                <rect x="48" width="3" height="20" fill="currentColor"/>
+                <rect x="53" width="1" height="20" fill="currentColor"/>
+                <rect x="55" width="2" height="20" fill="currentColor"/>
+                <rect x="58" width="4" height="20" fill="currentColor"/>
+                <rect x="63" width="1" height="20" fill="currentColor"/>
+                <rect x="65" width="2" height="20" fill="currentColor"/>
+                <rect x="68" width="3" height="20" fill="currentColor"/>
+                <rect x="73" width="1" height="20" fill="currentColor"/>
+                <rect x="75" width="2" height="20" fill="currentColor"/>
+                <rect x="78" width="4" height="20" fill="currentColor"/>
+                <rect x="83" width="1" height="20" fill="currentColor"/>
+                <rect x="86" width="2" height="20" fill="currentColor"/>
+                <rect x="89" width="3" height="20" fill="currentColor"/>
+                <rect x="94" width="2" height="20" fill="currentColor"/>
+              </svg>
+              <span className="text-[7px] font-mono tracking-[4px] text-slate-500 uppercase">
+                0185{receiptDetails.date.replace(/\//g, "")}
+              </span>
+            </div>
+
+            <div className="text-center text-[9px] text-slate-500 font-bold select-none leading-none">
+              ¡Gracias por tu preferencia!
+            </div>
+            <div className="text-center text-[7px] text-slate-400 font-bold select-none leading-none mt-1">
+              Software BarberAgency POS v1.0
+            </div>
+
+            <footer>
               <button
                 type="button"
-                className="px-3 py-1.5 border border-[var(--panel-stroke)] hover:border-gray-500 bg-[var(--bg-soft)] text-xs text-[var(--text)] rounded-xl font-bold transition-all active:scale-95 cursor-pointer"
+                className="px-3.5 py-1.5 border border-slate-300 hover:border-slate-400 bg-slate-50 hover:bg-slate-100 text-xs text-slate-700 rounded-xl font-bold transition-all active:scale-95 cursor-pointer select-none"
                 onClick={() => setShowReceipt(false)}
               >
                 Cerrar
               </button>
               <button
                 type="button"
-                className="px-3 py-1.5 bg-gradient-to-r from-amber-500 to-amber-700 hover:from-amber-400 hover:to-amber-600 text-black text-xs font-extrabold rounded-xl transition-all active:scale-95 shadow-sm shadow-amber-500/10 cursor-pointer flex items-center gap-1"
+                className="px-3.5 py-1.5 bg-gradient-to-r from-amber-500 to-amber-700 hover:from-amber-400 hover:to-amber-600 text-black text-xs font-extrabold rounded-xl transition-all active:scale-95 shadow-sm shadow-amber-500/10 cursor-pointer flex items-center gap-1 select-none"
                 onClick={() => {
                   if (typeof window !== "undefined") {
                     window.print();
