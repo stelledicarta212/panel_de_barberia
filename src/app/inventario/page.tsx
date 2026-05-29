@@ -37,7 +37,8 @@ type Movement = {
 };
 
 function text(value: unknown): string {
-  return typeof value === "string" ? value.trim() : "";
+  if (value === null || value === undefined) return "";
+  return String(value).trim();
 }
 
 function num(value: unknown): number {
@@ -435,7 +436,9 @@ export default function InventarioPage() {
           amount: item.amount || 0,
           quantity: item.quantity || 1
         })),
-        cita_id: (loadedAppointmentId && !loadedAppointmentId.startsWith("cita-")) ? loadedAppointmentId : undefined
+        cita_id: (loadedAppointmentId && !loadedAppointmentId.startsWith("cita-"))
+          ? (isNaN(Number(loadedAppointmentId)) ? loadedAppointmentId : Number(loadedAppointmentId))
+          : undefined
       };
 
       const res = await savePosSale(payload);

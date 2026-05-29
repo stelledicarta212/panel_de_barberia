@@ -213,7 +213,7 @@ export async function getDashboardState(identity: IdentityInput): Promise<Dashbo
       message: "Falta configurar NEXT_PUBLIC_API_BASE_URL o NEXT_PUBLIC_API_URL en .env.local"
     };
   }
-  const path = `${env.dashboardStateEndpoint}?${query}`;
+  const path = `${env.dashboardStateEndpoint}?${query}&_t=${Date.now()}`;
   try {
     const response = await apiGetJson<DashboardStateResponse>(path);
     const responseIdentity = response.identity ?? normalizeIdentity(identity);
@@ -452,7 +452,7 @@ export async function savePosSale(payload: {
   metodo_pago: string;
   monto_total: number;
   servicios: Array<{ id: string; name: string; amount: number }>;
-  cita_id?: string;
+  cita_id?: string | number;
 }): Promise<{ ok: boolean; message: string }> {
   try {
     const res = await fetch("/api/pos", {
