@@ -95,19 +95,20 @@ function buildDefaultServiceImage(name: string): string {
 }
 
 function mapAppointment(item: Record<string, unknown>, index: number): Movement {
-  const status = text(item.estado ?? item.status).toLowerCase();
+  // Determinamos si la cita ya ha sido pagada
+  const hasPayment = item.metodo || item.method || item.pago_metodo;
   return {
     id: text(item.id) || `cita-${index + 1}`,
     client: text(item.cliente_nombre ?? item.client ?? item.nombre_cliente) || "Cliente",
     service: text(item.servicio_nombre ?? item.service ?? item.nombre_servicio) || "Servicio",
-    method: text(item.metodo ?? item.method) || "Pendiente",
+    method: text(item.metodo ?? item.method ?? item.pago_metodo) || "Pendiente",
     amount: num(item.total),
-    status: status.includes("pend") ? "Pendiente" : "Aceptada",
+    status: hasPayment ? "Aceptada" : "Pendiente",
     date: formatDate(item.fecha ?? item.date),
     hour: formatHour(item.hora_inicio ?? item.hora ?? item.hour),
     barber: text(item.barbero_nombre ?? item.barber ?? item.nombre_barbero) || "Sin barbero",
-    serviceId: text(item.servicio_id),
-    barberId: text(item.barbero_id)
+    serviceId: text(item.servicio_id ?? item.id_servicio),
+    barberId: text(item.barbero_id ?? item.id_barbero)
   };
 }
 
@@ -208,9 +209,28 @@ export default function InventarioPage() {
     .reduce((acc, item) => acc + item.amount, 0);
   const digitalPayments = paidMovements.filter((item) => item.method.toLowerCase() !== "efectivo").length;
 
-  // Filtrado de citas del día pendientes por cobrar
+  // Filtrado robusto de citas del día pendientes por cobrar (citas programadas que no tienen pago)
   const pendingAppointments = useMemo(() => {
-    return movements.filter((item) => item.status === "Pendiente");
+    const now = new Date();
+    const yyyy = now.getFullYear();
+    const mm = String(now.getMonth() + 1).padStart(2, "0");
+    const dd = String(now.getDate()).padStart(2, "0");
+    const todayStr = `${yyyy}-${mm}-${dd}`;
+    const formattedToday = `${dd}/${mm}/${yyyy}`;
+
+    return movements.filter((m) => {
+      // 1. Debe estar pendiente de pago
+      const isPending = m.status === "Pendiente";
+      
+      // 2. Debe ser del día de hoy
+      const apptDate = text(m.date);
+      const isToday = apptDate === formattedToday || apptDate === todayStr;
+
+      // 3. Debe ser una cita agendada original (no un cobro local directo)
+      const isSourceAppointment = m.id.startsWith("cita-") || !isNaN(Number(m.id));
+
+      return isPending && isToday && isSourceAppointment;
+    });
   }, [movements]);
 
   const closeRows = useMemo(() => {
