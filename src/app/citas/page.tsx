@@ -258,13 +258,37 @@ export default function CitasPage() {
     new Intl.DateTimeFormat("es-CO", { hour: "2-digit", minute: "2-digit", second: "2-digit", hour12: false }).format(new Date())
   );
   const formRef = useRef<HTMLElement | null>(null);
+  const [locallyPaidIds, setLocallyPaidIds] = useState<Record<string, string>>({});
 
   useEffect(() => {
-    const remoteRequests = mapAppointmentRequests(merged.appointments);
-    // eslint-disable-next-line react-hooks/set-state-in-effect
+    if (typeof window !== "undefined") {
+      const saved = localStorage.getItem("ba_locally_paid_appointments");
+      if (saved) {
+        try {
+          setLocallyPaidIds(JSON.parse(saved));
+        } catch {}
+      }
+    }
+  }, []);
+
+  useEffect(() => {
+    const remoteRequests = mapAppointmentRequests(merged.appointments).map((req) => {
+      const localMethod = locallyPaidIds[req.id];
+      const dbItem = merged.appointments.find((a) => String(a.id) === req.id);
+      const dbMethod = dbItem ? (dbItem.metodo_pago || dbItem.pago_metodo || dbItem.metodo || dbItem.method) : "";
+      const hasPayment = (typeof dbMethod === "string" && dbMethod.trim().length > 0) || localMethod;
+
+      if (hasPayment) {
+        return {
+          ...req,
+          status: "Aceptada" as const
+        };
+      }
+      return req;
+    });
     setRequests(remoteRequests);
     setSelectedId((current) => (current && remoteRequests.some((req) => req.id === current) ? current : null));
-  }, [merged.appointments]);
+  }, [merged.appointments, locallyPaidIds]);
 
   const selected = requests.find((req) => req.id === selectedId) ?? null;
   const calendarCells = useMemo(() => buildCalendar(currentMonth), [currentMonth]);

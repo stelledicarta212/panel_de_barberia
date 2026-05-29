@@ -114,13 +114,14 @@ function buildDefaultServiceImage(name: string): string {
 }
 
 function mapAppointment(item: Record<string, unknown>, index: number): Movement {
-  // Determinamos si la cita ya ha sido pagada
-  const hasPayment = item.metodo || item.method || item.pago_metodo;
+  // Determinamos si la cita ya ha sido pagada (verificando la columna metodo_pago de la DB)
+  const rawMethod = item.metodo_pago || item.pago_metodo || item.metodo || item.method;
+  const hasPayment = typeof rawMethod === "string" && rawMethod.trim().length > 0;
   return {
     id: text(item.id) || `cita-${index + 1}`,
     client: text(item.cliente_nombre ?? item.client ?? item.nombre_cliente) || "Cliente",
     service: text(item.servicio_nombre ?? item.service ?? item.nombre_servicio) || "Servicio",
-    method: text(item.metodo ?? item.method ?? item.pago_metodo) || "Pendiente",
+    method: text(rawMethod) || "Pendiente",
     amount: num(item.total),
     status: hasPayment ? "Aceptada" : "Pendiente",
     date: formatDate(item.fecha ?? item.date),
@@ -281,12 +282,32 @@ export default function InventarioPage() {
   const pendingAmount = Math.max(0, subtotal - receivedAmount);
   const canCharge = subtotal > 0 && (posMethod !== "Efectivo" || receivedAmount >= subtotal);
 
-  const paidMovements = movements.filter((item) => item.status !== "Pendiente");
-  const salesDay = paidMovements.reduce((acc, item) => acc + item.amount, 0);
-  const cashDay = paidMovements
-    .filter((item) => item.method.toLowerCase() === "efectivo")
-    .reduce((acc, item) => acc + item.amount, 0);
-  const digitalPayments = paidMovements.filter((item) => item.method.toLowerCase() !== "efectivo").length;
+  const todayMovements = useMemo(() => {
+    const now = new Date();
+    const yyyy = now.getFullYear();
+    const mm = String(now.getMonth() + 1).padStart(2, "0");
+    const dd = String(now.getDate()).padStart(2, "0");
+    const todayStr = `${yyyy}-${mm}-${dd}`;
+    const formattedToday = `${dd}/${mm}/${yyyy}`;
+
+    return movements.filter((m) => {
+      const mDate = text(m.date);
+      return mDate === formattedToday || mDate === todayStr;
+    });
+  }, [movements]);
+
+  const paidMovements = useMemo(() => todayMovements.filter((item) => item.status !== "Pendiente"), [todayMovements]);
+  const salesDay = useMemo(() => paidMovements.reduce((acc, item) => acc + item.amount, 0), [paidMovements]);
+  const cashDay = useMemo(() => paidMovements
+    .filter((item) => item.method?.toLowerCase() === "efectivo")
+    .reduce((acc, item) => acc + item.amount, 0), [paidMovements]);
+  const digitalPayments = useMemo(() => paidMovements.filter((item) => item.method?.toLowerCase() !== "efectivo").length, [paidMovements]);
+  
+  // Total agendado/ingresado hoy (cobrados + pendientes)
+  const totalAgendadoHoy = useMemo(() => todayMovements.reduce((acc, item) => acc + item.amount, 0), [todayMovements]);
+  
+  // Total pendiente de cobro hoy
+  const totalPendienteHoy = useMemo(() => todayMovements.filter((item) => item.status === "Pendiente").reduce((acc, item) => acc + item.amount, 0), [todayMovements]);
 
   // Filtrado robusto de citas del día pendientes por cobrar (citas programadas que no tienen pago)
   const pendingAppointments = useMemo(() => {
@@ -338,7 +359,7 @@ export default function InventarioPage() {
 
   const closeRows = useMemo(() => {
     const grouped = new Map<string, { cuts: number; total: number; pending: number }>();
-    for (const item of movements) {
+    for (const item of todayMovements) {
       const current = grouped.get(item.barber) ?? { cuts: 0, total: 0, pending: 0 };
       current.cuts += 1;
       if (item.status === "Pendiente") current.pending += item.amount;
@@ -352,7 +373,7 @@ export default function InventarioPage() {
       pending: row.pending,
       ticketAvg: row.cuts ? row.total / row.cuts : 0
     }));
-  }, [movements]);
+  }, [todayMovements]);
 
   const handleChargeNow = async () => {
     if (!canCharge || charging) return;
@@ -1066,21 +1087,22 @@ export default function InventarioPage() {
                 Activa
               </span>
             </header>
-            <div className="flex flex-col gap-2.5 text-xs text-[var(--muted)]">
-              <p className="flex justify-between"><span>Servicios cobrados</span><strong className="text-[var(--text)]">{money2(salesDay)}</strong></p>
-              <p className="flex justify-between">
-                <span>Servicios pendientes</span>
-                <strong className="text-[var(--text)]">
-                  {money2(movements.filter((item) => item.status === "Pendiente").reduce((acc, item) => acc + item.amount, 0))}
-                </strong>
-              </p>
-              <p className="flex justify-between"><span>Descuentos aplicados</span><strong className="text-[var(--text)]">$0</strong></p>
-              <p className="flex justify-between"><span>Propinas</span><strong className="text-[var(--text)]">$0</strong></p>
-              <p className="flex justify-between border-t border-dashed border-[var(--panel-stroke)] pt-3 text-sm font-bold text-amber-500">
-                <span>Neto cierre</span>
-                <strong className="text-amber-500 font-extrabold">{money2(salesDay)}</strong>
-              </p>
-            </div>
+             <div className="flex flex-col gap-2.5 text-xs text-[var(--muted)]">
+               <p className="flex justify-between"><span>Total agendado hoy</span><strong className="text-[var(--text)] font-semibold">{money2(totalAgendadoHoy)}</strong></p>
+               <p className="flex justify-between"><span>Servicios cobrados (Cerrados)</span><strong className="text-emerald-500 font-bold">{money2(salesDay)}</strong></p>
+               <p className="flex justify-between">
+                 <span>Servicios pendientes</span>
+                 <strong className="text-rose-500 font-bold">
+                   {money2(totalPendienteHoy)}
+                 </strong>
+               </p>
+               <p className="flex justify-between"><span>Descuentos aplicados</span><strong className="text-[var(--text)]">$0</strong></p>
+               <p className="flex justify-between"><span>Propinas</span><strong className="text-[var(--text)]">$0</strong></p>
+               <p className="flex justify-between border-t border-dashed border-[var(--panel-stroke)] pt-3 text-sm font-bold text-amber-500">
+                 <span>Neto cierre (Caja Real)</span>
+                 <strong className="text-amber-500 font-extrabold">{money2(salesDay)}</strong>
+               </p>
+             </div>
             
             <button
               type="button"

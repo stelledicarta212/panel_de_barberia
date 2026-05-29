@@ -49,16 +49,24 @@ function formatDbDate(value: unknown): string {
   return `${match[3]}/${match[2]}/${match[1]}`;
 }
 
-function normalizeAppointmentRecord(item: Record<string, unknown>, index: number): ReservationRecord {
+function normalizeAppointmentRecord(
+  item: Record<string, unknown>,
+  index: number,
+  locallyPaidIds?: Record<string, string>
+): ReservationRecord {
+  const id = textValue(item.id) || `cita-${index + 1}`;
+  const rawMethod = item.metodo_pago || item.pago_metodo || item.metodo || item.method;
+  const hasPayment = (typeof rawMethod === "string" && rawMethod.trim().length > 0) || (locallyPaidIds && locallyPaidIds[id]);
+
   return {
-    id: textValue(item.id) || `cita-${index + 1}`,
+    id,
     client: textValue(item.cliente_nombre ?? item.client ?? item.nombre_cliente),
     phone: textValue(item.cliente_tel ?? item.telefono ?? item.phone),
     service: textValue(item.servicio_nombre ?? item.service ?? item.nombre_servicio),
     barber: textValue(item.barbero_nombre ?? item.barber ?? item.nombre_barbero),
     date: formatDbDate(item.fecha ?? item.date),
     hour: textValue(item.hora_inicio ?? item.hora ?? item.hour).slice(0, 5),
-    status: textValue(item.estado ?? item.status) || "confirmada",
+    status: hasPayment ? "Aceptada" : (textValue(item.estado ?? item.status) || "confirmada"),
     total: Number(item.total ?? 0)
   };
 }
@@ -69,6 +77,7 @@ export function DashboardEditor() {
   const barberiaId = identity?.barberia_id;
   const [offDaysByBarber, setOffDaysByBarber] = useState<Record<string, string[]>>({});
   const [reservations, setReservations] = useState<ReservationRecord[]>([]);
+  const [locallyPaidIds, setLocallyPaidIds] = useState<Record<string, string>>({});
   const qrPanelValue = merged.qr_url;
   const publicLandingLabel = String(merged.biz_name || merged.biz_slug || "Landing publica").trim();
 
@@ -99,6 +108,19 @@ export function DashboardEditor() {
   }, [loadDescansos]);
 
   useEffect(() => {
+    if (typeof window !== "undefined") {
+      const saved = localStorage.getItem("ba_locally_paid_appointments");
+      if (saved) {
+        try {
+          setLocallyPaidIds(JSON.parse(saved));
+        } catch (e) {
+          console.error("Error parsing ba_locally_paid_appointments in dashboard", e);
+        }
+      }
+    }
+  }, []);
+
+  useEffect(() => {
     const loadReservations = () => {
       try {
         const raw = window.localStorage.getItem(RESERVATIONS_STORAGE_KEY);
@@ -119,12 +141,14 @@ export function DashboardEditor() {
   }, []);
 
   useEffect(() => {
-    const remoteReservations = merged.appointments.map(normalizeAppointmentRecord);
+    const remoteReservations = merged.appointments.map((item, idx) =>
+      normalizeAppointmentRecord(item, idx, locallyPaidIds)
+    );
     if (remoteReservations.length) {
       // eslint-disable-next-line react-hooks/set-state-in-effect
       setReservations(remoteReservations);
     }
-  }, [merged.appointments]);
+  }, [merged.appointments, locallyPaidIds]);
 
   const barbers = useMemo(() => {
     const now = new Date();

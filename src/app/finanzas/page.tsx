@@ -1,10 +1,109 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { BadgeCheck, Cake, Clock3, Crown, Gift, MoreHorizontal, RefreshCcw, Scissors, Sparkles, Workflow } from "lucide-react";
 import { DashboardShell } from "@/components/dashboard-shell";
+import { useDashboard } from "@/store/dashboard-context";
+
+type Movement = {
+  id: string;
+  client: string;
+  service: string;
+  method: string;
+  amount: number;
+  status: "Pendiente" | "Aceptada";
+  date: string;
+  barber: string;
+};
 
 export default function ProgramaLealtadPage() {
+  const { identity, merged } = useDashboard();
+  const [locallyPaidIds, setLocallyPaidIds] = useState<Record<string, string>>({});
+
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      const saved = localStorage.getItem("ba_locally_paid_appointments");
+      if (saved) {
+        try {
+          setLocallyPaidIds(JSON.parse(saved));
+        } catch (e) {
+          console.error("Error parsing ba_locally_paid_appointments in finanzas", e);
+        }
+      }
+    }
+  }, []);
+
+  const movements = useMemo<Movement[]>(() => {
+    return merged.appointments.map((item, index) => {
+      const id = String(item.id ?? `cita-${index + 1}`);
+      const rawMethod = item.metodo_pago || item.pago_metodo || item.metodo || item.method;
+      const localMethod = locallyPaidIds[id];
+      const method = String(rawMethod || localMethod || "").trim();
+      const hasPayment = method.length > 0;
+
+      // Parse Date
+      let mDate = "";
+      const rawDate = String(item.fecha ?? item.date ?? "");
+      if (rawDate) {
+        try {
+          if (rawDate.includes("T") || (rawDate.includes(" ") && rawDate.length > 10)) {
+            const d = new Date(rawDate);
+            if (!isNaN(d.getTime())) {
+              mDate = `${String(d.getDate()).padStart(2, "0")}/${String(d.getMonth() + 1).padStart(2, "0")}/${d.getFullYear()}`;
+            }
+          } else {
+            const match = rawDate.match(/^(\d{4})-(\d{2})-(\d{2})/);
+            if (match) {
+              mDate = `${match[3]}/${match[2]}/${match[1]}`;
+            } else {
+              mDate = rawDate;
+            }
+          }
+        } catch {
+          mDate = rawDate;
+        }
+      }
+
+      return {
+        id,
+        client: String(item.cliente_nombre ?? item.client ?? item.nombre_cliente ?? "Cliente").trim(),
+        service: String(item.servicio_nombre ?? item.service ?? item.nombre_servicio ?? "Servicio").trim(),
+        method: method || "Pendiente",
+        amount: Number(item.total ?? 0),
+        status: hasPayment ? "Aceptada" : "Pendiente",
+        date: mDate,
+        barber: String(item.barbero_nombre ?? item.barber ?? item.nombre_barbero ?? "Sin barbero").trim()
+      };
+    });
+  }, [merged.appointments, locallyPaidIds]);
+
+  const todayMovements = useMemo(() => {
+    const now = new Date();
+    const yyyy = now.getFullYear();
+    const mm = String(now.getMonth() + 1).padStart(2, "0");
+    const dd = String(now.getDate()).padStart(2, "0");
+    const todayStr = `${yyyy}-${mm}-${dd}`;
+    const formattedToday = `${dd}/${mm}/${yyyy}`;
+
+    return movements.filter((m) => {
+      return m.date === formattedToday || m.date === todayStr;
+    });
+  }, [movements]);
+
+  const paidMovements = useMemo(() => todayMovements.filter((m) => m.status !== "Pendiente"), [todayMovements]);
+  const salesDay = useMemo(() => paidMovements.reduce((acc, m) => acc + m.amount, 0), [paidMovements]);
+
+  const cashCuts = salesDay;
+  const cashExtras = 0;
+  const cashClosed = paidMovements.length;
+  const cashPending = todayMovements.filter((m) => m.status === "Pendiente").length;
+  const cashNet = salesDay;
+
+  const occupancyRate = useMemo(() => {
+    const slots = Math.max(1, merged.barbers.length * 22);
+    return Math.min(100, Math.round((todayMovements.length / slots) * 100));
+  }, [merged.barbers.length, todayMovements.length]);
+
   const [config, setConfig] = useState({
     planLabel: "Plan PRO",
     stampRequired: "8",
@@ -207,11 +306,13 @@ export default function ProgramaLealtadPage() {
               <h3>Tasa de Ocupacion</h3>
               <MoreHorizontal size={12} />
             </header>
-            <p className="ba-client-kpi">{config.occupancy}%</p>
+            <p className="ba-client-kpi">{merged.appointments.length > 0 ? occupancyRate : Number(config.occupancy)}%</p>
             <label className="ba-field">
               <input className="ba-input" value={config.occupancy} onChange={setField("occupancy")} />
             </label>
-            <div className="ba-client-progress"><span style={{ width: `${Math.min(Math.max(Number(config.occupancy) || 0, 0), 100)}%` }} /></div>
+            <div className="ba-client-progress">
+              <span style={{ width: `${merged.appointments.length > 0 ? occupancyRate : Math.min(Math.max(Number(config.occupancy) || 0, 0), 100)}%` }} />
+            </div>
           </article>
 
           <article className="ba-card ba-right-widget">
@@ -245,13 +346,13 @@ export default function ProgramaLealtadPage() {
               <MoreHorizontal size={12} />
             </header>
             <div className="ba-pos-widget-kpis">
-              <p><span>Cortes</span><strong>${config.cashCuts}</strong></p>
-              <p><span>Extras</span><strong>${config.cashExtras}</strong></p>
+              <p><span>Cortes</span><strong>${(merged.appointments.length > 0 ? cashCuts : Number(config.cashCuts)).toLocaleString()}</strong></p>
+              <p><span>Extras</span><strong>${(merged.appointments.length > 0 ? cashExtras : Number(config.cashExtras)).toLocaleString()}</strong></p>
             </div>
             <ul className="ba-pos-widget-list">
-              <li><span>Tickets cerrados</span><strong>{config.cashClosed}</strong></li>
-              <li><span>Pendientes</span><strong>{config.cashPending}</strong></li>
-              <li><span>Neto hoy</span><strong>${config.cashNet}</strong></li>
+              <li><span>Tickets cerrados</span><strong>{merged.appointments.length > 0 ? cashClosed : Number(config.cashClosed)}</strong></li>
+              <li><span>Pendientes</span><strong>{merged.appointments.length > 0 ? cashPending : Number(config.cashPending)}</strong></li>
+              <li><span>Neto hoy</span><strong>${(merged.appointments.length > 0 ? cashNet : Number(config.cashNet)).toLocaleString()}</strong></li>
             </ul>
             <div className="ba-loyalty-form-grid">
               <label className="ba-field">
