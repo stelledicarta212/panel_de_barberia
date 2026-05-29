@@ -448,10 +448,10 @@ export async function savePosSale(payload: {
   barberia_id: number;
   cliente_nombre: string;
   cliente_id?: string;
-  barbero_id: string;
+  barbero_id: string | number;
   metodo_pago: string;
   monto_total: number;
-  servicios: Array<{ id: string; name: string; amount: number }>;
+  servicios: Array<{ id: string | number; name: string; amount: number }>;
   cita_id?: string | number;
 }): Promise<{ ok: boolean; message: string }> {
   try {

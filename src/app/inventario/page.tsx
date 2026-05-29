@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, useRef } from "react";
 import {
   Calculator,
   CreditCard,
@@ -183,28 +183,33 @@ export default function InventarioPage() {
     }
   }, [merged.appointments, syncingAppointmentIds]);
 
+  // Guardar el refresh en una referencia mutable para evitar reiniciar el intervalo al re-renderizar
+  const refreshRef = useRef(refresh);
+  useEffect(() => {
+    refreshRef.current = refresh;
+  }, [refresh]);
+
   // Polling automático de fondo para rehidratar mientras haya citas pendientes de sincronización
   useEffect(() => {
     const pendingCount = Object.keys(syncingAppointmentIds).length;
     if (pendingCount === 0) return;
 
-    // Ejecutar un refresh cada 3 segundos
+    // Ejecutar un refresh cada 3.5 segundos con la referencia estable
     const interval = setInterval(() => {
-      refresh().catch((err) => console.error("Error en auto-refresh de sincronización:", err));
-    }, 3000);
+      refreshRef.current().catch((err) => console.error("Error en auto-refresh de sincronización:", err));
+    }, 3500);
 
-    // Límite de seguridad: detener el polling después de 20 segundos por si acaso el backend falló definitivamente
+    // Límite de seguridad: detener el polling después de 25 segundos por si acaso el backend falló definitivamente
     const timeout = setTimeout(() => {
-      clearInterval(interval);
-      // Si pasa el límite de tiempo, liberamos visualmente la cita para que no se quede bloqueada
       setSyncingAppointmentIds({});
-    }, 20000);
+    }, 25000);
 
     return () => {
       clearInterval(interval);
       clearTimeout(timeout);
     };
-  }, [syncingAppointmentIds, refresh]);
+    // Dependencia booleana estable para evitar que re-renders intermedios destruyan el timer
+  }, [Object.keys(syncingAppointmentIds).length > 0]);
 
   const [receiptDetails, setReceiptDetails] = useState<{
     client: string;
@@ -424,14 +429,16 @@ export default function InventarioPage() {
       );
       const barberoIdReal = selectedBarberObj ? text(selectedBarberObj.id) : "";
 
+      const parseId = (val: string) => (val && !isNaN(Number(val)) ? Number(val) : val);
+
       const payload = {
         barberia_id: barberiaId,
         cliente_nombre: posClient.trim() || "Cliente mostrador",
-        barbero_id: barberoIdReal || posBarber || "Sin barbero",
+        barbero_id: parseId(barberoIdReal || posBarber) || "Sin barbero",
         metodo_pago: posMethod,
         monto_total: subtotal,
         servicios: selectedServicesGrouped.map((item) => ({
-          id: item.id || "",
+          id: (item.id && !isNaN(Number(item.id))) ? Number(item.id) : (item.id || ""),
           name: item.name || "",
           amount: item.amount || 0,
           quantity: item.quantity || 1
