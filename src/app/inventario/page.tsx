@@ -182,6 +182,29 @@ export default function InventarioPage() {
     }
   }, [merged.appointments, syncingAppointmentIds]);
 
+  // Polling automático de fondo para rehidratar mientras haya citas pendientes de sincronización
+  useEffect(() => {
+    const pendingCount = Object.keys(syncingAppointmentIds).length;
+    if (pendingCount === 0) return;
+
+    // Ejecutar un refresh cada 3 segundos
+    const interval = setInterval(() => {
+      refresh().catch((err) => console.error("Error en auto-refresh de sincronización:", err));
+    }, 3000);
+
+    // Límite de seguridad: detener el polling después de 20 segundos por si acaso el backend falló definitivamente
+    const timeout = setTimeout(() => {
+      clearInterval(interval);
+      // Si pasa el límite de tiempo, liberamos visualmente la cita para que no se quede bloqueada
+      setSyncingAppointmentIds({});
+    }, 20000);
+
+    return () => {
+      clearInterval(interval);
+      clearTimeout(timeout);
+    };
+  }, [syncingAppointmentIds, refresh]);
+
   const [receiptDetails, setReceiptDetails] = useState<{
     client: string;
     barber: string;
