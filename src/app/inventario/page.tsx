@@ -400,54 +400,82 @@ export default function InventarioPage() {
           </article>
         </div>
 
-        {/* Citas Agendadas Hoy (Sección de Automatización del POS) */}
+        {/* Citas Agendadas Hoy (Tabla Elegante de Citas Pendientes de Cobro) */}
         {pendingAppointments.length > 0 && (
-          <div className="ba-card p-5 border border-amber-500/30 bg-amber-500/5 relative overflow-hidden">
-            <div className="absolute top-0 left-0 right-0 h-[2px] bg-amber-500" />
-            <header className="flex justify-between items-center mb-3">
+          <div className="ba-card p-5 relative overflow-hidden flex flex-col gap-3">
+            <div className="absolute top-0 left-0 right-0 h-[2px] bg-gradient-to-r from-amber-500 to-amber-700" />
+            <header className="flex justify-between items-center">
               <div>
-                <h3 className="text-xs uppercase font-extrabold tracking-widest text-amber-500 flex items-center gap-1.5">
-                  <Sparkles size={13} className="animate-pulse" />
-                  Citas Agendadas de Hoy ({pendingAppointments.length})
+                <h3 className="text-sm font-bold text-[var(--text)] flex items-center gap-2">
+                  <Sparkles size={16} className="text-amber-500 animate-pulse" />
+                  Citas Agendadas de Hoy Pendientes de Cobro
                 </h3>
                 <p className="text-[11px] text-[var(--muted)] mt-0.5">
-                  Selecciona una cita programada para cargarla al tique de cobro instantáneamente.
+                  Haz clic en cualquier fila para cargar automáticamente los datos y servicios al POS.
                 </p>
               </div>
+              <span className="text-[10px] text-amber-500 font-bold uppercase tracking-wider bg-amber-500/10 border border-amber-500/25 px-2.5 py-1 rounded-full">
+                {pendingAppointments.length} POR COBRAR
+              </span>
             </header>
-            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
-              {pendingAppointments.map((appt) => (
-                <button
-                  key={appt.id}
-                  type="button"
-                  className="p-3 bg-[var(--bg)] hover:bg-amber-500/10 border border-[var(--panel-stroke)] hover:border-amber-500/40 rounded-xl text-left transition-all active:scale-95 flex justify-between items-center cursor-pointer group"
-                  onClick={() => {
-                    setPosClient(appt.client);
-                    setPosBarber(appt.barber);
-                    
-                    let matchedService = services.find(s => s.id === appt.serviceId);
-                    if (!matchedService) {
-                      matchedService = services.find(s => s.name.toLowerCase() === appt.service.toLowerCase());
-                    }
 
-                    if (matchedService) {
-                      setSelectedServiceIds([matchedService.id]);
-                    }
-                  }}
-                >
-                  <div className="flex flex-col text-left mr-2">
-                    <span className="font-bold text-xs text-[var(--text)] group-hover:text-amber-500 transition-colors">
-                      {appt.client}
-                    </span>
-                    <span className="text-[10px] text-[var(--muted)]">
-                      {appt.hour} • {appt.service} ({appt.barber})
-                    </span>
-                  </div>
-                  <span className="text-[9px] bg-amber-500 hover:bg-amber-400 text-black font-extrabold px-2.5 py-1.5 rounded-lg uppercase tracking-wider shrink-0 transition-colors">
-                    Cobrar ⚡
-                  </span>
-                </button>
-              ))}
+            <div className="overflow-x-auto w-full border border-[var(--panel-stroke)] rounded-2xl bg-[var(--bg-soft)]/20">
+              <table className="w-full text-left text-xs border-collapse">
+                <thead>
+                  <tr className="border-b border-[var(--panel-stroke)] bg-[var(--bg-soft)]/60 text-[var(--muted)] font-bold uppercase tracking-wider text-[10px]">
+                    <th className="p-3">Cliente</th>
+                    <th className="p-3">Hora</th>
+                    <th className="p-3">Servicio</th>
+                    <th className="p-3">Barbero</th>
+                    <th className="p-3 text-right">Acción</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-[var(--panel-stroke)]/40">
+                  {pendingAppointments.map((appt) => (
+                    <tr
+                      key={appt.id}
+                      className="hover:bg-amber-500/5 transition-colors cursor-pointer group"
+                      onClick={() => {
+                        setPosClient(appt.client);
+                        setPosBarber(appt.barber);
+                        
+                        let matchedService = services.find(s => s.id === appt.serviceId);
+                        if (!matchedService) {
+                          matchedService = services.find(s => s.name.toLowerCase() === appt.service.toLowerCase());
+                        }
+
+                        if (matchedService) {
+                          setSelectedServiceIds([matchedService.id]);
+                        }
+                      }}
+                    >
+                      <td className="p-3 font-semibold text-[var(--text)] flex items-center gap-2">
+                        <span className="w-6 h-6 rounded-full bg-amber-500/10 border border-amber-500/30 text-amber-500 text-[9px] font-extrabold flex items-center justify-center shrink-0">
+                          {initialsFrom(appt.client)}
+                        </span>
+                        <span className="group-hover:text-amber-500 transition-colors">{appt.client}</span>
+                      </td>
+                      <td className="p-3 text-[var(--text)] font-medium">
+                        {appt.hour}
+                      </td>
+                      <td className="p-3 text-[var(--muted)]">
+                        {appt.service}
+                      </td>
+                      <td className="p-3 text-[var(--muted)]">
+                        {appt.barber}
+                      </td>
+                      <td className="p-3 text-right">
+                        <button
+                          type="button"
+                          className="px-3 py-1.5 bg-amber-500 hover:bg-amber-400 text-black font-extrabold text-[10px] rounded-lg uppercase tracking-wider transition-all active:scale-95 shadow-sm shadow-amber-500/10 cursor-pointer"
+                        >
+                          Cargar Cita ⚡
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
             </div>
           </div>
         )}

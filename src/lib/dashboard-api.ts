@@ -453,8 +453,22 @@ export async function savePosSale(payload: {
   monto_total: number;
   servicios: Array<{ id: string; name: string; amount: number }>;
 }): Promise<{ ok: boolean; message: string }> {
-  return apiPostJson<{ ok: boolean; message: string }, Record<string, unknown>>(
-    env.posSaleEndpoint,
-    payload as unknown as Record<string, unknown>
-  );
+  try {
+    const res = await fetch("/api/pos", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify(payload)
+    });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) {
+      return { ok: false, message: data.message || "Error en el servidor de facturación." };
+    }
+    return { ok: true, message: data.message || "Cobro procesado con éxito." };
+  } catch (err) {
+    console.error("Error en savePosSale relative fetch:", err);
+    return { ok: false, message: "Error de red al conectar con el servidor de cobro." };
+  }
 }
+
