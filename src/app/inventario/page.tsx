@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   Calculator,
   CreditCard,
@@ -155,6 +155,31 @@ export default function InventarioPage() {
   // Optimismo de citas cargadas y cobros locales en tiempo real
   const [loadedAppointmentId, setLoadedAppointmentId] = useState<string | null>(null);
   const [locallyPaidAppointmentIds, setLocallyPaidAppointmentIds] = useState<Record<string, string>>({});
+
+  // Control de Reporte Z
+  const [showZReport, setShowZReport] = useState(false);
+  const [zReportWhatsappPhone, setZReportWhatsappPhone] = useState("");
+
+  // Load locally paid appointments from localStorage safely post-mount (hydration resilient)
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      const saved = localStorage.getItem("ba_locally_paid_appointments");
+      if (saved) {
+        try {
+          setLocallyPaidAppointmentIds(JSON.parse(saved));
+        } catch (e) {
+          console.error("Error parsing ba_locally_paid_appointments", e);
+        }
+      }
+    }
+  }, []);
+
+  // Sync locally paid appointments to localStorage on updates
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      localStorage.setItem("ba_locally_paid_appointments", JSON.stringify(locallyPaidAppointmentIds));
+    }
+  }, [locallyPaidAppointmentIds]);
 
   const [receiptDetails, setReceiptDetails] = useState<{
     client: string;
@@ -356,7 +381,8 @@ export default function InventarioPage() {
           name: item.name || "",
           amount: item.amount || 0,
           quantity: item.quantity || 1
-        }))
+        })),
+        cita_id: (loadedAppointmentId && !loadedAppointmentId.startsWith("cita-")) ? loadedAppointmentId : undefined
       };
 
       const res = await savePosSale(payload);
@@ -1055,6 +1081,17 @@ export default function InventarioPage() {
                 <strong className="text-amber-500 font-extrabold">{money2(salesDay)}</strong>
               </p>
             </div>
+            
+            <button
+              type="button"
+              className="mt-3 w-full py-2.5 bg-gradient-to-r from-amber-500 to-amber-700 hover:from-amber-400 hover:to-amber-600 text-black font-extrabold text-xs rounded-xl shadow-md transition-all active:scale-[0.97] cursor-pointer flex items-center justify-center gap-1.5"
+              onClick={() => {
+                setZReportWhatsappPhone("");
+                setShowZReport(true);
+              }}
+            >
+              Realizar Cierre de Caja 🔒
+            </button>
           </article>
 
           {/* Cierre por Barbero */}
@@ -1511,6 +1548,223 @@ export default function InventarioPage() {
               >
                 <Receipt size={12} />
                 Imprimir
+              </button>
+            </footer>
+          </div>
+        </div>
+      )}
+
+      {/* REPORT Z MODAL (TIRILLA FÍSICA DE CIERRE DE CAJA) */}
+      {showZReport && (
+        <div className="ba-pos-receipt-modal animate-fade-in" onClick={() => setShowZReport(false)}>
+          {/* Virtual Metal Ejection Slot */}
+          <div className="ba-pos-printer-slot" onClick={(e) => e.stopPropagation()} />
+          
+          <div className="ba-pos-receipt-slip select-text text-slate-900" onClick={(e) => e.stopPropagation()}>
+            <header>
+              <div className="flex items-center gap-1.5">
+                <span className="w-3.5 h-3.5 rounded-full bg-red-600 text-white flex items-center justify-center font-bold text-[9px] select-none shrink-0">
+                  🔒
+                </span>
+                <h3 className="text-red-700 font-extrabold">Reporte Z de Caja</h3>
+              </div>
+              <button 
+                type="button" 
+                onClick={() => setShowZReport(false)}
+                aria-label="Cerrar"
+              >
+                <X size={10} />
+              </button>
+            </header>
+
+            <div className="text-center py-1 flex flex-col gap-0.5">
+              <strong className="text-sm font-extrabold uppercase tracking-wider">{merged.biz_name || "Barber Agency"}</strong>
+              <p className="ba-pos-receipt-subtitle select-none">{merged.address || "Local Premium"}</p>
+              <strong className="text-[10px] text-red-600 font-bold uppercase tracking-wider mt-1 select-none">*** REPORTE DE CIERRE DIARIO ***</strong>
+              
+              <div className="text-[7px] text-slate-500 font-bold uppercase select-none mt-2">
+                ================================
+              </div>
+              <div className="flex justify-between items-center text-[9px] text-slate-600 px-1 font-semibold font-mono">
+                <span>Fecha: {new Date().toLocaleDateString("es-CO")}</span>
+                <span>Hora: {new Date().toLocaleTimeString("es-CO", { hour: "2-digit", minute: "2-digit" })}</span>
+              </div>
+              <div className="text-[7px] text-slate-500 font-bold uppercase select-none">
+                ================================
+              </div>
+            </div>
+
+            <div className="py-1">
+              <p className="text-[8px] font-bold text-slate-500 uppercase tracking-wider mb-2 px-1 select-none">Resumen Financiero</p>
+              <div className="ba-pos-receipt-rows">
+                <p className="flex justify-between text-xs my-0.5">
+                  <span className="text-slate-700">Servicios Cobrados</span>
+                  <strong className="text-slate-900 font-mono font-bold">{money(salesDay)}</strong>
+                </p>
+                <p className="flex justify-between text-xs my-0.5">
+                  <span className="text-slate-700">Efectivo en Caja</span>
+                  <strong className="text-slate-900 font-mono font-bold">{money(cashDay)}</strong>
+                </p>
+                <p className="flex justify-between text-xs my-0.5">
+                  <span className="text-slate-700">Pagos Digitales</span>
+                  <strong className="text-slate-900 font-mono font-bold">{money(salesDay - cashDay)}</strong>
+                </p>
+                <p className="flex justify-between text-xs my-0.5">
+                  <span className="text-slate-700">Cant. Servicios Cobrados</span>
+                  <strong className="text-slate-900 font-mono font-bold">{paidMovements.length}</strong>
+                </p>
+                <p className="flex justify-between text-xs my-0.5">
+                  <span className="text-slate-700">Cant. Servicios Pendientes</span>
+                  <strong className="text-slate-900 font-mono font-bold">
+                    {movements.filter(m => m.status === "Pendiente").length}
+                  </strong>
+                </p>
+                <p className="flex justify-between text-xs my-0.5">
+                  <span className="text-slate-700">Monto Pendiente de Cobro</span>
+                  <strong className="text-slate-950 font-mono font-bold">
+                    {money(movements.filter(m => m.status === "Pendiente").reduce((acc, m) => acc + m.amount, 0))}
+                  </strong>
+                </p>
+                
+                <p className="is-total flex justify-between text-xs pt-2 mt-2 border-t border-double border-slate-400">
+                  <span>NETO CAJA CIERRE</span>
+                  <strong className="font-extrabold font-mono text-slate-950">{money(salesDay)}</strong>
+                </p>
+              </div>
+            </div>
+
+            <div className="py-2 border-t border-dashed border-slate-300">
+              <p className="text-[8px] font-bold text-slate-500 uppercase tracking-wider mb-2 px-1 select-none">Ventas por Barbero</p>
+              <div className="flex flex-col gap-1 px-1">
+                {closeRows.map((item) => (
+                  <div key={item.barber} className="flex justify-between items-center text-xs">
+                    <span className="text-slate-700 font-semibold truncate">{item.barber}</span>
+                    <span className="text-slate-500 font-mono text-[10px] ml-auto mr-3">{item.cuts} serv</span>
+                    <strong className="text-slate-900 font-mono font-bold">{money(item.total)}</strong>
+                  </div>
+                ))}
+                {!closeRows.length ? (
+                  <div className="text-center py-2 text-[10px] text-slate-500 italic select-none">
+                    Sin ventas registradas
+                  </div>
+                ) : null}
+              </div>
+            </div>
+
+            {/* WhatsApp share for Z-Report */}
+            <div className="ba-pos-whatsapp-box mt-3.5 p-3 bg-emerald-50 border border-emerald-200 rounded-xl flex flex-col gap-2 shrink-0 select-none">
+              <div className="flex items-center gap-1 text-[10px] font-bold text-emerald-800 uppercase tracking-wider">
+                <span>💬 Enviar Reporte Z a Supervisor</span>
+              </div>
+              <div className="flex gap-1.5">
+                <div className="relative flex-1">
+                  <span className="absolute inset-y-0 left-0 pl-2.5 flex items-center text-[10px] font-bold text-emerald-600">
+                    +57
+                  </span>
+                  <input
+                    type="tel"
+                    maxLength={10}
+                    className="w-full bg-white border border-emerald-300 text-emerald-950 rounded-lg pl-9 pr-2 py-1.5 text-xs font-mono font-bold focus:outline-none focus:ring-1 focus:ring-emerald-500"
+                    placeholder="WhatsApp Celular"
+                    value={zReportWhatsappPhone}
+                    onChange={(e) => setZReportWhatsappPhone(e.target.value.replace(/\D/g, ""))}
+                  />
+                </div>
+                <button
+                  type="button"
+                  onClick={() => {
+                    const barbersText = closeRows
+                      .map(r => `• *${r.barber}*: ${r.cuts} cortes | $${Math.round(r.total).toLocaleString()}`)
+                      .join("\n");
+                    
+                    const pendingSum = movements.filter(m => m.status === "Pendiente").reduce((acc, m) => acc + m.amount, 0);
+                    
+                    const textMessage = `💈 *BARBERÍA ${merged.biz_name.toUpperCase()}* 💈\n================================\n🔒 *REPORTE DE CIERRE DE CAJA (Z)* 🔒\n--------------------------------\n📅 *Fecha Cierre:* ${new Date().toLocaleDateString("es-CO")}\n⏰ *Hora Cierre:* ${new Date().toLocaleTimeString("es-CO", { hour: "2-digit", minute: "2-digit" })}\n================================\n💰 *VENTAS TOTALES:* $${Math.round(salesDay).toLocaleString()}\n💵 *Efectivo en Caja:* $${Math.round(cashDay).toLocaleString()}\n💳 *Pago Digital:* $${Math.round(salesDay - cashDay).toLocaleString()}\n--------------------------------\n🛍️ *Servicios Realizados:* ${paidMovements.length}\n⏳ *Servicios Pendientes:* ${movements.filter(m => m.status === "Pendiente").length} ($${Math.round(pendingSum).toLocaleString()})\n================================\n💈 *VENTAS POR BARBERO:*\n${barbersText}\n================================\n¡Reporte Z de Caja generado con éxito! 🔥🔒`;
+                    
+                    const cleanPhone = zReportWhatsappPhone.replace(/\D/g, "");
+                    let targetPhone = cleanPhone;
+                    if (cleanPhone.length === 10) {
+                      targetPhone = "57" + cleanPhone;
+                    }
+                    
+                    const waUrl = `https://wa.me/${targetPhone}?text=${encodeURIComponent(textMessage)}`;
+                    window.open(waUrl, "_blank");
+                  }}
+                  disabled={zReportWhatsappPhone.length < 10}
+                  className={`px-3 py-1.5 font-bold text-xs rounded-lg transition-all active:scale-95 flex items-center justify-center shrink-0 cursor-pointer ${
+                    zReportWhatsappPhone.length === 10
+                      ? "bg-emerald-600 hover:bg-emerald-500 text-white shadow-sm shadow-emerald-600/10"
+                      : "bg-emerald-200 text-emerald-400 cursor-not-allowed"
+                  }`}
+                >
+                  Enviar
+                </button>
+              </div>
+            </div>
+
+            {/* Simulated Printed Barcode */}
+            <div className="flex flex-col items-center justify-center my-3.5 gap-1 shrink-0 select-none">
+              <svg className="w-48 h-6 text-slate-800" viewBox="0 0 100 20" preserveAspectRatio="none">
+                <rect x="2" width="2" height="20" fill="currentColor"/>
+                <rect x="6" width="1" height="20" fill="currentColor"/>
+                <rect x="8" width="3" height="20" fill="currentColor"/>
+                <rect x="13" width="1" height="20" fill="currentColor"/>
+                <rect x="15" width="2" height="20" fill="currentColor"/>
+                <rect x="18" width="4" height="20" fill="currentColor"/>
+                <rect x="23" width="1" height="20" fill="currentColor"/>
+                <rect x="25" width="2" height="20" fill="currentColor"/>
+                <rect x="28" width="3" height="20" fill="currentColor"/>
+                <rect x="33" width="1" height="20" fill="currentColor"/>
+                <rect x="35" width="2" height="20" fill="currentColor"/>
+                <rect x="38" width="4" height="20" fill="currentColor"/>
+                <rect x="43" width="1" height="20" fill="currentColor"/>
+                <rect x="45" width="2" height="20" fill="currentColor"/>
+                <rect x="48" width="3" height="20" fill="currentColor"/>
+                <rect x="53" width="1" height="20" fill="currentColor"/>
+                <rect x="55" width="2" height="20" fill="currentColor"/>
+                <rect x="58" width="4" height="20" fill="currentColor"/>
+                <rect x="63" width="1" height="20" fill="currentColor"/>
+                <rect x="65" width="2" height="20" fill="currentColor"/>
+                <rect x="68" width="3" height="20" fill="currentColor"/>
+                <rect x="73" width="1" height="20" fill="currentColor"/>
+                <rect x="75" width="2" height="20" fill="currentColor"/>
+                <rect x="78" width="4" height="20" fill="currentColor"/>
+                <rect x="83" width="1" height="20" fill="currentColor"/>
+                <rect x="86" width="2" height="20" fill="currentColor"/>
+                <rect x="89" width="3" height="20" fill="currentColor"/>
+                <rect x="94" width="2" height="20" fill="currentColor"/>
+              </svg>
+              <span className="text-[7px] font-mono tracking-[4px] text-slate-500 uppercase">
+                REPORT-Z-{new Date().toLocaleDateString("es-CO").replace(/\//g, "")}
+              </span>
+            </div>
+
+            <div className="text-center text-[9px] text-slate-500 font-bold select-none leading-none">
+              *** FINAL DE REPORTE Z ***
+            </div>
+            <div className="text-center text-[7px] text-slate-400 font-bold select-none leading-none mt-1">
+              Software BarberAgency POS v1.0
+            </div>
+
+            <footer>
+              <button
+                type="button"
+                className="px-3.5 py-1.5 border border-slate-300 hover:border-slate-400 bg-slate-50 hover:bg-slate-100 text-xs text-slate-700 rounded-xl font-bold transition-all active:scale-95 cursor-pointer select-none"
+                onClick={() => setShowZReport(false)}
+              >
+                Cerrar
+              </button>
+              <button
+                type="button"
+                className="px-3.5 py-1.5 bg-gradient-to-r from-red-500 to-red-700 hover:from-red-400 hover:to-red-600 text-white text-xs font-extrabold rounded-xl transition-all active:scale-95 shadow-sm shadow-red-500/10 cursor-pointer flex items-center gap-1 select-none"
+                onClick={() => {
+                  if (typeof window !== "undefined") {
+                    window.print();
+                  }
+                }}
+              >
+                <Receipt size={12} />
+                Imprimir Reporte Z
               </button>
             </footer>
           </div>

@@ -452,6 +452,7 @@ export async function savePosSale(payload: {
   metodo_pago: string;
   monto_total: number;
   servicios: Array<{ id: string; name: string; amount: number }>;
+  cita_id?: string;
 }): Promise<{ ok: boolean; message: string }> {
   try {
     const res = await fetch("/api/pos", {

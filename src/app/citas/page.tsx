@@ -211,7 +211,7 @@ export default function CitasPage() {
   const serviceOptions = useMemo(() => mapServiceOptions(merged.services), [merged.services]);
   const barberOptions = useMemo(() => mapBarberOptions(merged.barbers), [merged.barbers]);
   const hourOptions = useMemo(
-    () => ["09:00", "09:30", "10:00", "10:30", "11:00", "11:30", "12:00", "14:00", "15:00", "16:00", "17:00"],
+    () => ["09:00", "09:30", "10:00", "10:30", "11:00", "11:30", "12:00", "14:00", "15:00", "16:00", "17:00", "17:30", "18:00", "18:30", "19:00", "19:30", "20:00", "20:30", "21:00"],
     []
   );
   const [selectedServiceIds, setSelectedServiceIds] = useState<string[]>([]);
@@ -448,9 +448,9 @@ export default function CitasPage() {
   }, [barberOptions, barberOffDays, boardDateStr]);
   const agendaHours = useMemo(() => {
     const slots: string[] = [];
-    for (let h = 9; h <= 19; h += 1) {
+    for (let h = 9; h <= 21; h += 1) {
       slots.push(`${String(h).padStart(2, "0")}:00`);
-      if (h !== 19) slots.push(`${String(h).padStart(2, "0")}:30`);
+      if (h !== 21) slots.push(`${String(h).padStart(2, "0")}:30`);
     }
     return slots;
   }, []);
