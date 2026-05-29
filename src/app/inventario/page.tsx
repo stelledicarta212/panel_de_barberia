@@ -129,6 +129,25 @@ export default function InventarioPage() {
   const [calcDisplay, setCalcDisplay] = useState("0");
   const [calcHistory, setCalcHistory] = useState("");
 
+  // Estado para la Tirilla Flotante / Recibo de Éxito
+  const [showReceipt, setShowReceipt] = useState(false);
+  const [receiptDetails, setReceiptDetails] = useState<{
+    client: string;
+    barber: string;
+    method: string;
+    received: number;
+    change: number;
+    total: number;
+    date: string;
+    hour: string;
+    services: Array<{
+      name: string;
+      quantity: number;
+      amount: number;
+      totalAmount: number;
+    }>;
+  } | null>(null);
+
   const services = useMemo(
     () =>
       merged.services.map((item, index) => {
@@ -286,11 +305,36 @@ export default function InventarioPage() {
         throw new Error(res.message || "Error al procesar el cobro en el servidor.");
       }
 
+      // Guardar copia de los detalles del cobro para la tirilla flotante
+      const now = new Date();
+      const timeStr = now.toLocaleTimeString("es-CO", { hour: "2-digit", minute: "2-digit", hour12: false });
+      const dateStr = now.toLocaleDateString("es-CO", { day: "2-digit", month: "2-digit", year: "numeric" });
+
+      setReceiptDetails({
+        client: posClient.trim() || "Cliente mostrador",
+        barber: posBarber || "Sin barbero",
+        method: posMethod,
+        received: receivedAmount,
+        change: changeAmount,
+        total: subtotal,
+        date: dateStr,
+        hour: timeStr,
+        services: selectedServicesGrouped.map(item => ({
+          name: item.name || "Servicio",
+          quantity: item.quantity || 1,
+          amount: item.amount || 0,
+          totalAmount: item.totalAmount || 0
+        }))
+      });
+
       // Limpiar campos de la estación de cobro tras éxito
       setSelectedServiceIds([]);
       setPosReceived("");
       setPosClient("");
       setPosBarber("");
+
+      // Activar el modal de la tirilla flotante
+      setShowReceipt(true);
 
       // Forzar rehidratación desde el servidor de forma inmediata
       await refresh();
@@ -1091,6 +1135,107 @@ export default function InventarioPage() {
               >
                 <DollarSign size={14} />
                 Usar como Pago Recibido
+              </button>
+            </footer>
+          </div>
+        </div>
+      )}
+
+      {/* TIRILLA FLOTANTE MODAL (RECIBO DE VENTA) */}
+      {showReceipt && receiptDetails && (
+        <div className="ba-pos-receipt-modal" onClick={() => setShowReceipt(false)}>
+          <div className="ba-pos-receipt-slip text-[var(--text)]" onClick={(e) => e.stopPropagation()}>
+            <header className="border-b border-dashed border-[var(--panel-stroke)] pb-2 flex justify-between items-center">
+              <div className="flex items-center gap-1.5">
+                <div className="w-5 h-5 rounded-full bg-emerald-500 text-black flex items-center justify-center font-bold text-xs shrink-0">
+                  ✓
+                </div>
+                <h3 className="font-extrabold text-xs uppercase tracking-wider text-[var(--text)]">Cobro Exitoso</h3>
+              </div>
+              <button 
+                type="button" 
+                onClick={() => setShowReceipt(false)}
+                aria-label="Cerrar"
+                className="w-5 h-5 rounded bg-[var(--bg-soft)] border border-[var(--panel-stroke)] hover:bg-[var(--panel)] text-[var(--muted)] hover:text-[var(--text)] flex items-center justify-center text-xs cursor-pointer transition-colors"
+              >
+                <X size={10} />
+              </button>
+            </header>
+
+            <div className="text-center py-2 flex flex-col gap-0.5 border-b border-dashed border-[var(--panel-stroke)]">
+              <strong className="text-sm font-bold text-amber-500 uppercase tracking-widest">{merged.biz_name}</strong>
+              <p className="ba-pos-receipt-subtitle text-[10px]">{merged.address}</p>
+              <div className="flex justify-between items-center text-[9px] text-[var(--muted)] mt-1.5 px-1">
+                <span>Fecha: {receiptDetails.date}</span>
+                <span>Hora: {receiptDetails.hour}</span>
+              </div>
+            </div>
+
+            <div className="py-1">
+              <p className="text-[9px] font-bold text-[var(--muted)] uppercase tracking-wider mb-1 px-1">Resumen de Consumo</p>
+              <div className="ba-pos-receipt-rows">
+                {receiptDetails.services.map((s, idx) => (
+                  <p key={idx} className="flex justify-between text-xs my-0.5">
+                    <span className="text-[var(--muted)]">
+                      {s.name} <strong className="text-[var(--text)] font-semibold">x{s.quantity}</strong>
+                    </span>
+                    <strong className="text-[var(--text)]">{money(s.totalAmount)}</strong>
+                  </p>
+                ))}
+                
+                <p className="is-total flex justify-between text-xs pt-2 mt-2 border-t border-dashed border-[var(--panel-stroke)] text-amber-500">
+                  <span>Total</span>
+                  <strong className="font-extrabold">{money(receiptDetails.total)}</strong>
+                </p>
+              </div>
+            </div>
+
+            <div className="p-3 bg-[var(--bg-soft)]/40 border border-[var(--panel-stroke)] rounded-xl text-[10px] text-[var(--muted)] flex flex-col gap-1">
+              <div className="flex justify-between">
+                <span>Cliente:</span>
+                <strong className="text-[var(--text)]">{receiptDetails.client}</strong>
+              </div>
+              <div className="flex justify-between">
+                <span>Atendido por:</span>
+                <strong className="text-[var(--text)]">{receiptDetails.barber}</strong>
+              </div>
+              <div className="flex justify-between">
+                <span>Método de Pago:</span>
+                <strong className="text-[var(--text)]">{receiptDetails.method}</strong>
+              </div>
+              {receiptDetails.method === "Efectivo" && (
+                <>
+                  <div className="flex justify-between border-t border-[var(--panel-stroke)]/40 pt-1 mt-1">
+                    <span>Efectivo Recibido:</span>
+                    <strong className="text-[var(--text)]">{money(receiptDetails.received)}</strong>
+                  </div>
+                  <div className="flex justify-between text-emerald-500 font-semibold">
+                    <span>Vueltas (Cambio):</span>
+                    <strong className="font-bold">{money(receiptDetails.change)}</strong>
+                  </div>
+                </>
+              )}
+            </div>
+
+            <footer className="mt-2 flex gap-2 justify-end border-t border-dashed border-[var(--panel-stroke)] pt-3">
+              <button
+                type="button"
+                className="px-3 py-1.5 border border-[var(--panel-stroke)] hover:border-gray-500 bg-[var(--bg-soft)] text-xs text-[var(--text)] rounded-xl font-bold transition-all active:scale-95 cursor-pointer"
+                onClick={() => setShowReceipt(false)}
+              >
+                Cerrar
+              </button>
+              <button
+                type="button"
+                className="px-3 py-1.5 bg-gradient-to-r from-amber-500 to-amber-700 hover:from-amber-400 hover:to-amber-600 text-black text-xs font-extrabold rounded-xl transition-all active:scale-95 shadow-sm shadow-amber-500/10 cursor-pointer flex items-center gap-1"
+                onClick={() => {
+                  if (typeof window !== "undefined") {
+                    window.print();
+                  }
+                }}
+              >
+                <Receipt size={12} />
+                Imprimir
               </button>
             </footer>
           </div>
