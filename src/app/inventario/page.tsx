@@ -151,6 +151,11 @@ export default function InventarioPage() {
   // Estado para la Tirilla Flotante / Recibo de Éxito
   const [showReceipt, setShowReceipt] = useState(false);
   const [whatsappPhone, setWhatsappPhone] = useState("");
+
+  // Optimismo de citas cargadas y cobros locales en tiempo real
+  const [loadedAppointmentId, setLoadedAppointmentId] = useState<string | null>(null);
+  const [locallyPaidAppointmentIds, setLocallyPaidAppointmentIds] = useState<Record<string, string>>({});
+
   const [receiptDetails, setReceiptDetails] = useState<{
     client: string;
     barber: string;
@@ -205,10 +210,20 @@ export default function InventarioPage() {
     [merged.barbers]
   );
 
-  const sourceMovements = useMemo(
-    () => merged.appointments.map(mapAppointment),
-    [merged.appointments]
-  );
+  const sourceMovements = useMemo(() => {
+    return merged.appointments.map((item, index) => {
+      const appt = mapAppointment(item, index);
+      const localMethod = locallyPaidAppointmentIds[appt.id];
+      if (localMethod) {
+        return {
+          ...appt,
+          status: "Aceptada" as const,
+          method: localMethod
+        };
+      }
+      return appt;
+    });
+  }, [merged.appointments, locallyPaidAppointmentIds]);
 
   const movements = useMemo(
     () => [...localMovements, ...sourceMovements],
@@ -371,6 +386,30 @@ export default function InventarioPage() {
         }))
       });
 
+      // Crear movimiento optimista en tiempo real para actualizar KPIs e histórico al instante
+      const optimisticMovement: Movement = {
+        id: `sale-${Date.now()}`,
+        client: posClient.trim() || "Cliente mostrador",
+        service: selectedServicesGrouped.map(item => item.name).join(", "),
+        method: posMethod,
+        amount: subtotal,
+        status: "Aceptada",
+        date: dateStr, // "28/05/2026"
+        hour: timeStr,
+        barber: posBarber || "Sin barbero"
+      };
+
+      setLocalMovements(prev => [optimisticMovement, ...prev]);
+
+      // Si había una cita cargada en el checkout, la marcamos como pagada localmente al instante
+      if (loadedAppointmentId) {
+        setLocallyPaidAppointmentIds(prev => ({
+          ...prev,
+          [loadedAppointmentId]: posMethod
+        }));
+        setLoadedAppointmentId(null);
+      }
+
       // Limpiar campos de la estación de cobro tras éxito
       setSelectedServiceIds([]);
       setPosReceived("");
@@ -400,8 +439,8 @@ export default function InventarioPage() {
       setWhatsappPhone("");
       setShowReceipt(true);
 
-      // Forzar rehidratación desde el servidor de forma inmediata
-      await refresh();
+      // Forzar rehidratación desde el servidor en segundo plano
+      refresh().catch(err => console.error("Error refreshing background context", err));
     } catch (err) {
       console.error("Error procesando cobro POS:", err);
       setChargeError(err instanceof Error ? err.message : "Error al procesar el cobro.");
@@ -546,6 +585,7 @@ export default function InventarioPage() {
                       onClick={() => {
                         setPosClient(appt.client);
                         setPosBarber(appt.barber);
+                        setLoadedAppointmentId(appt.id); // Guardar vinculación de la cita agendada
                         
                         let matchedService = services.find(s => s.id === appt.serviceId);
                         if (!matchedService) {
