@@ -1141,11 +1141,24 @@ export default function InventarioPage() {
               </span>
             </header>
              <div className="flex flex-col gap-2.5 text-xs text-[var(--muted)]">
-               <p className="flex justify-between"><span>Total agendado hoy</span><strong className="text-[var(--text)] font-semibold">{money2(totalAgendadoHoy)}</strong></p>
-               <p className="flex justify-between"><span>Servicios cobrados (Cerrados)</span><strong className="text-emerald-500 font-bold">{money2(salesDay)}</strong></p>
+               <p className="flex justify-between">
+                 <span>Total agendado hoy</span>
+                 <strong className="text-[var(--text)] font-semibold">
+                   <span className="text-[var(--muted)] font-normal mr-1.5">{todayMovements.length} =</span>
+                   {money2(totalAgendadoHoy)}
+                 </strong>
+               </p>
+               <p className="flex justify-between">
+                 <span>Servicios cobrados (Cerrados)</span>
+                 <strong className="text-emerald-500 font-bold">
+                   <span className="text-[var(--muted)] font-normal mr-1.5">{paidMovements.length} =</span>
+                   {money2(salesDay)}
+                 </strong>
+               </p>
                <p className="flex justify-between">
                  <span>Servicios pendientes</span>
                  <strong className="text-rose-500 font-bold">
+                   <span className="text-[var(--muted)] font-normal mr-1.5">{todayMovements.filter((m) => m.status === "Pendiente").length} =</span>
                    {money2(totalPendienteHoy)}
                  </strong>
                </p>
