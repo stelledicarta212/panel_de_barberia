@@ -115,15 +115,17 @@ function buildDefaultServiceImage(name: string): string {
 }
 
 function mapAppointment(item: Record<string, unknown>, index: number): Movement {
-  // Determinamos si la cita ya ha sido pagada (verificando la columna metodo_pago de la DB)
+  // Determinamos si la cita ya ha sido pagada (verificando la columna metodo_pago de la DB, pago_id o pagado_en)
   const rawMethod = item.metodo_pago || item.pago_metodo || item.metodo || item.method;
-  const hasPayment = typeof rawMethod === "string" && rawMethod.trim().length > 0;
+  const pagoId = item.pago_id;
+  const paidAt = item.pagado_en;
+  const hasPayment = Boolean(pagoId || paidAt || (typeof rawMethod === "string" && rawMethod.trim().length > 0));
   return {
     id: text(item.id) || `cita-${index + 1}`,
     client: text(item.cliente_nombre ?? item.client ?? item.nombre_cliente) || "Cliente",
     service: text(item.servicio_nombre ?? item.service ?? item.nombre_servicio) || "Servicio",
     method: text(rawMethod) || "Pendiente",
-    amount: num(item.total),
+    amount: num(item.total_pagado ?? item.total),
     status: hasPayment ? "Aceptada" : "Pendiente",
     date: formatDate(item.fecha ?? item.date),
     hour: formatHour(item.hora_inicio ?? item.hora ?? item.hour),
