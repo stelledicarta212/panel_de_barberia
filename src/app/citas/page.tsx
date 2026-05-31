@@ -223,7 +223,7 @@ export default function CitasPage() {
       const DAY_NAMES = ["lunes", "martes", "miercoles", "jueves", "viernes", "sabado", "domingo"];
       const dayName = DAY_NAMES[dayOfWeekIndex];
       
-      const config = merged.hours.find((h: any) => {
+      const config = merged.hours.find((h: Record<string, unknown>) => {
         const diaVal = String(h.dia || h.day || "").toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim();
         return diaVal === dayName || diaVal.startsWith(dayName.slice(0, 3));
       });
@@ -258,18 +258,17 @@ export default function CitasPage() {
     new Intl.DateTimeFormat("es-CO", { hour: "2-digit", minute: "2-digit", second: "2-digit", hour12: false }).format(new Date())
   );
   const formRef = useRef<HTMLElement | null>(null);
-  const [locallyPaidIds, setLocallyPaidIds] = useState<Record<string, string>>({});
-
-  useEffect(() => {
+  const [locallyPaidIds] = useState<Record<string, string>>(() => {
     if (typeof window !== "undefined") {
       const saved = localStorage.getItem("ba_locally_paid_appointments");
       if (saved) {
         try {
-          setLocallyPaidIds(JSON.parse(saved));
+          return JSON.parse(saved);
         } catch {}
       }
     }
-  }, []);
+    return {};
+  });
 
   useEffect(() => {
     const remoteRequests = mapAppointmentRequests(merged.appointments).map((req) => {
@@ -286,7 +285,9 @@ export default function CitasPage() {
       }
       return req;
     });
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setRequests(remoteRequests);
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setSelectedId((current) => (current && remoteRequests.some((req) => req.id === current) ? current : null));
   }, [merged.appointments, locallyPaidIds]);
 

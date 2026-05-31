@@ -166,6 +166,7 @@ export default function InventarioPage() {
   // Autolimpieza de IDs de citas en proceso de sincronización cuando el backend confirma el pago real
   useEffect(() => {
     if (merged.appointments && Object.keys(syncingAppointmentIds).length > 0) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setSyncingAppointmentIds((prev) => {
         let hasChanges = false;
         const next = { ...prev };
@@ -494,6 +495,7 @@ export default function InventarioPage() {
 
       // Activar el modal de la tirilla flotante con pitido electrónico
       try {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         const AudioCtx = window.AudioContext || (window as any).webkitAudioContext;
         if (AudioCtx) {
           const ctx = new AudioCtx();

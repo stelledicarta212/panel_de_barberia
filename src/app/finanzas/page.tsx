@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import { BadgeCheck, Cake, Clock3, Crown, Gift, MoreHorizontal, RefreshCcw, Scissors, Sparkles, Workflow } from "lucide-react";
 import { DashboardShell } from "@/components/dashboard-shell";
 import { useDashboard } from "@/store/dashboard-context";
@@ -18,20 +18,19 @@ type Movement = {
 
 export default function ProgramaLealtadPage() {
   const { identity, merged } = useDashboard();
-  const [locallyPaidIds, setLocallyPaidIds] = useState<Record<string, string>>({});
-
-  useEffect(() => {
+  const [locallyPaidIds] = useState<Record<string, string>>(() => {
     if (typeof window !== "undefined") {
       const saved = localStorage.getItem("ba_locally_paid_appointments");
       if (saved) {
         try {
-          setLocallyPaidIds(JSON.parse(saved));
+          return JSON.parse(saved);
         } catch (e) {
           console.error("Error parsing ba_locally_paid_appointments in finanzas", e);
         }
       }
     }
-  }, []);
+    return {};
+  });
 
   const movements = useMemo<Movement[]>(() => {
     return merged.appointments.map((item, index) => {

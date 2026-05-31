@@ -77,7 +77,19 @@ export function DashboardEditor() {
   const barberiaId = identity?.barberia_id;
   const [offDaysByBarber, setOffDaysByBarber] = useState<Record<string, string[]>>({});
   const [reservations, setReservations] = useState<ReservationRecord[]>([]);
-  const [locallyPaidIds, setLocallyPaidIds] = useState<Record<string, string>>({});
+  const [locallyPaidIds] = useState<Record<string, string>>(() => {
+    if (typeof window !== "undefined") {
+      const saved = localStorage.getItem("ba_locally_paid_appointments");
+      if (saved) {
+        try {
+          return JSON.parse(saved);
+        } catch (e) {
+          console.error("Error parsing ba_locally_paid_appointments in dashboard", e);
+        }
+      }
+    }
+    return {};
+  });
   const qrPanelValue = merged.qr_url;
   const publicLandingLabel = String(merged.biz_name || merged.biz_slug || "Landing publica").trim();
 
@@ -106,19 +118,6 @@ export function DashboardEditor() {
     // eslint-disable-next-line react-hooks/set-state-in-effect
     loadDescansos();
   }, [loadDescansos]);
-
-  useEffect(() => {
-    if (typeof window !== "undefined") {
-      const saved = localStorage.getItem("ba_locally_paid_appointments");
-      if (saved) {
-        try {
-          setLocallyPaidIds(JSON.parse(saved));
-        } catch (e) {
-          console.error("Error parsing ba_locally_paid_appointments in dashboard", e);
-        }
-      }
-    }
-  }, []);
 
   useEffect(() => {
     const loadReservations = () => {
