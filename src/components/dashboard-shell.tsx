@@ -317,10 +317,6 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
               </div>
             </div>
             <div className="ba-search">Buscar barbería, cliente o cita...</div>
-            <button type="button" className="ba-mobile-logout-btn" onClick={logout}>
-              <LogOut size={14} />
-              Salir
-            </button>
           </div>
 
           <div className="ba-brand">
@@ -365,6 +361,11 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
               );
             })}
           </nav>
+
+          <button type="button" className="ba-mobile-logout-btn" onClick={logout}>
+            <LogOut size={14} />
+            Salir
+          </button>
 
           <div className="ba-sidebar-footer">
             <p>rol: {roleLabel}</p>
