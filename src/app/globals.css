@@ -508,6 +508,10 @@ body {
   font-size: 12px;
 }
 
+.ba-mobile-logout-btn {
+  display: none;
+}
+
 .ba-stats-grid {
   display: grid;
   gap: 10px;
@@ -4823,6 +4827,23 @@ body {
   .ba-mobile-topbar-actions .ba-btn-gold {
     padding: 8px 12px;
     font-size: 13px;
+  }
+
+  .ba-mobile-logout-btn {
+    all: unset;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    width: 100%;
+    min-height: 38px;
+    border-radius: 12px;
+    border: 1px solid rgba(238, 208, 145, 0.34);
+    color: var(--text);
+    background: rgba(255, 255, 255, 0.04);
+    font-size: 12px;
+    font-weight: 700;
   }
 
   .ba-main {
