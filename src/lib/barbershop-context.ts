@@ -96,18 +96,10 @@ export function resolveBarbershopIdentity(): BarbershopIdentity {
     clearLegacyTestIdentity();
   }
 
+  // Se permite retornar desde cache como candidato UX temporal, pero
+  // el DashboardProvider debe validarlo siempre contra session/me antes de usarlo.
   const fromStorage = getBarbershopContext();
   if (fromStorage.id || fromStorage.slug) return fromStorage;
-
-  const fromSeed = resolveIdentityFromSeed();
-  if (fromSeed.id || fromSeed.slug) return fromSeed;
-
-  if (env.disableRemoteFetch) {
-    return {
-      id: safeText(env.testBarberiaId) || null,
-      slug: safeText(env.testBarberiaSlug) || null
-    };
-  }
 
   return { id: null, slug: null };
 }

@@ -12,9 +12,11 @@ import { env } from "@/lib/env";
 import { MOCK_MERGED } from "@/lib/mock-dashboard-data";
 import {
   resolveBarbershopIdentity,
-  setBarbershopContext
+  setBarbershopContext,
+  resolveIdentityFromUrl
 } from "@/lib/barbershop-context";
-import { NO_PERMISSIONS, resolveDashboardAccess, resolveLoginAccess } from "@/lib/dashboard-access";
+import { NO_PERMISSIONS, resolveDashboardAccess, resolveLoginAccess, ALL_PERMISSIONS } from "@/lib/dashboard-access";
+import { getSessionMe } from "@/lib/session-me";
 import type {
   DashboardIdentity,
   DashboardLoginSession,
@@ -176,36 +178,131 @@ function clearLoginSession(input: DashboardIdentity | null) {
 }
 
 export function DashboardProvider({ children }: { children: React.ReactNode }) {
-  const [identity, setIdentity] = useState<DashboardIdentity | null>(() => {
-    const resolved = normalizeIdentity(resolveBarbershopIdentity());
-    return resolved.barberia_id || resolved.slug ? resolved : null;
-  });
+  const [identity, setIdentity] = useState<DashboardIdentity | null>(null);
   const [rawState, setRawState] = useState<DashboardStateResponse | null>(null);
   const [merged, setMerged] = useState<DashboardMerged>(() =>
     env.disableRemoteFetch ? { ...MOCK_MERGED } : EMPTY_MERGED
   );
-  const [loading, setLoading] = useState<boolean>(() => Boolean(identity));
+  const [loading, setLoading] = useState<boolean>(true);
   const [saving, setSaving] = useState<boolean>(false);
   const [publishing, setPublishing] = useState<boolean>(false);
-  const [error, setError] = useState<string | null>(() =>
-    identity ? null : "No se encontro identidad en URL/storage/seed."
-  );
+  const [error, setError] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
-  const [session, setSession] = useState<DashboardLoginSession | null>(() => readLoginSession(identity));
+  const [session, setSession] = useState<DashboardLoginSession | null>(null);
+  
   const fallbackAccess = useMemo(() => resolveDashboardAccess(rawState), [rawState]);
   const access = session?.access ?? (session ? fallbackAccess : LOCKED_ACCESS);
   const isAuthenticated = Boolean(session?.access?.user_id);
 
+  // Mount effect to check session and resolve/validate identity
   useEffect(() => {
-    if (identity) return;
-    const resolved = normalizeIdentity(resolveBarbershopIdentity());
-    if (!resolved.barberia_id && !resolved.slug) return;
-    // eslint-disable-next-line react-hooks/set-state-in-effect
-    setIdentity(resolved);
-    setSession(readLoginSession(resolved));
-    setError(null);
-    setLoading(true);
-  }, [identity]);
+    async function initSession() {
+      if (env.disableRemoteFetch) {
+        setIdentity({
+          barberia_id: Number(env.testBarberiaId) || 101,
+          slug: env.testBarberiaSlug || "barberia-58"
+        });
+        setLoading(false);
+        return;
+      }
+      
+      setLoading(true);
+      setError(null);
+      try {
+        const sessionMe = await getSessionMe();
+        if (!sessionMe.ok) {
+          setSession(null);
+          setIdentity(null);
+          setError("Sesión no válida o expirada. Por favor, inicia sesión.");
+          setLoading(false);
+          return;
+        }
+
+        const userBarberias = sessionMe.barberias ?? [];
+        const fromUrl = normalizeIdentity(resolveIdentityFromUrl());
+        let activeIdentity: DashboardIdentity | null = null;
+
+        if (fromUrl.barberia_id || fromUrl.slug) {
+          // Validate the URL parameters against the user's barberias list
+          const matched = userBarberias.find(b => 
+            (fromUrl.barberia_id && Number(b.id) === fromUrl.barberia_id) ||
+            (fromUrl.slug && b.slug === fromUrl.slug)
+          );
+
+          if (matched) {
+            activeIdentity = {
+              barberia_id: Number(matched.id),
+              slug: matched.slug
+            };
+          } else {
+            // Mismatch or unauthorized! Return 403 visual error and stop.
+            setSession(null);
+            setIdentity(null);
+            setError("403 - No tienes permisos para acceder a esta barbería.");
+            setLoading(false);
+            return;
+          }
+        } else {
+          // No URL identity, check sessionMe for current_barberia
+          if (sessionMe.current_barberia) {
+            activeIdentity = {
+              barberia_id: Number(sessionMe.current_barberia.id),
+              slug: sessionMe.current_barberia.slug
+            };
+          } else if (userBarberias.length > 0) {
+            activeIdentity = {
+              barberia_id: Number(userBarberias[0].id),
+              slug: userBarberias[0].slug
+            };
+          } else {
+            setSession(null);
+            setIdentity(null);
+            setError("No tienes ninguna barbería asociada.");
+            setLoading(false);
+            return;
+          }
+        }
+
+        if (activeIdentity) {
+          // Cache the resolved context strictly for UX
+          setBarbershopContext(
+            String(activeIdentity.barberia_id),
+            String(activeIdentity.slug)
+          );
+          setIdentity(activeIdentity);
+
+          const resolvedRole = (sessionMe.role ?? sessionMe.current_barberia?.role ?? null);
+          const sessionData: DashboardLoginSession = {
+            user: sessionMe.user ?? {
+              id: sessionMe.user_id,
+              email: sessionMe.email,
+              nombre: sessionMe.nombre,
+              apellido: sessionMe.apellido
+            },
+            identity: activeIdentity,
+            access: {
+              user_id: sessionMe.user_id ?? null,
+              role: (resolvedRole === "admin" || resolvedRole === "owner" || resolvedRole === "barbero" || resolvedRole === "cajero" || resolvedRole === "super_admin" ? resolvedRole : "admin") as any,
+              permissions: (sessionMe.permissions ?? ALL_PERMISSIONS) as any,
+              barber_id: null,
+              source: "session_me"
+            }
+          };
+
+          setSession(sessionData);
+        }
+      } catch (err) {
+        console.error("Error initializing session:", err);
+        setError("Error al conectar con el servidor de autenticación.");
+        setSession(null);
+        setIdentity(null);
+      } finally {
+        setLoading(false);
+      }
+    }
+
+    initSession();
+  }, []);
 
   const loadState = useCallback(async (incoming: DashboardIdentity) => {
     if (env.disableRemoteFetch) {
@@ -254,31 +351,25 @@ export function DashboardProvider({ children }: { children: React.ReactNode }) {
       writeMergedCache(effectiveIdentity, normalized);
       const nextMessage = String(response.message ?? "").trim();
       setMessage(nextMessage.toLowerCase().startsWith("fallback:") ? null : (nextMessage || null));
-    } catch {
-      const fallback = readMergedCache(incoming);
-      const fallbackMerged = fallback ?? {
-        ...EMPTY_MERGED,
-        biz_slug: incoming.slug || ""
-      };
-      setMerged(fallbackMerged);
-      setError(null);
-      setMessage(
-        "No se pudo cargar estado remoto (temporal). Mostrando datos guardados para continuar."
-      );
+    } catch (cause) {
+      console.error("Error loading dashboard state:", cause);
+      setMerged(EMPTY_MERGED);
+      setError("No se pudo cargar la fuente de verdad.");
+      setMessage(null);
     } finally {
       setLoading(false);
     }
   }, []);
 
   useEffect(() => {
-    if (!identity) return;
+    if (!identity || !session) return;
     const timer = window.setTimeout(() => {
       loadState(identity).catch(() => {
         // handled in loadState
       });
     }, 0);
     return () => window.clearTimeout(timer);
-  }, [identity, loadState]);
+  }, [identity, session, loadState]);
 
   const refresh = useCallback(async () => {
     if (!identity) return;

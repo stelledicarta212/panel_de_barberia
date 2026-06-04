@@ -121,11 +121,11 @@ async function safeGetArray(path: string): Promise<Array<Record<string, unknown>
 
 export function buildIdentityQuery(identity: IdentityInput): string {
   const normalized = normalizeIdentity(identity);
-  if (normalized.slug) {
-    return `slug=${encodeURIComponent(normalized.slug)}`;
-  }
   if (normalized.barberia_id) {
     return `barberia_id=${encodeURIComponent(String(normalized.barberia_id))}`;
+  }
+  if (normalized.slug) {
+    return `slug=${encodeURIComponent(normalized.slug)}`;
   }
   return "";
 }

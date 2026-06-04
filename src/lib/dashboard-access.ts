@@ -70,7 +70,8 @@ const ROLE_PERMISSIONS: Record<DashboardRole, DashboardPermissions> = {
     canPublishLanding: false,
     canChargePOS: true,
     canViewGlobalFinance: false
-  }
+  },
+  guest: NO_PERMISSIONS
 };
 
 function safeText(value: unknown): string {
@@ -79,10 +80,10 @@ function safeText(value: unknown): string {
 
 function normalizeRole(value: unknown): DashboardRole {
   const raw = safeText(value).toLowerCase();
-  if (raw === "owner" || raw === "admin" || raw === "barbero" || raw === "cajero" || raw === "super_admin") {
+  if (raw === "owner" || raw === "admin" || raw === "barbero" || raw === "cajero" || raw === "super_admin" || raw === "guest") {
     return raw;
   }
-  return "admin";
+  return "guest";
 }
 
 function readAccessSource(rawState: DashboardStateResponse | null): string {
@@ -93,9 +94,9 @@ function readAccessSource(rawState: DashboardStateResponse | null): string {
 export function resolveDashboardAccess(rawState: DashboardStateResponse | null): DashboardUserAccess {
   const user = rawState?.user ?? rawState?.usuario ?? {};
   const role = normalizeRole(rawState?.role ?? rawState?.rol ?? user.role ?? user.rol);
-  const base = ROLE_PERMISSIONS[role] ?? ROLE_PERMISSIONS.admin;
+  const base = ROLE_PERMISSIONS[role] ?? ROLE_PERMISSIONS.guest;
   const remotePermissions = (rawState?.permissions ?? rawState?.permisos ?? {}) as Partial<DashboardPermissions>;
-  const userId = Number(user.id ?? user.user_id ?? rawState?.identity?.barberia_id ?? 0);
+  const userId = Number(user.id ?? user.user_id ?? 0);
   const barberId = Number(user.barber_id ?? user.barbero_id ?? 0);
 
   return {

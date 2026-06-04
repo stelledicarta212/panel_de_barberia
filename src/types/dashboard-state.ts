@@ -8,7 +8,7 @@ export type DashboardIdentity = {
   slug: string | null;
 };
 
-export type DashboardRole = "admin" | "owner" | "barbero" | "cajero" | "super_admin";
+export type DashboardRole = "admin" | "owner" | "barbero" | "cajero" | "super_admin" | "guest";
 
 export type DashboardPermissions = {
   canViewDashboard: boolean;
