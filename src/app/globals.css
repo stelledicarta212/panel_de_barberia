@@ -5395,3 +5395,123 @@ body {
   object-fit: cover;
   object-position: center;
 }
+
+/* Modal overlay styling for Services admin */
+.ba-modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(15, 23, 42, 0.75);
+  backdrop-filter: blur(8px);
+  display: grid;
+  place-items: center;
+  z-index: 999;
+  animation: ba-fade-in 0.2s ease-out;
+  padding: 16px;
+}
+
+.ba-modal {
+  width: min(500px, 100%);
+  animation: ba-slide-up 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+  box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.5), 0 10px 10px -5px rgba(0, 0, 0, 0.4);
+}
+
+.ba-modal-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  border-bottom: 1px solid var(--panel-stroke);
+  padding-bottom: 12px;
+  margin-bottom: 16px;
+}
+
+.ba-modal-header h2 {
+  margin: 0;
+  font-size: 18px;
+  color: var(--gold);
+}
+
+.ba-modal-header button {
+  background: transparent;
+  border: none;
+  color: var(--muted);
+  cursor: pointer;
+  padding: 4px;
+  border-radius: 6px;
+  transition: all 0.2s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.ba-modal-header button:hover {
+  color: #fff;
+  background: rgba(255, 255, 255, 0.1);
+}
+
+.ba-modal-form {
+  display: grid;
+  gap: 16px;
+}
+
+.ba-field-label {
+  display: grid;
+  gap: 6px;
+}
+
+.ba-field-label span {
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.ba-input {
+  background: var(--panel);
+  border: 1px solid var(--panel-stroke);
+  border-radius: 8px;
+  color: #fff;
+  padding: 10px 12px;
+  font-size: 14px;
+  outline: none;
+  transition: border-color 0.2s;
+  width: 100%;
+}
+
+.ba-input:focus {
+  border-color: var(--gold);
+}
+
+.ba-form-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+}
+
+.ba-switch-label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+  font-size: 14px;
+  user-select: none;
+}
+
+.ba-switch-label input {
+  width: 16px;
+  height: 16px;
+  accent-color: var(--gold);
+  cursor: pointer;
+}
+
+.ba-error-message {
+  color: #ef4444;
+  font-size: 12px;
+  margin: 0;
+}
+
+.ba-modal-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 12px;
+  margin-top: 8px;
+  border-top: 1px solid var(--panel-stroke);
+  padding-top: 16px;
+}

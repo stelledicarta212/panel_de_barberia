@@ -1,10 +1,10 @@
-﻿"use client";
+"use client";
 
 import { useMemo, useState } from "react";
 import { Clock3, DollarSign, MoreHorizontal, Plus, Scissors, Search, SlidersHorizontal, SquarePen, Trash2, TrendingUp, X } from "lucide-react";
 import { DashboardShell } from "@/components/dashboard-shell";
 import { useDashboard } from "@/store/dashboard-context";
-import Link from "next/link";
+import { addServicio, updateServicio, deleteServicio } from "@/lib/dashboard-api";
 
 type ServiceCard = {
   id: string;
@@ -52,33 +52,54 @@ function buildDefaultServiceImage(name: string): string {
 }
 
 export default function ServiciosPage() {
-  const { merged } = useDashboard();
+  const { merged, refresh, identity } = useDashboard();
   const [query, setQuery] = useState("");
   const [selectedId, setSelectedId] = useState<string | null>(null);
 
-  const services = useMemo<ServiceCard[]>(() => {
-    return merged.services.map((item, index) => {
-      const name = text(item.nombre ?? item.name) || `Servicio ${index + 1}`;
-      const duration = Math.max(15, numberValue(item.duracion_min ?? item.duration_minutes, 45));
-      const price = Math.max(5, numberValue(item.precio ?? item.price, 40));
-      const inheritedImage = text(
-        item.image_url ??
-        item.foto_url ??
-        item.cover_url ??
-        item.imagen_url ??
-        item.imagen ??
-        item.photo_url
-      );
+  // Modal and form states
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [modalMode, setModalMode] = useState<"add" | "edit">("add");
+  const [editingServiceId, setEditingServiceId] = useState<number | null>(null);
 
-      return {
-        id: text(item.id) || `service-${index}`,
-        name,
-        description: text(item.descripcion ?? item.description) || `${name} con acabado premium y detalle profesional.`,
-        duration,
-        price,
-        image: inheritedImage || buildDefaultServiceImage(name)
-      };
-    });
+  const [formNombre, setFormNombre] = useState("");
+  const [formPrecio, setFormPrecio] = useState("");
+  const [formDuracion, setFormDuracion] = useState("");
+  const [formImagenUrl, setFormImagenUrl] = useState("");
+  const [formActivo, setFormActivo] = useState(true);
+
+  const [isDeleteOpen, setIsDeleteOpen] = useState(false);
+  const [serviceToDelete, setServiceToDelete] = useState<ServiceCard | null>(null);
+
+  const [loadingAction, setLoadingAction] = useState(false);
+  const [actionError, setActionError] = useState<string | null>(null);
+
+  const services = useMemo<ServiceCard[]>(() => {
+    // Return only active services in the dashboard panel so logical deletes (activo = false)
+    // are correctly removed from the UI.
+    return merged.services
+      .filter((item) => item.activo !== false)
+      .map((item, index) => {
+        const name = text(item.nombre ?? item.name) || `Servicio ${index + 1}`;
+        const duration = Math.max(15, numberValue(item.duracion_min ?? item.duration_minutes, 45));
+        const price = Math.max(5, numberValue(item.precio ?? item.price, 40));
+        const inheritedImage = text(
+          item.image_url ??
+          item.foto_url ??
+          item.cover_url ??
+          item.imagen_url ??
+          item.imagen ??
+          item.photo_url
+        );
+
+        return {
+          id: text(item.id) || `service-${index}`,
+          name,
+          description: text(item.descripcion ?? item.description) || `${name} con acabado premium y detalle profesional.`,
+          duration,
+          price,
+          image: inheritedImage || buildDefaultServiceImage(name)
+        };
+      });
   }, [merged.services]);
 
   const filtered = useMemo(() => {
@@ -91,21 +112,160 @@ export default function ServiciosPage() {
   const topServices = useMemo(() => [...services].sort((a, b) => b.price - a.price).slice(0, 4), [services]);
   const totalRevenue = useMemo(() => services.reduce((acc, item) => acc + item.price, 0), [services]);
 
+  const handleOpenAdd = () => {
+    setModalMode("add");
+    setEditingServiceId(null);
+    setFormNombre("");
+    setFormPrecio("");
+    setFormDuracion("");
+    setFormImagenUrl("");
+    setFormActivo(true);
+    setActionError(null);
+    setIsModalOpen(true);
+  };
+
+  const handleOpenEdit = (service: ServiceCard) => {
+    setModalMode("edit");
+    const idNum = Number(service.id);
+    setEditingServiceId(isNaN(idNum) ? null : idNum);
+    setFormNombre(service.name);
+    setFormPrecio(String(service.price));
+    setFormDuracion(String(service.duration));
+    const isDataUrl = service.image?.startsWith("data:");
+    setFormImagenUrl(isDataUrl ? "" : (service.image || ""));
+    
+    const originalItem = merged.services.find(item => text(item.id) === service.id);
+    setFormActivo(originalItem ? originalItem.activo !== false : true);
+
+    setActionError(null);
+    setIsModalOpen(true);
+  };
+
+  const handleOpenDelete = (service: ServiceCard) => {
+    setServiceToDelete(service);
+    setActionError(null);
+    setIsDeleteOpen(true);
+  };
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!identity?.barberia_id) {
+      setActionError("No hay identidad de barbería seleccionada o no tienes permisos.");
+      return;
+    }
+
+    const precioNum = Number(formPrecio);
+    const duracionNum = Number(formDuracion);
+
+    if (!formNombre.trim()) {
+      setActionError("El nombre es requerido.");
+      return;
+    }
+    if (isNaN(precioNum) || precioNum <= 0) {
+      setActionError("El precio debe ser un número mayor a 0.");
+      return;
+    }
+    if (isNaN(duracionNum) || duracionNum <= 0) {
+      setActionError("La duración debe ser un número mayor a 0.");
+      return;
+    }
+
+    setLoadingAction(true);
+    setActionError(null);
+
+    try {
+      if (modalMode === "add") {
+        const res = await addServicio({
+          barberia_id: identity.barberia_id,
+          nombre: formNombre.trim(),
+          precio: precioNum,
+          duracion_min: duracionNum,
+          imagen_url: formImagenUrl.trim() || undefined
+        });
+
+        if (!res.ok) {
+          throw new Error(res.message || "Error al agregar servicio");
+        }
+      } else {
+        if (editingServiceId === null) {
+          throw new Error("ID de servicio no válido para editar.");
+        }
+        const res = await updateServicio({
+          barberia_id: identity.barberia_id,
+          id: editingServiceId,
+          nombre: formNombre.trim(),
+          precio: precioNum,
+          duracion_min: duracionNum,
+          imagen_url: formImagenUrl.trim() || undefined,
+          activo: formActivo
+        });
+
+        if (!res.ok) {
+          throw new Error(res.message || "Error al actualizar servicio");
+        }
+      }
+
+      await refresh();
+      setIsModalOpen(false);
+      setSelectedId(null);
+    } catch (err) {
+      setActionError(err instanceof Error ? err.message : "Error inesperado.");
+    } finally {
+      setLoadingAction(false);
+    }
+  };
+
+  const handleConfirmDelete = async () => {
+    if (!identity?.barberia_id) {
+      setActionError("No hay identidad de barbería seleccionada o no tienes permisos.");
+      return;
+    }
+    if (!serviceToDelete) return;
+
+    const idNum = Number(serviceToDelete.id);
+    if (isNaN(idNum)) {
+      setActionError("ID de servicio no válido.");
+      return;
+    }
+
+    setLoadingAction(true);
+    setActionError(null);
+
+    try {
+      const res = await deleteServicio({
+        barberia_id: identity.barberia_id,
+        id: idNum
+      });
+
+      if (!res.ok) {
+        throw new Error(res.message || "Error al eliminar servicio");
+      }
+
+      await refresh();
+      setIsDeleteOpen(false);
+      setServiceToDelete(null);
+      setSelectedId(null);
+    } catch (err) {
+      setActionError(err instanceof Error ? err.message : "Error inesperado.");
+    } finally {
+      setLoadingAction(false);
+    }
+  };
+
   return (
     <DashboardShell>
       <section className="ba-services-layout">
         <div className="ba-services-main ba-card">
           <header className="ba-services-head">
             <h1>Servicios</h1>
-            <Link
-              href="https://barberagency-barberagency.gymh5g.easypanel.host/registro-barberias/"
-              target="_blank"
-              rel="noreferrer"
+            <button
+              type="button"
               className="ba-mini-gold"
+              onClick={handleOpenAdd}
             >
               <Plus size={12} />
               Agregar servicio
-            </Link>
+            </button>
           </header>
 
           <div className="ba-services-toolbar">
@@ -153,8 +313,26 @@ export default function ServiciosPage() {
                   </div>
                   <p>{service.description}</p>
                   <div className="ba-service-actions">
-                    <button type="button" aria-label="Editar"><SquarePen size={12} /></button>
-                    <button type="button" aria-label="Eliminar"><Trash2 size={12} /></button>
+                    <button
+                      type="button"
+                      aria-label="Editar"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleOpenEdit(service);
+                      }}
+                    >
+                      <SquarePen size={12} />
+                    </button>
+                    <button
+                      type="button"
+                      aria-label="Eliminar"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleOpenDelete(service);
+                      }}
+                    >
+                      <Trash2 size={12} />
+                    </button>
                   </div>
                 </div>
               </article>
@@ -253,11 +431,177 @@ export default function ServiciosPage() {
               <p><span>Popularidad</span><strong>Alta</strong></p>
             </div>
             <footer className="ba-overlay-actions">
-              <button type="button" className="ba-btn-ghost">Editar</button>
-              <button type="button" className="ba-card-gold">Aplicar</button>
+              <button
+                type="button"
+                className="ba-btn-ghost"
+                onClick={() => handleOpenEdit(selected)}
+              >
+                Editar
+              </button>
+              <button
+                type="button"
+                className="ba-card-gold"
+                style={{
+                  background: "linear-gradient(180deg, #ff8080, #ef4444)",
+                  border: "1px solid rgba(255, 126, 126, 0.4)",
+                  color: "#fff"
+                }}
+                onClick={() => handleOpenDelete(selected)}
+              >
+                Eliminar
+              </button>
             </footer>
           </article>
         ) : null}
+
+        {/* Add/Edit Modal */}
+        {isModalOpen && (
+          <div className="ba-modal-overlay" onClick={() => setIsModalOpen(false)}>
+            <div className="ba-modal ba-card" onClick={(e) => e.stopPropagation()}>
+              <header className="ba-modal-header">
+                <h2>{modalMode === "add" ? "Agregar Servicio" : "Editar Servicio"}</h2>
+                <button type="button" onClick={() => setIsModalOpen(false)}>
+                  <X size={16} />
+                </button>
+              </header>
+              <form className="ba-modal-form" onSubmit={handleSubmit}>
+                <label className="ba-field-label">
+                  <span>Nombre del servicio</span>
+                  <input
+                    type="text"
+                    className="ba-input"
+                    value={formNombre}
+                    onChange={(e) => setFormNombre(e.target.value)}
+                    placeholder="Ej. Corte de Cabello + Lavado"
+                    required
+                    disabled={loadingAction}
+                  />
+                </label>
+                <div className="ba-form-row">
+                  <label className="ba-field-label">
+                    <span>Precio ($)</span>
+                    <input
+                      type="number"
+                      className="ba-input"
+                      value={formPrecio}
+                      onChange={(e) => setFormPrecio(e.target.value)}
+                      placeholder="Ej. 30"
+                      min="1"
+                      required
+                      disabled={loadingAction}
+                    />
+                  </label>
+                  <label className="ba-field-label">
+                    <span>Duración (minutos)</span>
+                    <input
+                      type="number"
+                      className="ba-input"
+                      value={formDuracion}
+                      onChange={(e) => setFormDuracion(e.target.value)}
+                      placeholder="Ej. 45"
+                      min="5"
+                      required
+                      disabled={loadingAction}
+                    />
+                  </label>
+                </div>
+                <label className="ba-field-label">
+                  <span>URL de Imagen (Opcional)</span>
+                  <input
+                    type="url"
+                    className="ba-input"
+                    value={formImagenUrl}
+                    onChange={(e) => setFormImagenUrl(e.target.value)}
+                    placeholder="https://ejemplo.com/imagen.jpg"
+                    disabled={loadingAction}
+                  />
+                </label>
+
+                {modalMode === "edit" && (
+                  <label className="ba-switch-label">
+                    <input
+                      type="checkbox"
+                      checked={formActivo}
+                      onChange={(e) => setFormActivo(e.target.checked)}
+                      disabled={loadingAction}
+                    />
+                    <span>Servicio activo</span>
+                  </label>
+                )}
+
+                {actionError && <p className="ba-error-message">{actionError}</p>}
+
+                <div className="ba-modal-actions">
+                  <button
+                    type="button"
+                    className="ba-btn-ghost"
+                    onClick={() => setIsModalOpen(false)}
+                    disabled={loadingAction}
+                  >
+                    Cancelar
+                  </button>
+                  <button
+                    type="submit"
+                    className="ba-btn-gold"
+                    disabled={loadingAction}
+                  >
+                    {loadingAction ? "Guardando..." : "Guardar"}
+                  </button>
+                </div>
+              </form>
+            </div>
+          </div>
+        )}
+
+        {/* Delete Confirmation Modal */}
+        {isDeleteOpen && (
+          <div className="ba-modal-overlay" onClick={() => setIsDeleteOpen(false)}>
+            <div className="ba-modal ba-card" onClick={(e) => e.stopPropagation()}>
+              <header className="ba-modal-header">
+                <h2>Eliminar Servicio</h2>
+                <button type="button" onClick={() => setIsDeleteOpen(false)}>
+                  <X size={16} />
+                </button>
+              </header>
+              <div className="ba-modal-form">
+                <p style={{ margin: 0, fontSize: "14px", color: "var(--text)" }}>
+                  ¿Estás seguro de que deseas eliminar el servicio{" "}
+                  <strong>{serviceToDelete?.name}</strong>?
+                </p>
+                <p style={{ margin: 0, fontSize: "12px", color: "var(--muted)" }}>
+                  Esta acción desactivará el servicio y no estará disponible para nuevas citas.
+                  Los registros históricos en el sistema no se verán afectados.
+                </p>
+
+                {actionError && <p className="ba-error-message">{actionError}</p>}
+
+                <div className="ba-modal-actions">
+                  <button
+                    type="button"
+                    className="ba-btn-ghost"
+                    onClick={() => setIsDeleteOpen(false)}
+                    disabled={loadingAction}
+                  >
+                    Cancelar
+                  </button>
+                  <button
+                    type="button"
+                    className="ba-btn-gold"
+                    style={{
+                      background: "linear-gradient(180deg, #ff8080, #ef4444)",
+                      border: "1px solid rgba(255, 126, 126, 0.4)",
+                      color: "#fff"
+                    }}
+                    onClick={handleConfirmDelete}
+                    disabled={loadingAction}
+                  >
+                    {loadingAction ? "Eliminando..." : "Confirmar y Desactivar"}
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
       </section>
     </DashboardShell>
   );

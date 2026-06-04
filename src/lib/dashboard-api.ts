@@ -447,6 +447,78 @@ export async function updateBarberActiveStatus(barberoId: number, activo: boolea
   });
 }
 
+const SERVICIOS_ADMIN_WEBHOOK =
+  "https://barberagency-n8n.gymh5g.easypanel.host/webhook/barberagency/dashboard/servicios";
+
+async function callServiciosAdminGateway(payload: Record<string, unknown>): Promise<{ ok: boolean; message?: string; data?: unknown }> {
+  try {
+    const response = await fetch(SERVICIOS_ADMIN_WEBHOOK, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify(payload)
+    });
+
+    const data = await response.json().catch(() => ({}));
+
+    if (!response.ok || data?.ok === false) {
+      return {
+        ok: false,
+        message: data?.message || data?.error || "Error en gateway de servicios."
+      };
+    }
+
+    return {
+      ok: true,
+      data
+    };
+  } catch (err) {
+    return {
+      ok: false,
+      message: err instanceof Error ? err.message : "Error de red en el gateway de servicios."
+    };
+  }
+}
+
+export async function addServicio(payload: {
+  barberia_id: number;
+  nombre: string;
+  precio: number;
+  duracion_min: number;
+  imagen_url?: string;
+}): Promise<{ ok: boolean; message?: string; data?: unknown }> {
+  return callServiciosAdminGateway({
+    action: "add_servicio",
+    ...payload
+  });
+}
+
+export async function updateServicio(payload: {
+  barberia_id: number;
+  id: number;
+  nombre: string;
+  precio: number;
+  duracion_min: number;
+  imagen_url?: string;
+  activo: boolean;
+}): Promise<{ ok: boolean; message?: string; data?: unknown }> {
+  return callServiciosAdminGateway({
+    action: "update_servicio",
+    ...payload
+  });
+}
+
+export async function deleteServicio(payload: {
+  barberia_id: number;
+  id: number;
+}): Promise<{ ok: boolean; message?: string; data?: unknown }> {
+  return callServiciosAdminGateway({
+    action: "delete_servicio",
+    ...payload
+  });
+}
+
 export async function savePosSale(payload: {
   barberia_id: number;
   cliente_nombre: string;
