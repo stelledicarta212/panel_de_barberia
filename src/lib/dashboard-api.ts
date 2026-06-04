@@ -220,6 +220,9 @@ export async function getDashboardState(identity: IdentityInput): Promise<Dashbo
     const profile = await getPublicProfile(responseIdentity);
     return mergeStateWithPublicProfile(response, profile);
   } catch (cause) {
+    if (!env.disableRemoteFetch) {
+      throw cause;
+    }
     const message = cause instanceof Error ? cause.message : "Error consultando dashboard/state";
     const fallbackBySlug = normalizeIdentity(identity).slug;
     const fallbackById = normalizeIdentity(identity).barberia_id;
