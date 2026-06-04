@@ -224,10 +224,18 @@ export function DashboardProvider({ children }: { children: React.ReactNode }) {
 
         if (fromUrl.barberia_id || fromUrl.slug) {
           // Validate the URL parameters against the user's barberias list
-          const matched = userBarberias.find(b => 
-            (fromUrl.barberia_id && Number(b.id) === fromUrl.barberia_id) ||
-            (fromUrl.slug && b.slug === fromUrl.slug)
-          );
+          const matched = userBarberias.find(b => {
+            if (fromUrl.barberia_id && fromUrl.slug) {
+              return Number(b.id) === fromUrl.barberia_id && b.slug === fromUrl.slug;
+            }
+            if (fromUrl.barberia_id) {
+              return Number(b.id) === fromUrl.barberia_id;
+            }
+            if (fromUrl.slug) {
+              return b.slug === fromUrl.slug;
+            }
+            return false;
+          });
 
           if (matched) {
             activeIdentity = {
@@ -250,10 +258,11 @@ export function DashboardProvider({ children }: { children: React.ReactNode }) {
               slug: sessionMe.current_barberia.slug
             };
           } else if (userBarberias.length > 0) {
-            activeIdentity = {
-              barberia_id: Number(userBarberias[0].id),
-              slug: userBarberias[0].slug
-            };
+            setSession(null);
+            setIdentity(null);
+            setError("Por favor, selecciona una barbería para continuar.");
+            setLoading(false);
+            return;
           } else {
             setSession(null);
             setIdentity(null);
@@ -282,8 +291,8 @@ export function DashboardProvider({ children }: { children: React.ReactNode }) {
             identity: activeIdentity,
             access: {
               user_id: sessionMe.user_id ?? null,
-              role: (resolvedRole === "admin" || resolvedRole === "owner" || resolvedRole === "barbero" || resolvedRole === "cajero" || resolvedRole === "super_admin" ? resolvedRole : "admin") as any,
-              permissions: (sessionMe.permissions ?? ALL_PERMISSIONS) as any,
+              role: (resolvedRole === "admin" || resolvedRole === "owner" || resolvedRole === "barbero" || resolvedRole === "cajero" || resolvedRole === "super_admin" ? resolvedRole : "guest") as any,
+              permissions: (sessionMe.permissions ?? NO_PERMISSIONS) as any,
               barber_id: null,
               source: "session_me"
             }
