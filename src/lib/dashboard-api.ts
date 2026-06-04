@@ -457,6 +457,7 @@ async function callServiciosAdminGateway(payload: Record<string, unknown>): Prom
       headers: {
         "Content-Type": "application/json"
       },
+      credentials: "include",
       body: JSON.stringify(payload)
     });
 
