@@ -299,10 +299,16 @@ export function DashboardProvider({ children }: { children: React.ReactNode }) {
             },
             identity: activeIdentity,
             access: {
-              user_id: sessionMe.user_id ?? null,
-              role: (resolvedRole === "admin" || resolvedRole === "owner" || resolvedRole === "barbero" || resolvedRole === "cajero" || resolvedRole === "super_admin" ? resolvedRole : "guest") as DashboardRole,
-              permissions: (sessionMe.permissions ?? NO_PERMISSIONS) as DashboardPermissions,
-              barber_id: null,
+              ...resolveLoginAccess({
+                user: sessionMe.user ?? {
+                  id: sessionMe.user_id,
+                  email: sessionMe.email,
+                  nombre: sessionMe.nombre,
+                  apellido: sessionMe.apellido
+                },
+                role: resolvedRole,
+                permissions: sessionMe.permissions
+              }),
               source: "session_me"
             }
           };
