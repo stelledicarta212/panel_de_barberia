@@ -324,7 +324,7 @@ export async function loginDashboard(payload: {
   password: string;
 }): Promise<DashboardLoginResponse> {
   return apiPostJson<DashboardLoginResponse, Record<string, unknown>>(
-    "/api/session/login",
+    "/api/auth/login",
     {
       barberia_id: payload.identity?.barberia_id ?? null,
       slug: payload.identity?.slug ?? null,
