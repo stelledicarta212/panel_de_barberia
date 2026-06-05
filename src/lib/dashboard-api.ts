@@ -368,12 +368,34 @@ export async function publishLanding(payload: Record<string, unknown>): Promise<
 }
 
 export async function publishBarbershopViaRpc(barberiaId: number): Promise<PublishResponse> {
-  const response = await apiPostJson<Record<string, unknown>, { p_barberia_id: number }>(
-    env.publishRpcEndpoint,
-    { p_barberia_id: barberiaId }
-  );
-  return normalizeRpcJsonb<PublishResponse>(response);
+  try {
+    const response = await fetch("https://barberagency-n8n.gymh5g.easypanel.host/webhook/barberagency/dashboard/publicar", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json"
+      },
+      credentials: "include",
+      body: JSON.stringify({ p_barberia_id: barberiaId })
+    });
+
+    const data = await response.json().catch(() => ({}));
+
+    if (!response.ok || data?.ok === false) {
+      return {
+        ok: false,
+        error: data?.error || data?.message || "Error al publicar la barbería."
+      };
+    }
+
+    return data;
+  } catch (err) {
+    return {
+      ok: false,
+      error: err instanceof Error ? err.message : "Error de red al publicar."
+    };
+  }
 }
+
 
 export async function getBarberDescansos(barberiaId: number): Promise<Array<{ barbero_id: number; fecha: string }>> {
   try {
