@@ -21,7 +21,7 @@ import {
 import { ThemeToggle } from "@/components/theme-toggle";
 import { useDashboard } from "@/store/dashboard-context";
 import { canAccessPath } from "@/lib/dashboard-access";
-import type { DashboardPermissions } from "@/types/dashboard-state";
+import type { DashboardIdentity, DashboardPermissions } from "@/types/dashboard-state";
 
 const NAV_ITEMS = [
   { href: "/", label: "Panel", icon: LayoutGrid, permission: "canViewDashboard" },
@@ -47,20 +47,16 @@ function labelFromSlug(slug: string): string {
     .join(" ");
 }
 
-function buildEditorUrl(slug: string, templateId: string): string {
-  const cleanSlug = slug.trim();
-  if (!cleanSlug) return "/configuracion";
+function buildSettingsEditUrl(input: DashboardIdentity | null): string {
+  const barberiaId = Number(input?.barberia_id || 0);
+  const cleanSlug = String(input?.slug || "").trim();
+  if (!barberiaId || !cleanSlug) return "/configuracion";
   const params = new URLSearchParams({
-    edit: "1",
-    modo: "editar",
     mode: "edit",
-    is_edit: "1",
-    editing: "1",
-    tpl: templateId.trim() || "v2",
-    slug: cleanSlug,
-    barberia_slug: cleanSlug
+    barberia_id: String(barberiaId),
+    slug: cleanSlug
   });
-  return `${CORE_BASE_URL}/landing_editor_v2/?${params.toString()}`;
+  return `${CORE_BASE_URL}/registro-barberias/?${params.toString()}`;
 }
 
 export function DashboardShell({ children }: { children: React.ReactNode }) {
@@ -83,7 +79,7 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
   const brandName = String(merged.biz_name || "").trim() || "BarberAgency";
   const brandLogo = String(merged.logo_url || "").trim();
   const currentSlug = String(merged.biz_slug || identity?.slug || "").trim();
-  const editorUrl = buildEditorUrl(currentSlug, String(merged.template_id || "v2"));
+  const settingsEditUrl = buildSettingsEditUrl(identity);
   const roleLabel = access.role === "owner" ? "admin" : access.role.replace("_", " ");
   const sessionSlug = String(session?.identity?.slug || identity?.slug || currentSlug || "").trim();
   const sessionBarbershopName = labelFromSlug(sessionSlug);
@@ -335,7 +331,7 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
               const Icon = item.icon;
               const href =
                 item.href === "/configuracion"
-                  ? editorUrl
+                  ? settingsEditUrl
                   : item.href === "/soporte"
                     ? `${CORE_BASE_URL}/contactanos/`
                     : item.href;
