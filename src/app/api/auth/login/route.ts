@@ -39,15 +39,39 @@ export async function POST(request: Request) {
 
     const response = NextResponse.json(body, { status: upstream.status });
 
+    let token = "";
+    let hasCookie = false;
+
     const upstreamSetCookie = upstream.headers.get("set-cookie");
     if (upstreamSetCookie) {
-      const match = upstreamSetCookie.match(/(?:^|;|,\s*)ba_session=([^;,\s]+)/);
-      const token = match ? match[1] : "";
+      hasCookie = true;
+      const match = upstreamSetCookie.match(/(?:^|;|,\s*)ba_session=([^;,\s]*)/);
+      if (match) {
+        token = match[1];
+      }
+    }
+
+    if (!token && body && typeof body === "object") {
+      const bodyRecord = body as Record<string, unknown>;
+      if (typeof bodyRecord["set_cookie"] === "string" && bodyRecord["set_cookie"]) {
+        hasCookie = true;
+        const match = bodyRecord["set_cookie"].match(/(?:^|;|,\s*)ba_session=([^;,\s]*)/);
+        if (match) {
+          token = match[1];
+        }
+      }
+    }
+
+    if (hasCookie) {
       if (token) {
-        // Set cookie via standard web headers API
         response.headers.set(
           "Set-Cookie",
           `ba_session=${token}; Path=/; HttpOnly; Secure; SameSite=Lax`
+        );
+      } else {
+        response.headers.set(
+          "Set-Cookie",
+          `ba_session=; Path=/; Max-Age=0; HttpOnly; Secure; SameSite=Lax`
         );
       }
     }
