@@ -323,16 +323,34 @@ export async function loginDashboard(payload: {
   email: string;
   password: string;
 }): Promise<DashboardLoginResponse> {
-  return apiPostJson<DashboardLoginResponse, Record<string, unknown>>(
-    "/api/auth/login",
-    {
+  const response = await fetch("/api/auth/login", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json"
+    },
+    credentials: "include",
+    body: JSON.stringify({
       barberia_id: payload.identity?.barberia_id ?? null,
       slug: payload.identity?.slug ?? null,
       email: payload.email,
       password: payload.password
-    },
-    { credentials: "include" }
-  );
+    })
+  });
+
+  const text = await response.text().catch(() => "");
+  let data: { ok?: boolean; message?: string; error?: string } = {};
+  if (text) {
+    try {
+      data = JSON.parse(text);
+    } catch {
+      data = {};
+    }
+  }
+
+  if (!response.ok) {
+    throw new Error(data.message || data.error || `Error en el login (${response.status})`);
+  }
+  return data as DashboardLoginResponse;
 }
 
 export async function recoverPasswordRequest(payload: {
