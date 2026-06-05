@@ -47,7 +47,7 @@ function labelFromSlug(slug: string): string {
     .join(" ");
 }
 
-function buildSettingsEditUrl(input: DashboardIdentity | null): string {
+function buildSettingsEditUrl(input: DashboardIdentity | null, userEmail?: string, userName?: string): string {
   const barberiaId = Number(input?.barberia_id || 0);
   const cleanSlug = String(input?.slug || "").trim();
   if (!barberiaId || !cleanSlug) return "/configuracion";
@@ -56,6 +56,8 @@ function buildSettingsEditUrl(input: DashboardIdentity | null): string {
     barberia_id: String(barberiaId),
     slug: cleanSlug
   });
+  if (userEmail) params.set("admin_email", userEmail);
+  if (userName) params.set("admin_name", userName);
   return `${CORE_BASE_URL}/registro-barberias/?${params.toString()}`;
 }
 
@@ -79,7 +81,12 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
   const brandName = String(merged.biz_name || "").trim() || "BarberAgency";
   const brandLogo = String(merged.logo_url || "").trim();
   const currentSlug = String(merged.biz_slug || identity?.slug || "").trim();
-  const settingsEditUrl = buildSettingsEditUrl(identity);
+  const sessionUser = session?.user ?? {};
+  const settingsEditUrl = buildSettingsEditUrl(
+    identity,
+    typeof sessionUser.email === "string" ? sessionUser.email : undefined,
+    typeof sessionUser.nombre === "string" ? sessionUser.nombre : undefined
+  );
   const roleLabel = access.role === "owner" ? "admin" : access.role.replace("_", " ");
   const sessionSlug = String(session?.identity?.slug || identity?.slug || currentSlug || "").trim();
   const sessionBarbershopName = labelFromSlug(sessionSlug);
