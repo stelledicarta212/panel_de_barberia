@@ -1,5 +1,3 @@
-import { env } from "@/lib/env";
-
 export type SessionMeUser = {
   id: number;
   email: string;
@@ -33,7 +31,7 @@ export type SessionMeResponse = {
 };
 
 export async function getSessionMe(): Promise<SessionMeResponse> {
-  const response = await fetch(env.sessionMeEndpoint, {
+  const response = await fetch("/api/session/me", {
     method: "GET",
     credentials: "include"
   });
@@ -42,7 +40,7 @@ export async function getSessionMe(): Promise<SessionMeResponse> {
   try {
     data = (text ? JSON.parse(text) : {}) as SessionMeResponse;
   } catch {
-    throw new Error(`GET ${env.sessionMeEndpoint} devolvió respuesta no JSON.`);
+    throw new Error("GET /api/session/me devolvio respuesta no JSON.");
   }
   if (response.status === 401) {
     return {
@@ -52,7 +50,7 @@ export async function getSessionMe(): Promise<SessionMeResponse> {
     };
   }
   if (!response.ok) {
-    throw new Error(`GET ${env.sessionMeEndpoint} -> ${response.status}. ${data.message || response.statusText}`);
+    throw new Error(`GET /api/session/me -> ${response.status}. ${data.message || response.statusText}`);
   }
   return data;
 }
