@@ -207,15 +207,23 @@ export async function getDashboardState(identity: IdentityInput): Promise<Dashbo
   if (!query) {
     return { ok: false, message: "Falta identidad de barberia" };
   }
-  if (!String(env.apiBaseUrl || "").trim()) {
-    return {
-      ok: false,
-      message: "Falta configurar NEXT_PUBLIC_API_BASE_URL o NEXT_PUBLIC_API_URL en .env.local"
-    };
-  }
-  const path = `${env.dashboardStateEndpoint}?${query}&_t=${Date.now()}`;
+  const path = `/api/dashboard/state?${query}&_t=${Date.now()}`;
   try {
-    const response = await apiGetJson<DashboardStateResponse>(path);
+    const res = await fetch(path, {
+      method: "GET",
+      credentials: "include",
+      cache: "no-store"
+    });
+    const text = await res.text().catch(() => "");
+    let response = {} as DashboardStateResponse;
+    try {
+      response = text ? (JSON.parse(text) as DashboardStateResponse) : ({} as DashboardStateResponse);
+    } catch {
+      throw new Error("Respuesta no JSON de dashboard/state");
+    }
+    if (!res.ok) {
+      throw new Error(response.message || `Error ${res.status} de dashboard/state`);
+    }
     const responseIdentity = response.identity ?? normalizeIdentity(identity);
     const profile = await getPublicProfile(responseIdentity);
     return mergeStateWithPublicProfile(response, profile);
