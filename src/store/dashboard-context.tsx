@@ -212,16 +212,22 @@ export function DashboardProvider({ children }: { children: React.ReactNode }) {
       setError(null);
       try {
         const sessionMe = await getSessionMe();
+        const fromUrl = normalizeIdentity(resolveIdentityFromUrl());
+
         if (!sessionMe.ok) {
           setSession(null);
-          setIdentity(null);
-          setError(null);
+          if (fromUrl.barberia_id || fromUrl.slug) {
+            setIdentity(fromUrl);
+            setError(null);
+          } else {
+            setIdentity(null);
+            setError("Falta identidad de barbería para iniciar sesión.");
+          }
           setLoading(false);
           return;
         }
 
         const userBarberias = sessionMe.barberias ?? [];
-        const fromUrl = normalizeIdentity(resolveIdentityFromUrl());
         let activeIdentity: DashboardIdentity | null = null;
 
         if (fromUrl.barberia_id || fromUrl.slug) {
@@ -392,6 +398,10 @@ export function DashboardProvider({ children }: { children: React.ReactNode }) {
   }, [identity, loadState]);
 
   const loginAction = useCallback(async (email: string, password: string) => {
+    if (!identity || (!identity.barberia_id && !identity.slug)) {
+      setError("Falta identidad de barbería para iniciar sesión.");
+      return;
+    }
     setSaving(true);
     setError(null);
     try {
