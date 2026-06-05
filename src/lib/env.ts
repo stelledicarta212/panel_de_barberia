@@ -10,6 +10,10 @@ export const env = {
     ((process.env.NEXT_PUBLIC_DASHBOARD_STATE_ENDPOINT ?? "").startsWith("http")
       ? process.env.NEXT_PUBLIC_DASHBOARD_STATE_ENDPOINT
       : "https://barberagency-n8n.gymh5g.easypanel.host/webhook/barberagency/dashboard/state") as string,
+  sessionMeEndpoint:
+    ((process.env.NEXT_PUBLIC_SESSION_ME_ENDPOINT ?? "").startsWith("http")
+      ? process.env.NEXT_PUBLIC_SESSION_ME_ENDPOINT
+      : "https://barberagency-n8n.gymh5g.easypanel.host/webhook/barberagency/session/me") as string,
   dashboardLoginEndpoint:
     ((process.env.NEXT_PUBLIC_DASHBOARD_LOGIN_ENDPOINT ?? "").startsWith("http")
       ? process.env.NEXT_PUBLIC_DASHBOARD_LOGIN_ENDPOINT

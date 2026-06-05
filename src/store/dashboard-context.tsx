@@ -215,7 +215,7 @@ export function DashboardProvider({ children }: { children: React.ReactNode }) {
         if (!sessionMe.ok) {
           setSession(null);
           setIdentity(null);
-          setError("Sesión no válida o expirada. Por favor, inicia sesión.");
+          setError(null);
           setLoading(false);
           return;
         }

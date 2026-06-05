@@ -1,4 +1,4 @@
-import { apiGetJson } from "@/lib/api";
+import { env } from "@/lib/env";
 
 export type SessionMeUser = {
   id: number;
@@ -33,7 +33,26 @@ export type SessionMeResponse = {
 };
 
 export async function getSessionMe(): Promise<SessionMeResponse> {
-  return apiGetJson<SessionMeResponse>("/webhook/barberagency/session/me", {
+  const response = await fetch(env.sessionMeEndpoint, {
+    method: "GET",
     credentials: "include"
   });
+  const text = await response.text().catch(() => "");
+  let data: SessionMeResponse;
+  try {
+    data = (text ? JSON.parse(text) : {}) as SessionMeResponse;
+  } catch {
+    throw new Error(`GET ${env.sessionMeEndpoint} devolvió respuesta no JSON.`);
+  }
+  if (response.status === 401) {
+    return {
+      ...data,
+      ok: false,
+      next_action: data.next_action ?? "login"
+    };
+  }
+  if (!response.ok) {
+    throw new Error(`GET ${env.sessionMeEndpoint} -> ${response.status}. ${data.message || response.statusText}`);
+  }
+  return data;
 }
