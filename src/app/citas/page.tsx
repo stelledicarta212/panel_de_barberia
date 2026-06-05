@@ -4,7 +4,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Cake, CalendarDays, ChevronLeft, ChevronRight, Clock3, Eye, Gift, MoreHorizontal, Pencil, Plus, RefreshCcw, Scissors, Send, Trash2, X } from "lucide-react";
 import { DashboardShell } from "@/components/dashboard-shell";
 import { useDashboard } from "@/store/dashboard-context";
-import { getBarberDescansos } from "@/lib/dashboard-api";
+import { addCitaDashboard, cancelCitaDashboard, getBarberDescansos, updateCitaDashboard } from "@/lib/dashboard-api";
 
 type RequestStatus = "Pendiente" | "Enviada" | "Aceptada";
 
@@ -59,7 +59,6 @@ const MONTHS = [
   "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre"
 ];
 const DAYS = ["L", "M", "X", "J", "V", "S", "D"];
-const RESERVATIONS_STORAGE_KEY = "ba_dashboard_reservas";
 
 function statusClass(status: RequestStatus): string {
   if (status === "Pendiente") return "is-pending";
@@ -190,7 +189,7 @@ function phoneToWhatsappUrl(phone: string, clientName: string): string | null {
 }
 
 export default function CitasPage() {
-  const { merged, identity } = useDashboard();
+  const { merged, identity, refresh } = useDashboard();
   const barberiaId = identity?.barberia_id;
   const [requests, setRequests] = useState<RequestItem[]>([]);
   const [selectedId, setSelectedId] = useState<string | null>(null);
@@ -258,38 +257,11 @@ export default function CitasPage() {
     new Intl.DateTimeFormat("es-CO", { hour: "2-digit", minute: "2-digit", second: "2-digit", hour12: false }).format(new Date())
   );
   const formRef = useRef<HTMLElement | null>(null);
-  const [locallyPaidIds] = useState<Record<string, string>>(() => {
-    if (typeof window !== "undefined") {
-      const saved = localStorage.getItem("ba_locally_paid_appointments");
-      if (saved) {
-        try {
-          return JSON.parse(saved);
-        } catch {}
-      }
-    }
-    return {};
-  });
-
   useEffect(() => {
-    const remoteRequests = mapAppointmentRequests(merged.appointments).map((req) => {
-      const localMethod = locallyPaidIds[req.id];
-      const dbItem = merged.appointments.find((a) => String(a.id) === req.id);
-      const dbMethod = dbItem ? (dbItem.metodo_pago || dbItem.pago_metodo || dbItem.metodo || dbItem.method) : "";
-      const hasPayment = (typeof dbMethod === "string" && dbMethod.trim().length > 0) || localMethod;
-
-      if (hasPayment) {
-        return {
-          ...req,
-          status: "Aceptada" as const
-        };
-      }
-      return req;
-    });
-    // eslint-disable-next-line react-hooks/set-state-in-effect
+    const remoteRequests = mapAppointmentRequests(merged.appointments);
     setRequests(remoteRequests);
-    // eslint-disable-next-line react-hooks/set-state-in-effect
     setSelectedId((current) => (current && remoteRequests.some((req) => req.id === current) ? current : null));
-  }, [merged.appointments, locallyPaidIds]);
+  }, [merged.appointments]);
 
   const selected = requests.find((req) => req.id === selectedId) ?? null;
   const calendarCells = useMemo(() => buildCalendar(currentMonth), [currentMonth]);
@@ -353,11 +325,16 @@ export default function CitasPage() {
     setIsDayPickerOpen(false);
   };
 
-  const handleCreateCita = () => {
-    if (!reserveDateString) return;
+  const handleCreateCita = async () => {
+    if (!reserveDateString || !reserveDateStr || !barberiaId) return;
     const selectedBarber = barberOptions.find((barber) => barber.name === form.barbero);
     if (!selectedBarber) {
       alert("Selecciona un barbero disponible para crear la cita.");
+      return;
+    }
+
+    if (!selectedServiceIds.length) {
+      alert("Selecciona al menos un servicio.");
       return;
     }
 
@@ -370,52 +347,53 @@ export default function CitasPage() {
       return;
     }
 
-    const date = reserveDateString;
-    const firstService = computedItems[0]?.name ?? "Servicio";
+    const serviceId = Number(selectedServiceIds[0]);
+    const barberoId = Number(selectedBarber.id);
     const isEditing = Boolean(editingRequestId);
-    const id = editingRequestId ?? `R-${String(requests.length + 1).padStart(2, "0")}`;
-    const ticketId = String(1234 + requests.length);
 
-    const newRequest: RequestItem = {
-      id,
-      client: form.cliente || "Cliente",
-      phone: form.telefono || "",
-      service: computedItems.map((item) => item.name).join(", ") || firstService,
-      date,
-      barber: form.barbero || barberOptions[0]?.name || "Sin barbero",
-      hour: form.hora || "Sin hora",
-      description: form.descripcion || "",
-      total,
-      status: "Enviada",
-      avatar: "https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=120&auto=format&fit=crop",
-      stampCurrent: 1,
-      stampRequired: 8,
-      birthdayBenefit: "15% OFF en cumpleanos",
-      inactiveDays: 0,
-      reactivationBenefit: "Recien creada",
-      offPeakBenefit: "Promo segun horario"
-    };
-
-    setRequests((prev) => {
+    try {
+      let res;
       if (isEditing) {
-        return prev.map((req) => (req.id === id ? { ...req, ...newRequest } : req));
+        res = await updateCitaDashboard({
+          barberia_id: barberiaId,
+          id: Number(editingRequestId),
+          cliente_nombre: form.cliente || "Cliente",
+          cliente_tel: form.telefono || "",
+          barbero_id: barberoId,
+          servicio_id: serviceId,
+          fecha: reserveDateStr,
+          hora_inicio: form.hora,
+          estado: "confirmada",
+          notas: form.descripcion || ""
+        });
+      } else {
+        res = await addCitaDashboard({
+          barberia_id: barberiaId,
+          cliente_nombre: form.cliente || "Cliente",
+          cliente_tel: form.telefono || "",
+          barbero_id: barberoId,
+          servicio_id: serviceId,
+          fecha: reserveDateStr,
+          hora_inicio: form.hora,
+          estado: "confirmada",
+          notas: form.descripcion || ""
+        });
       }
-      return [newRequest, ...prev];
-    });
-    setSelectedId(id);
-    setCreated({
-      ticketId,
-      client: form.cliente || "Cliente",
-      date,
-      barber: form.barbero || barberOptions[0]?.name || "Sin barbero",
-      hour: form.hora || "Sin hora",
-      items: computedItems,
-      subtotal,
-      tax,
-      total
-    });
-    setEditingRequestId(null);
+
+      if (res.ok) {
+        alert(isEditing ? "Cita modificada con éxito." : "Cita creada con éxito.");
+        setEditingRequestId(null);
+        setIsCreateOpen(false);
+        setSelectedServiceIds([]);
+        if (refresh) await refresh();
+      } else {
+        alert(res.message || "Error al procesar la cita.");
+      }
+    } catch (err) {
+      alert(err instanceof Error ? err.message : "Error de red al guardar la cita.");
+    }
   };
+
   const handleEditRequest = (req: RequestItem) => {
     setEditingRequestId(req.id);
     setIsCreateOpen(true);
@@ -457,11 +435,29 @@ export default function CitasPage() {
     }, 50);
   };
 
-  const handleDeleteRequest = (id: string) => {
-    setRequests((prev) => prev.filter((req) => req.id !== id));
-    setSelectedId((prev) => (prev === id ? null : prev));
-    setEditingRequestId((prev) => (prev === id ? null : prev));
-    setDetailOpen((prev) => (selectedId === id ? false : prev));
+  const handleDeleteRequest = async (id: string) => {
+    if (!barberiaId) return;
+    const confirmCancel = window.confirm("¿Estás seguro de que deseas cancelar esta cita?");
+    if (!confirmCancel) return;
+
+    try {
+      const res = await cancelCitaDashboard({
+        barberia_id: barberiaId,
+        id: Number(id)
+      });
+
+      if (res.ok) {
+        alert("Cita cancelada con éxito.");
+        setSelectedId(null);
+        setEditingRequestId(null);
+        setDetailOpen(false);
+        if (refresh) await refresh();
+      } else {
+        alert(res.message || "Error al cancelar la cita.");
+      }
+    } catch (err) {
+      alert(err instanceof Error ? err.message : "Error de red al cancelar la cita.");
+    }
   };
 
   const handleOpenDetail = (id: string) => {
@@ -575,11 +571,7 @@ export default function CitasPage() {
     loadDescansos();
   }, [loadDescansos]);
 
-  useEffect(() => {
-    if (typeof window === "undefined") return;
-    window.localStorage.setItem(RESERVATIONS_STORAGE_KEY, JSON.stringify(requests));
-    window.dispatchEvent(new CustomEvent("ba-reservas-updated"));
-  }, [requests]);
+  // Local storage reservations persistence removed for Postgres single source of truth
 
   useEffect(() => {
     if (!form.barbero) return;

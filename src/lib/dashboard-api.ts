@@ -520,6 +520,86 @@ export async function deleteServicio(payload: {
   });
 }
 
+const CITAS_ADMIN_WEBHOOK =
+  "https://barberagency-n8n.gymh5g.easypanel.host/webhook/barberagency/dashboard/citas";
+
+async function callCitasAdminGateway(payload: Record<string, unknown>): Promise<{ ok: boolean; message?: string; data?: unknown }> {
+  try {
+    const response = await fetch(CITAS_ADMIN_WEBHOOK, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json"
+      },
+      credentials: "include",
+      body: JSON.stringify(payload)
+    });
+
+    const data = await response.json().catch(() => ({}));
+
+    if (!response.ok || data?.ok === false) {
+      return {
+        ok: false,
+        message: data?.message || data?.error || "Error en gateway de citas."
+      };
+    }
+
+    return {
+      ok: true,
+      data: data.data
+    };
+  } catch (err) {
+    return {
+      ok: false,
+      message: err instanceof Error ? err.message : "Error de red en el gateway de citas."
+    };
+  }
+}
+
+export async function addCitaDashboard(payload: {
+  barberia_id: number;
+  cliente_nombre: string;
+  cliente_tel: string;
+  barbero_id: number;
+  servicio_id: number;
+  fecha: string;
+  hora_inicio: string;
+  estado?: string;
+  notas?: string;
+}): Promise<{ ok: boolean; message?: string; data?: unknown }> {
+  return callCitasAdminGateway({
+    action: "add_cita",
+    ...payload
+  });
+}
+
+export async function updateCitaDashboard(payload: {
+  barberia_id: number;
+  id: number;
+  cliente_nombre: string;
+  cliente_tel: string;
+  barbero_id: number;
+  servicio_id: number;
+  fecha: string;
+  hora_inicio: string;
+  estado?: string;
+  notas?: string;
+}): Promise<{ ok: boolean; message?: string; data?: unknown }> {
+  return callCitasAdminGateway({
+    action: "update_cita",
+    ...payload
+  });
+}
+
+export async function cancelCitaDashboard(payload: {
+  barberia_id: number;
+  id: number;
+}): Promise<{ ok: boolean; message?: string; data?: unknown }> {
+  return callCitasAdminGateway({
+    action: "cancel_cita",
+    ...payload
+  });
+}
+
 export async function savePosSale(payload: {
   barberia_id: number;
   cliente_nombre: string;
