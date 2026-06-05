@@ -18,26 +18,11 @@ type Movement = {
 
 export default function ProgramaLealtadPage() {
   const { identity, merged } = useDashboard();
-  const [locallyPaidIds] = useState<Record<string, string>>(() => {
-    if (typeof window !== "undefined") {
-      const saved = localStorage.getItem("ba_locally_paid_appointments");
-      if (saved) {
-        try {
-          return JSON.parse(saved);
-        } catch (e) {
-          console.error("Error parsing ba_locally_paid_appointments in finanzas", e);
-        }
-      }
-    }
-    return {};
-  });
-
   const movements = useMemo<Movement[]>(() => {
     return merged.appointments.map((item, index) => {
       const id = String(item.id ?? `cita-${index + 1}`);
       const rawMethod = item.metodo_pago || item.pago_metodo || item.metodo || item.method;
-      const localMethod = locallyPaidIds[id];
-      const method = String(rawMethod || localMethod || "").trim();
+      const method = String(rawMethod || "").trim();
       const hasPayment = method.length > 0;
 
       // Parse Date
@@ -74,7 +59,7 @@ export default function ProgramaLealtadPage() {
         barber: String(item.barbero_nombre ?? item.barber ?? item.nombre_barbero ?? "Sin barbero").trim()
       };
     });
-  }, [merged.appointments, locallyPaidIds]);
+  }, [merged.appointments]);
 
   const todayMovements = useMemo(() => {
     const now = new Date();

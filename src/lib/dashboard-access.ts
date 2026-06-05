@@ -126,7 +126,7 @@ export function resolveLoginAccess(raw: {
     role,
     barber_id: Number.isFinite(barberId) && barberId > 0 ? barberId : null,
     permissions: {
-      ...(ROLE_PERMISSIONS[role] ?? ROLE_PERMISSIONS.admin),
+      ...(ROLE_PERMISSIONS[role] ?? ROLE_PERMISSIONS.guest),
       ...(raw.permissions ?? {})
     },
     source: "login"

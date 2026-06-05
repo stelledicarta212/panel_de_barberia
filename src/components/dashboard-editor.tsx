@@ -17,8 +17,6 @@ import { useRouter } from "next/navigation";
 import { useDashboard } from "@/store/dashboard-context";
 import { getBarberDescansos } from "@/lib/dashboard-api";
 
-const RESERVATIONS_STORAGE_KEY = "ba_dashboard_reservas";
-
 type ReservationRecord = {
   id?: string;
   client?: string;
@@ -76,20 +74,11 @@ export function DashboardEditor() {
   const { merged, identity, loading, saving, publishing, refresh, saveDraft, publish } = useDashboard();
   const barberiaId = identity?.barberia_id;
   const [offDaysByBarber, setOffDaysByBarber] = useState<Record<string, string[]>>({});
-  const [reservations, setReservations] = useState<ReservationRecord[]>([]);
-  const [locallyPaidIds] = useState<Record<string, string>>(() => {
-    if (typeof window !== "undefined") {
-      const saved = localStorage.getItem("ba_locally_paid_appointments");
-      if (saved) {
-        try {
-          return JSON.parse(saved);
-        } catch (e) {
-          console.error("Error parsing ba_locally_paid_appointments in dashboard", e);
-        }
-      }
-    }
-    return {};
-  });
+  const reservations = useMemo<ReservationRecord[]>(() => {
+    return (merged.appointments || []).map((item, idx) =>
+      normalizeAppointmentRecord(item, idx)
+    );
+  }, [merged.appointments]);
   const qrPanelValue = merged.qr_url;
   const publicLandingLabel = String(merged.biz_name || merged.biz_slug || "Landing publica").trim();
 
@@ -118,36 +107,6 @@ export function DashboardEditor() {
     // eslint-disable-next-line react-hooks/set-state-in-effect
     loadDescansos();
   }, [loadDescansos]);
-
-  useEffect(() => {
-    const loadReservations = () => {
-      try {
-        const raw = window.localStorage.getItem(RESERVATIONS_STORAGE_KEY);
-        if (!raw) return setReservations([]);
-        const parsed = JSON.parse(raw);
-        setReservations(Array.isArray(parsed) ? (parsed as ReservationRecord[]) : []);
-      } catch {
-        setReservations([]);
-      }
-    };
-    loadReservations();
-    window.addEventListener("storage", loadReservations);
-    window.addEventListener("ba-reservas-updated", loadReservations as EventListener);
-    return () => {
-      window.removeEventListener("storage", loadReservations);
-      window.removeEventListener("ba-reservas-updated", loadReservations as EventListener);
-    };
-  }, []);
-
-  useEffect(() => {
-    const remoteReservations = merged.appointments.map((item, idx) =>
-      normalizeAppointmentRecord(item, idx, locallyPaidIds)
-    );
-    if (remoteReservations.length) {
-      // eslint-disable-next-line react-hooks/set-state-in-effect
-      setReservations(remoteReservations);
-    }
-  }, [merged.appointments, locallyPaidIds]);
 
   const barbers = useMemo(() => {
     const now = new Date();

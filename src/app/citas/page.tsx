@@ -191,7 +191,7 @@ function phoneToWhatsappUrl(phone: string, clientName: string): string | null {
 export default function CitasPage() {
   const { merged, identity, refresh } = useDashboard();
   const barberiaId = identity?.barberia_id;
-  const [requests, setRequests] = useState<RequestItem[]>([]);
+  const requests = useMemo(() => mapAppointmentRequests(merged.appointments), [merged.appointments]);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [detailOpen, setDetailOpen] = useState(false);
   const [isCreateOpen, setIsCreateOpen] = useState(true);
@@ -257,11 +257,7 @@ export default function CitasPage() {
     new Intl.DateTimeFormat("es-CO", { hour: "2-digit", minute: "2-digit", second: "2-digit", hour12: false }).format(new Date())
   );
   const formRef = useRef<HTMLElement | null>(null);
-  useEffect(() => {
-    const remoteRequests = mapAppointmentRequests(merged.appointments);
-    setRequests(remoteRequests);
-    setSelectedId((current) => (current && remoteRequests.some((req) => req.id === current) ? current : null));
-  }, [merged.appointments]);
+
 
   const selected = requests.find((req) => req.id === selectedId) ?? null;
   const calendarCells = useMemo(() => buildCalendar(currentMonth), [currentMonth]);

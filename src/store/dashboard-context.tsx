@@ -23,7 +23,9 @@ import type {
   DashboardMerged,
   DashboardStateResponse,
   DashboardUserAccess,
-  PublishResponse
+  PublishResponse,
+  DashboardRole,
+  DashboardPermissions
 } from "@/types/dashboard-state";
 import { EMPTY_MERGED } from "@/types/dashboard-state";
 
@@ -85,7 +87,7 @@ const DashboardContext = createContext<DashboardContextValue | null>(null);
 
 const LOCKED_ACCESS: DashboardUserAccess = {
   user_id: null,
-  role: "admin",
+  role: "guest",
   permissions: NO_PERMISSIONS,
   barber_id: null,
   source: "locked"
@@ -291,8 +293,8 @@ export function DashboardProvider({ children }: { children: React.ReactNode }) {
             identity: activeIdentity,
             access: {
               user_id: sessionMe.user_id ?? null,
-              role: (resolvedRole === "admin" || resolvedRole === "owner" || resolvedRole === "barbero" || resolvedRole === "cajero" || resolvedRole === "super_admin" ? resolvedRole : "guest") as any,
-              permissions: (sessionMe.permissions ?? NO_PERMISSIONS) as any,
+              role: (resolvedRole === "admin" || resolvedRole === "owner" || resolvedRole === "barbero" || resolvedRole === "cajero" || resolvedRole === "super_admin" ? resolvedRole : "guest") as DashboardRole,
+              permissions: (sessionMe.permissions ?? NO_PERMISSIONS) as DashboardPermissions,
               barber_id: null,
               source: "session_me"
             }
