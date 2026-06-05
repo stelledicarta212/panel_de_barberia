@@ -5,20 +5,12 @@ const DASHBOARD_LOGIN_ENDPOINT =
   process.env.NEXT_PUBLIC_DASHBOARD_LOGIN_ENDPOINT ??
   "https://barberagency-n8n.gymh5g.easypanel.host/webhook/barberagency/dashboard/login";
 
-function jsonResponse(body: unknown, status: number, upstreamSetCookie?: string | null) {
-  const response = NextResponse.json(body, { status });
-  if (upstreamSetCookie) {
-    response.headers.set("Set-Cookie", upstreamSetCookie);
-  }
-  return response;
-}
-
 export async function POST(request: Request) {
   let payload: unknown;
   try {
     payload = await request.json();
   } catch {
-    return jsonResponse({ ok: false, message: "Body JSON invalido" }, 400);
+    return NextResponse.json({ ok: false, message: "Body JSON invalido" }, { status: 400 });
   }
 
   try {
@@ -36,23 +28,38 @@ export async function POST(request: Request) {
     try {
       body = text ? JSON.parse(text) : {};
     } catch {
-      return jsonResponse(
+      return NextResponse.json(
         {
           ok: false,
           message: "dashboard/login devolvio respuesta no JSON"
         },
-        502
+        { status: 502 }
       );
     }
 
-    return jsonResponse(body, upstream.status, upstream.headers.get("set-cookie"));
+    const response = NextResponse.json(body, { status: upstream.status });
+
+    const upstreamSetCookie = upstream.headers.get("set-cookie");
+    if (upstreamSetCookie) {
+      const match = upstreamSetCookie.match(/(?:^|;|,\s*)ba_session=([^;,\s]+)/);
+      const token = match ? match[1] : "";
+      if (token) {
+        // Set cookie via standard web headers API
+        response.headers.set(
+          "Set-Cookie",
+          `ba_session=${token}; Path=/; HttpOnly; Secure; SameSite=Lax`
+        );
+      }
+    }
+
+    return response;
   } catch (error) {
-    return jsonResponse(
+    return NextResponse.json(
       {
         ok: false,
         message: error instanceof Error ? error.message : "Error conectando con dashboard/login"
       },
-      502
+      { status: 502 }
     );
   }
 }
