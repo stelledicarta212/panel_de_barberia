@@ -253,7 +253,8 @@ export function DashboardProvider({ children }: { children: React.ReactNode }) {
           } else {
             // Mismatch or unauthorized! Return 403 visual error and stop.
             setSession(null);
-            setIdentity(null);
+            // Preservar la identidad candidata de la URL para permitir re-autenticación
+            setIdentity(fromUrl);
             setError("403 - No tienes permisos para acceder a esta barbería.");
             setLoading(false);
             return;
