@@ -319,16 +319,20 @@ export async function getDashboardState(identity: IdentityInput): Promise<Dashbo
 }
 
 export async function loginDashboard(payload: {
-  identity: DashboardIdentity;
+  identity: DashboardIdentity | null;
   email: string;
   password: string;
 }): Promise<DashboardLoginResponse> {
-  return apiPostJson<DashboardLoginResponse, Record<string, unknown>>(env.dashboardLoginEndpoint, {
-    barberia_id: payload.identity.barberia_id,
-    slug: payload.identity.slug,
-    email: payload.email,
-    password: payload.password
-  });
+  return apiPostJson<DashboardLoginResponse, Record<string, unknown>>(
+    "/api/session/login",
+    {
+      barberia_id: payload.identity?.barberia_id ?? null,
+      slug: payload.identity?.slug ?? null,
+      email: payload.email,
+      password: payload.password
+    },
+    { credentials: "include" }
+  );
 }
 
 export async function recoverPasswordRequest(payload: {

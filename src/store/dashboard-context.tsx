@@ -392,10 +392,6 @@ export function DashboardProvider({ children }: { children: React.ReactNode }) {
   }, [identity, loadState]);
 
   const loginAction = useCallback(async (email: string, password: string) => {
-    if (!identity) {
-      setError("No hay identidad de barberia para iniciar sesion.");
-      return;
-    }
     setSaving(true);
     setError(null);
     try {
@@ -403,16 +399,29 @@ export function DashboardProvider({ children }: { children: React.ReactNode }) {
       if (!response.ok) {
         throw new Error(String(response.message || "No se pudo iniciar sesion."));
       }
-      const nextIdentity = response.identity ?? identity;
+      const sessionMe = await getSessionMe();
+      if (!sessionMe.ok) {
+        throw new Error(String(sessionMe.message || "No se pudo validar la sesion."));
+      }
+      const nextIdentity: DashboardIdentity | null = sessionMe.current_barberia
+        ? {
+            barberia_id: Number(sessionMe.current_barberia.id),
+            slug: sessionMe.current_barberia.slug
+          }
+        : response.identity ?? null;
+      if (!nextIdentity?.barberia_id || !nextIdentity.slug) {
+        throw new Error("No se pudo resolver la barberia activa.");
+      }
       const nextSession: DashboardLoginSession = {
-        user: response.user ?? {},
+        user: sessionMe.user ?? response.user ?? {},
         identity: nextIdentity,
         access: resolveLoginAccess({
-          user: response.user,
-          role: response.role,
-          permissions: response.permissions
+          user: sessionMe.user ?? response.user,
+          role: sessionMe.role ?? sessionMe.current_barberia?.role ?? response.role,
+          permissions: sessionMe.permissions ?? response.permissions
         })
       };
+      setBarbershopContext(String(nextIdentity.barberia_id), String(nextIdentity.slug));
       writeLoginSession(nextSession);
       setSession(nextSession);
       setIdentity(nextIdentity);

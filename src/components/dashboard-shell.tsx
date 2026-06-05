@@ -248,7 +248,7 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
                 ¿Olvidaste tu contraseña?
               </button>
             </div>
-            <button className="ba-btn-main" type="submit" disabled={saving || !identity}>
+            <button className="ba-btn-main" type="submit" disabled={saving}>
               {saving ? "Validando..." : "Entrar"}
             </button>
           </form>
