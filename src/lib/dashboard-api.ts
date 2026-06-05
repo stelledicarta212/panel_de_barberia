@@ -396,6 +396,7 @@ async function callBarberosAdminGateway(payload: Record<string, unknown>): Promi
       headers: {
         "Content-Type": "application/json"
       },
+      credentials: "include",
       body: JSON.stringify(payload)
     });
 

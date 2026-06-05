@@ -62,15 +62,7 @@ const MONTHS = [
   "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre"
 ];
 const DAYS = ["L", "M", "X", "J", "V", "S", "D"];
-const RESERVATIONS_STORAGE_KEY = "ba_dashboard_reservas";
 
-type ReservationRecord = {
-  client?: string;
-  service?: string;
-  date?: string;
-  barber?: string;
-  status?: string;
-};
 
 function buildCalendar(date: Date) {
   const year = date.getFullYear();
@@ -93,7 +85,6 @@ export default function BarberosPage() {
   const [calendarMonth, setCalendarMonth] = useState(() => new Date());
   const [offDaysByBarber, setOffDaysByBarber] = useState<Record<string, string[]>>({});
   const [selectedCalendarDate, setSelectedCalendarDate] = useState<string | null>(null);
-  const [reservations, setReservations] = useState<ReservationRecord[]>([]);
 
   const cards = useMemo<BarberCard[]>(() => {
     return merged.barbers.map((item, index) => {
@@ -140,23 +131,38 @@ export default function BarberosPage() {
   const cardsWithAvailability = useMemo(
     () =>
       cards.map((card) => {
-        const byBarber = reservations.filter(
-          (r) => String(r.barber || "").trim().toLowerCase() === card.name.trim().toLowerCase()
+        const byBarber = (merged.appointments || []).filter(
+          (r) =>
+            (r.barbero_id && String(r.barbero_id) === String(card.id)) ||
+            (r.id_barbero && String(r.id_barbero) === String(card.id)) ||
+            (r.barbero_nombre && String(r.barbero_nombre).trim().toLowerCase() === card.name.trim().toLowerCase())
         );
-        const todayDateString = `${String(todayDay).padStart(2, "0")}/${String(todayMonth + 1).padStart(2, "0")}/${todayYear}`;
-        const servicesTodayRaw = byBarber.filter((r) => r.date === todayDateString).length;
-        const servicesMonthRaw = byBarber.filter((r) => {
-          const [d, m, y] = String(r.date || "").split("/");
-          return Number(d) > 0 && Number(m) === todayMonth + 1 && Number(y) === todayYear;
+
+        const activeByBarber = byBarber.filter((r) => String(r.estado).toLowerCase() !== "cancelada");
+
+        const todayStr = `${todayYear}-${String(todayMonth + 1).padStart(2, "0")}-${String(todayDay).padStart(2, "0")}`;
+        const currentMonthPrefix = `${todayYear}-${String(todayMonth + 1).padStart(2, "0")}`;
+
+        const servicesTodayRaw = activeByBarber.filter((r) => {
+          const dateVal = String(r.fecha || "").split("T")[0];
+          return dateVal === todayStr;
         }).length;
+
+        const servicesMonthRaw = activeByBarber.filter((r) => {
+          const dateVal = String(r.fecha || "").split("T")[0];
+          return dateVal.startsWith(currentMonthPrefix);
+        }).length;
+
         const clientsTodayRaw = new Set(
-          byBarber
-            .filter((r) => r.date === todayDateString)
-            .map((r) => String(r.client || "").trim().toLowerCase())
+          activeByBarber
+            .filter((r) => {
+              const dateVal = String(r.fecha || "").split("T")[0];
+              return dateVal === todayStr;
+            })
+            .map((r) => String(r.cliente_nombre ?? r.client ?? r.cliente_id).trim().toLowerCase())
             .filter(Boolean)
         ).size;
 
-        const todayStr = `${todayYear}-${String(todayMonth + 1).padStart(2, "0")}-${String(todayDay).padStart(2, "0")}`;
         const dateToCheck = selectedCalendarDate ?? todayStr;
         const isEmployeeActive = card.isActive;
         const hasRestOnCheckedDate = (offDaysByBarber[card.id] ?? []).includes(dateToCheck);
@@ -175,7 +181,7 @@ export default function BarberosPage() {
           clientsToday 
         };
       }),
-    [cards, reservations, offDaysByBarber, selectedCalendarDate, todayDay, todayMonth, todayYear]
+    [cards, merged.appointments, offDaysByBarber, selectedCalendarDate, todayDay, todayMonth, todayYear]
   );
 
   const listWithAvailability = useMemo(() => {
@@ -190,28 +196,7 @@ export default function BarberosPage() {
   const monthLabel = `${MONTHS[calendarMonth.getMonth()]} ${calendarMonth.getFullYear()}`;
   const barberOffDays = calendarBarberId ? offDaysByBarber[calendarBarberId] ?? [] : [];
 
-  useEffect(() => {
-    const loadReservations = () => {
-      try {
-        const raw = window.localStorage.getItem(RESERVATIONS_STORAGE_KEY);
-        if (!raw) {
-          setReservations([]);
-          return;
-        }
-        const parsed = JSON.parse(raw);
-        setReservations(Array.isArray(parsed) ? (parsed as ReservationRecord[]) : []);
-      } catch {
-        setReservations([]);
-      }
-    };
-    loadReservations();
-    window.addEventListener("storage", loadReservations);
-    window.addEventListener("ba-reservas-updated", loadReservations as EventListener);
-    return () => {
-      window.removeEventListener("storage", loadReservations);
-      window.removeEventListener("ba-reservas-updated", loadReservations as EventListener);
-    };
-  }, []);
+
 
   const toggleAvailability = async (id: string) => {
     const card = cards.find((c) => c.id === id);
