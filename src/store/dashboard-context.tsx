@@ -11,9 +11,9 @@ import {
 import { env } from "@/lib/env";
 import { MOCK_MERGED } from "@/lib/mock-dashboard-data";
 import {
-  resolveBarbershopIdentity,
   setBarbershopContext,
-  resolveIdentityFromUrl
+  resolveIdentityFromUrl,
+  clearBarbershopContext
 } from "@/lib/barbershop-context";
 import { NO_PERMISSIONS, resolveDashboardAccess, resolveLoginAccess, ALL_PERMISSIONS } from "@/lib/dashboard-access";
 import { getSessionMe } from "@/lib/session-me";
@@ -34,29 +34,16 @@ type CollectionMergedKey = Extract<keyof DashboardMerged, "services" | "barbers"
 const DASHBOARD_MERGED_CACHE_PREFIX = "ba_dashboard_merged_cache";
 const DASHBOARD_SESSION_PREFIX = "ba_dashboard_session";
 
-function cacheKeyForIdentity(input: DashboardIdentity): string {
+function cacheKeyForIdentity(userId: string | number, input: DashboardIdentity): string {
   const idPart = String(input.barberia_id ?? "no-id");
   const slugPart = String(input.slug ?? "no-slug");
-  return `${DASHBOARD_MERGED_CACHE_PREFIX}:${idPart}:${slugPart}`;
+  return `${DASHBOARD_MERGED_CACHE_PREFIX}:${userId}:${idPart}:${slugPart}`;
 }
 
-function readMergedCache(input: DashboardIdentity): DashboardMerged | null {
-  if (typeof window === "undefined") return null;
+function writeMergedCache(userId: string | number | null | undefined, input: DashboardIdentity, value: DashboardMerged) {
+  if (typeof window === "undefined" || !userId) return;
   try {
-    const raw = window.localStorage.getItem(cacheKeyForIdentity(input));
-    if (!raw) return null;
-    const parsed = JSON.parse(raw);
-    if (!parsed || typeof parsed !== "object") return null;
-    return { ...EMPTY_MERGED, ...(parsed as Partial<DashboardMerged>) };
-  } catch {
-    return null;
-  }
-}
-
-function writeMergedCache(input: DashboardIdentity, value: DashboardMerged) {
-  if (typeof window === "undefined") return;
-  try {
-    window.localStorage.setItem(cacheKeyForIdentity(input), JSON.stringify(value));
+    window.localStorage.setItem(cacheKeyForIdentity(userId, input), JSON.stringify(value));
   } catch {
     // ignore quota errors
   }
@@ -283,7 +270,9 @@ export function DashboardProvider({ children }: { children: React.ReactNode }) {
 
         if (activeIdentity) {
           // Cache the resolved context strictly for UX
+          const userId = (sessionMe.user_id as string | number | undefined) ?? (sessionMe.user?.id as string | number | undefined);
           setBarbershopContext(
+            userId,
             String(activeIdentity.barberia_id),
             String(activeIdentity.slug)
           );
@@ -362,7 +351,9 @@ export function DashboardProvider({ children }: { children: React.ReactNode }) {
       };
 
       if (effectiveIdentity.barberia_id || effectiveIdentity.slug) {
+        const userId = session?.access?.user_id ?? (session?.user?.id as string | number | undefined);
         setBarbershopContext(
+          userId,
           String(effectiveIdentity.barberia_id ?? ""),
           String(effectiveIdentity.slug ?? "")
         );
@@ -372,7 +363,8 @@ export function DashboardProvider({ children }: { children: React.ReactNode }) {
       setSession((prev) => prev ?? readLoginSession(effectiveIdentity));
       setRawState(response);
       setMerged(normalized);
-      writeMergedCache(effectiveIdentity, normalized);
+      const userId = session?.access?.user_id ?? (session?.user?.id as string | number | undefined);
+      writeMergedCache(userId, effectiveIdentity, normalized);
       const nextMessage = String(response.message ?? "").trim();
       setMessage(nextMessage.toLowerCase().startsWith("fallback:") ? null : (nextMessage || null));
     } catch (cause) {
@@ -383,7 +375,7 @@ export function DashboardProvider({ children }: { children: React.ReactNode }) {
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [session]);
 
   useEffect(() => {
     if (!identity || !session) return;
@@ -438,7 +430,8 @@ export function DashboardProvider({ children }: { children: React.ReactNode }) {
           permissions: sessionMe.permissions ?? response.permissions
         })
       };
-      setBarbershopContext(String(nextIdentity.barberia_id), String(nextIdentity.slug));
+      const nextUserId = (sessionMe.user_id as string | number | undefined) ?? (sessionMe.user?.id as string | number | undefined) ?? (response.user?.id as string | number | undefined);
+      setBarbershopContext(nextUserId, String(nextIdentity.barberia_id), String(nextIdentity.slug));
       writeLoginSession(nextSession);
       setSession(nextSession);
       setIdentity(nextIdentity);
@@ -454,10 +447,12 @@ export function DashboardProvider({ children }: { children: React.ReactNode }) {
   }, [identity]);
 
   const logoutAction = useCallback(() => {
+    const userId = session?.access?.user_id ?? (session?.user?.id as string | number | undefined);
+    clearBarbershopContext(userId);
     clearLoginSession(identity);
     setSession(null);
     setMessage(null);
-  }, [identity]);
+  }, [identity, session]);
 
   const saveDraftAction = useCallback(async () => {
     if (!identity) {
@@ -545,14 +540,15 @@ export function DashboardProvider({ children }: { children: React.ReactNode }) {
 
       if (nextIdentity) {
         setIdentity(nextIdentity);
-        setBarbershopContext(String(nextIdentity.barberia_id ?? ""), String(nextIdentity.slug ?? ""));
+        const userId = session?.access?.user_id ?? (session?.user?.id as string | number | undefined);
+        setBarbershopContext(userId, String(nextIdentity.barberia_id ?? ""), String(nextIdentity.slug ?? ""));
       }
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "No se pudo publicar");
     } finally {
       setPublishing(false);
     }
-  }, [identity, merged]);
+  }, [identity, merged, session]);
 
   const value = useMemo<DashboardContextValue>(() => ({
     identity,

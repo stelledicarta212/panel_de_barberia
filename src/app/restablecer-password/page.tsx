@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { LockKeyhole } from "lucide-react";
 import { recoverPasswordReset } from "@/lib/dashboard-api";
-import { resolveBarbershopIdentity, resolveIdentityFromUrl, setBarbershopContext } from "@/lib/barbershop-context";
+import { resolveBarbershopIdentity, resolveIdentityFromUrl } from "@/lib/barbershop-context";
 
 export default function ResetPasswordPage() {
   const router = useRouter();
@@ -22,10 +22,6 @@ export default function ResetPasswordPage() {
       setToken(params.get("token") || "");
 
       const fromUrl = resolveIdentityFromUrl();
-      if (fromUrl.id || fromUrl.slug) {
-        setBarbershopContext(fromUrl.id || "", fromUrl.slug || "");
-      }
-
       const identity = fromUrl.id || fromUrl.slug ? fromUrl : resolveBarbershopIdentity();
       const nextParams = new URLSearchParams();
       if (identity.slug) nextParams.set("slug", identity.slug);

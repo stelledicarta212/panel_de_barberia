@@ -1,13 +1,11 @@
 import { readStorage, removeStorage, writeStorage } from "@/lib/storage";
 import { env } from "@/lib/env";
 
-const BARBERSHOP_ID_KEY = "ba_barberia_id";
-const BARBERSHOP_SLUG_KEY = "ba_barberia_slug";
 const LANDING_SEED_KEY = "ba_landing_seed";
 const LEGACY_TEST_ID = "101";
 const LEGACY_TEST_SLUG = "barberia-58";
 
-type BarbershopIdentity = { id: string | null; slug: string | null };
+export type BarbershopIdentity = { id: string | null; slug: string | null };
 
 function safeText(value: unknown): string {
   return typeof value === "string" ? value.trim() : "";
@@ -60,46 +58,59 @@ export function resolveIdentityFromSeed(): BarbershopIdentity {
   };
 }
 
-export function setBarbershopContext(id: string, slug: string): void {
-  writeStorage(BARBERSHOP_ID_KEY, id, "local");
-  writeStorage(BARBERSHOP_ID_KEY, id, "session");
-  writeStorage(BARBERSHOP_SLUG_KEY, slug, "local");
-  writeStorage(BARBERSHOP_SLUG_KEY, slug, "session");
+function cacheKeyForUser(userId: string | number): string {
+  return `ba_barberia_identity:${userId}`;
 }
 
-export function getBarbershopContext(): BarbershopIdentity {
-  const idLocal = readStorage(BARBERSHOP_ID_KEY, "local");
-  const idSession = readStorage(BARBERSHOP_ID_KEY, "session");
-  const slugLocal = readStorage(BARBERSHOP_SLUG_KEY, "local");
-  const slugSession = readStorage(BARBERSHOP_SLUG_KEY, "session");
+export function setBarbershopContext(userId: string | number | null | undefined, id: string, slug: string): void {
+  if (!userId) return; // Rule 4: If no user_id yet, do not save context
+  const key = cacheKeyForUser(userId);
+  const data = JSON.stringify({ id, slug });
+  writeStorage(key, data, "local");
+  writeStorage(key, data, "session");
+}
 
+export function getBarbershopContext(userId: string | number | null | undefined): BarbershopIdentity {
+  if (!userId) return { id: null, slug: null };
+  const key = cacheKeyForUser(userId);
+  const localVal = readStorage(key, "local");
+  const sessionVal = readStorage(key, "session");
+  const parsed = parseRaw(sessionVal ?? localVal);
   return {
-    id: idLocal ?? idSession,
-    slug: slugSession ?? slugLocal
+    id: parsed ? safeText(parsed.id) || null : null,
+    slug: parsed ? safeText(parsed.slug) || null : null
   };
 }
 
-function clearLegacyTestIdentity(): void {
-  const current = getBarbershopContext();
-  if (current.id !== LEGACY_TEST_ID && current.slug !== LEGACY_TEST_SLUG) return;
-  removeStorage(BARBERSHOP_ID_KEY, "local");
-  removeStorage(BARBERSHOP_ID_KEY, "session");
-  removeStorage(BARBERSHOP_SLUG_KEY, "local");
-  removeStorage(BARBERSHOP_SLUG_KEY, "session");
+export function clearBarbershopContext(userId: string | number | null | undefined): void {
+  if (!userId) return;
+  const key = cacheKeyForUser(userId);
+  removeStorage(key, "local");
+  removeStorage(key, "session");
 }
 
-export function resolveBarbershopIdentity(): BarbershopIdentity {
+function clearLegacyTestIdentity(userId?: string | number | null | undefined): void {
+  if (!userId) return;
+  const current = getBarbershopContext(userId);
+  if (current.id !== LEGACY_TEST_ID && current.slug !== LEGACY_TEST_SLUG) return;
+  clearBarbershopContext(userId);
+}
+
+export function resolveBarbershopIdentity(userId?: string | number | null | undefined): BarbershopIdentity {
   const fromUrl = resolveIdentityFromUrl();
   if (fromUrl.id || fromUrl.slug) return fromUrl;
 
-  if (!env.disableRemoteFetch) {
-    clearLegacyTestIdentity();
+  if (!env.disableRemoteFetch && userId) {
+    clearLegacyTestIdentity(userId);
   }
 
   // Se permite retornar desde cache como candidato UX temporal, pero
   // el DashboardProvider debe validarlo siempre contra session/me antes de usarlo.
-  const fromStorage = getBarbershopContext();
-  if (fromStorage.id || fromStorage.slug) return fromStorage;
+  if (userId) {
+    const fromStorage = getBarbershopContext(userId);
+    if (fromStorage.id || fromStorage.slug) return fromStorage;
+  }
 
   return { id: null, slug: null };
 }
+
