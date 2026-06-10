@@ -7,3 +7,4 @@ pruebas
 project
 docs
 *.log
+tsconfig.tsbuildinfo
