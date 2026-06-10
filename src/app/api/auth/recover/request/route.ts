@@ -1,11 +1,19 @@
 import { NextResponse } from "next/server";
 
-const RECOVER_REQUEST_ENDPOINT =
-  process.env.DASHBOARD_RECOVER_REQUEST_ENDPOINT ??
-  process.env.NEXT_PUBLIC_DASHBOARD_RECOVER_REQUEST_ENDPOINT ??
-  "https://barberagency-n8n.gymh5g.easypanel.host/webhook/barberagency/dashboard/recover/request";
-
 export async function POST(request: Request) {
+  const recoverRequestEndpoint = process.env.DASHBOARD_RECOVER_REQUEST_ENDPOINT;
+
+  if (!recoverRequestEndpoint) {
+    return NextResponse.json(
+      {
+        ok: false,
+        code: "recover_endpoint_not_configured",
+        message: "El servidor de recuperación no está configurado correctamente."
+      },
+      { status: 500 }
+    );
+  }
+
   let body: unknown;
   try {
     body = await request.json();
@@ -32,7 +40,7 @@ export async function POST(request: Request) {
   }
 
   try {
-    const upstream = await fetch(RECOVER_REQUEST_ENDPOINT, {
+    const upstream = await fetch(recoverRequestEndpoint, {
       method: "POST",
       headers: {
         "Content-Type": "application/json"
