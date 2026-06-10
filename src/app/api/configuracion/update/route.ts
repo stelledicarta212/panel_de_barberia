@@ -99,6 +99,132 @@ function validatePatchContract(rawBody: string): { ok: true } | { ok: false; sta
     };
   }
 
+  const collections = payload.collections_patch;
+
+  // 1. Validar servicios
+  if (collections.servicios && isRecord(collections.servicios)) {
+    const upsert = collections.servicios.upsert;
+    if (Array.isArray(upsert)) {
+      for (const item of upsert) {
+        if (!isRecord(item)) {
+          return {
+            ok: false,
+            status: 400,
+            body: { ok: false, code: "contrato_invalido", message: "Item de servicios.upsert invalido" }
+          };
+        }
+        if (Object.prototype.hasOwnProperty.call(item, "precio") && (item.precio === null || Number(item.precio) < 0 || isNaN(Number(item.precio)))) {
+          return {
+            ok: false,
+            status: 400,
+            body: { ok: false, code: "contrato_invalido", message: "Ningun servicio puede tener precio negativo o invalido" }
+          };
+        }
+        if (Object.prototype.hasOwnProperty.call(item, "duracion_min") && (item.duracion_min === null || Number(item.duracion_min) <= 0 || isNaN(Number(item.duracion_min)))) {
+          return {
+            ok: false,
+            status: 400,
+            body: { ok: false, code: "contrato_invalido", message: "Ningun servicio puede tener duracion menor o igual a cero" }
+          };
+        }
+        if (Object.prototype.hasOwnProperty.call(item, "nombre") && String(item.nombre).trim() === "") {
+          return {
+            ok: false,
+            status: 400,
+            body: { ok: false, code: "contrato_invalido", message: "El nombre del servicio no puede estar vacio" }
+          };
+        }
+        if (!item.id && !item.nombre) {
+          return {
+            ok: false,
+            status: 400,
+            body: { ok: false, code: "contrato_invalido", message: "Servicios nuevos requieren nombre" }
+          };
+        }
+      }
+    }
+  }
+
+  // 2. Validar barberos
+  if (collections.barberos && isRecord(collections.barberos)) {
+    const upsert = collections.barberos.upsert;
+    if (Array.isArray(upsert)) {
+      for (const item of upsert) {
+        if (!isRecord(item)) {
+          return {
+            ok: false,
+            status: 400,
+            body: { ok: false, code: "contrato_invalido", message: "Item de barberos.upsert invalido" }
+          };
+        }
+        if (Object.prototype.hasOwnProperty.call(item, "nombre") && String(item.nombre).trim() === "") {
+          return {
+            ok: false,
+            status: 400,
+            body: { ok: false, code: "contrato_invalido", message: "El nombre del barbero no puede estar vacio" }
+          };
+        }
+        if (!item.id && !item.nombre) {
+          return {
+            ok: false,
+            status: 400,
+            body: { ok: false, code: "contrato_invalido", message: "Barberos nuevos requieren nombre" }
+          };
+        }
+      }
+    }
+  }
+
+  // 3. Validar horarios (normalización / verificación de 7 días completos)
+  if (collections.horarios && isRecord(collections.horarios)) {
+    const upsert = collections.horarios.upsert;
+    if (Array.isArray(upsert) && upsert.length > 0) {
+      if (upsert.length !== 7) {
+        return {
+          ok: false,
+          status: 400,
+          body: { ok: false, code: "contrato_invalido", message: "Los horarios deben contener exactamente 7 dias" }
+        };
+      }
+      const daysFound = new Set<number>();
+      for (const item of upsert) {
+        if (!isRecord(item)) {
+          return {
+            ok: false,
+            status: 400,
+            body: { ok: false, code: "contrato_invalido", message: "Item de horarios.upsert invalido" }
+          };
+        }
+        const dia = Number(item.dia_semana);
+        if (isNaN(dia) || dia < 0 || dia > 6) {
+          return {
+            ok: false,
+            status: 400,
+            body: { ok: false, code: "contrato_invalido", message: "Dia de semana invalido" }
+          };
+        }
+        daysFound.add(dia);
+
+        const abre = String(item.hora_abre || "").trim();
+        const cierra = String(item.hora_cierra || "").trim();
+        if (item.activo !== false && abre && cierra && cierra <= abre) {
+          return {
+            ok: false,
+            status: 400,
+            body: { ok: false, code: "contrato_invalido", message: "La hora de cierre debe ser mayor a la hora de apertura" }
+          };
+        }
+      }
+      if (daysFound.size !== 7) {
+        return {
+          ok: false,
+          status: 400,
+          body: { ok: false, code: "contrato_invalido", message: "Los horarios deben incluir los 7 dias de la semana sin duplicados" }
+        };
+      }
+    }
+  }
+
   return { ok: true };
 }
 

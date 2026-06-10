@@ -193,7 +193,16 @@ export default function BarberosPage() {
     const card = cards.find((c) => c.id === id);
     if (!card) return;
     const nextActive = !card.isActive;
-    const res = await updateBarberActiveStatus(Number(id), nextActive);
+    if (!identity?.barberia_id) {
+      alert("No hay identidad de barbería seleccionada o no tienes permisos.");
+      return;
+    }
+    const res = await updateBarberActiveStatus({
+      barberia_id: identity.barberia_id,
+      slug: identity.slug || "",
+      barbero_id: Number(id),
+      activo: nextActive
+    });
     if (res.ok) {
       await refresh();
     } else {

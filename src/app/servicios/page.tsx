@@ -161,12 +161,16 @@ export default function ServiciosPage() {
       setActionError("El nombre es requerido.");
       return;
     }
-    if (isNaN(precioNum) || precioNum <= 0) {
-      setActionError("El precio debe ser un número mayor a 0.");
+    if (isNaN(precioNum) || precioNum < 0) {
+      setActionError("El precio debe ser un número mayor o igual a 0.");
       return;
     }
-    if (isNaN(duracionNum) || duracionNum <= 0) {
-      setActionError("La duración debe ser un número mayor a 0.");
+    if (isNaN(duracionNum) || duracionNum <= 0 || !Number.isInteger(duracionNum)) {
+      setActionError("La duración debe ser un número entero mayor a 0.");
+      return;
+    }
+    if (typeof formActivo !== "boolean") {
+      setActionError("El estado activo debe ser un valor booleano.");
       return;
     }
 
@@ -177,6 +181,7 @@ export default function ServiciosPage() {
       if (modalMode === "add") {
         const res = await addServicio({
           barberia_id: identity.barberia_id,
+          slug: identity.slug || "",
           nombre: formNombre.trim(),
           precio: precioNum,
           duracion_min: duracionNum,
@@ -192,6 +197,7 @@ export default function ServiciosPage() {
         }
         const res = await updateServicio({
           barberia_id: identity.barberia_id,
+          slug: identity.slug || "",
           id: editingServiceId,
           nombre: formNombre.trim(),
           precio: precioNum,
@@ -234,6 +240,7 @@ export default function ServiciosPage() {
     try {
       const res = await deleteServicio({
         barberia_id: identity.barberia_id,
+        slug: identity.slug || "",
         id: idNum
       });
 

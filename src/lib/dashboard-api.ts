@@ -272,9 +272,7 @@ export async function publishBarbershopViaRpc(identity: DashboardIdentity, curre
   }
 }
 
-
-const BARBEROS_ADMIN_WEBHOOK =
-  "https://barberagency-n8n.gymh5g.easypanel.host/webhook/barberagency/dashboard/barberos";
+const BARBEROS_ADMIN_WEBHOOK = "/api/dashboard/barberos";
 
 async function callBarberosAdminGateway(payload: Record<string, unknown>): Promise<{ ok: boolean; message?: string; data?: unknown }> {
   try {
@@ -327,64 +325,96 @@ export async function deleteBarberDescanso(barberoId: number, fecha: string): Pr
   });
 }
 
-export async function updateBarberActiveStatus(barberoId: number, activo: boolean): Promise<{ ok: boolean; message?: string }> {
-  return callBarberosAdminGateway({
-    action: "update_active",
-    barbero_id: barberoId,
-    activo
-  });
-}
-
-const SERVICIOS_ADMIN_WEBHOOK =
-  "https://barberagency-n8n.gymh5g.easypanel.host/webhook/barberagency/dashboard/servicios";
-
-async function callServiciosAdminGateway(payload: Record<string, unknown>): Promise<{ ok: boolean; message?: string; data?: unknown }> {
+export async function updateBarberActiveStatus(payload: {
+  barberia_id: number;
+  slug: string;
+  barbero_id: number;
+  activo: boolean;
+}): Promise<{ ok: boolean; message?: string }> {
   try {
-    const response = await fetch(SERVICIOS_ADMIN_WEBHOOK, {
+    const res = await fetch("/api/configuracion/update", {
       method: "POST",
       headers: {
         "Content-Type": "application/json"
       },
       credentials: "include",
-      body: JSON.stringify(payload)
+      body: JSON.stringify({
+        mode: "edit",
+        barberia_id: payload.barberia_id,
+        slug: payload.slug,
+        patch: {},
+        collections_patch: {
+          barberos: {
+            upsert: [
+              {
+                id: payload.barbero_id,
+                activo: payload.activo
+              }
+            ],
+            deactivate: []
+          }
+        }
+      })
     });
-
-    const data = await response.json().catch(() => ({}));
-
-    if (!response.ok || data?.ok === false) {
-      return {
-        ok: false,
-        message: data?.message || data?.error || "Error en gateway de servicios."
-      };
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok || data.ok === false) {
+      return { ok: false, message: data.message || "Error al actualizar estado del barbero." };
     }
-
-    return {
-      ok: true,
-      data
-    };
+    return { ok: true };
   } catch (err) {
-    return {
-      ok: false,
-      message: err instanceof Error ? err.message : "Error de red en el gateway de servicios."
-    };
+    return { ok: false, message: err instanceof Error ? err.message : "Error de red." };
   }
 }
 
 export async function addServicio(payload: {
   barberia_id: number;
+  slug: string;
   nombre: string;
   precio: number;
   duracion_min: number;
   imagen_url?: string;
 }): Promise<{ ok: boolean; message?: string; data?: unknown }> {
-  return callServiciosAdminGateway({
-    action: "add_servicio",
-    ...payload
-  });
+  try {
+    const res = await fetch("/api/configuracion/update", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json"
+      },
+      credentials: "include",
+      body: JSON.stringify({
+        mode: "edit",
+        barberia_id: payload.barberia_id,
+        slug: payload.slug,
+        patch: {},
+        collections_patch: {
+          servicios: {
+            upsert: [
+              {
+                nombre: payload.nombre,
+                precio: payload.precio,
+                duracion_min: payload.duracion_min,
+                imagen_url: payload.imagen_url,
+                activo: true
+              }
+            ],
+            deactivate: []
+          }
+        }
+      })
+    });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok || data.ok === false) {
+      return { ok: false, message: data.message || "Error al agregar servicio." };
+    }
+    return { ok: true, data };
+  } catch (err) {
+    return { ok: false, message: err instanceof Error ? err.message : "Error de red." };
+  }
 }
 
 export async function updateServicio(payload: {
   barberia_id: number;
+  slug: string;
   id: number;
   nombre: string;
   precio: number;
@@ -392,24 +422,81 @@ export async function updateServicio(payload: {
   imagen_url?: string;
   activo: boolean;
 }): Promise<{ ok: boolean; message?: string; data?: unknown }> {
-  return callServiciosAdminGateway({
-    action: "update_servicio",
-    ...payload
-  });
+  try {
+    const res = await fetch("/api/configuracion/update", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json"
+      },
+      credentials: "include",
+      body: JSON.stringify({
+        mode: "edit",
+        barberia_id: payload.barberia_id,
+        slug: payload.slug,
+        patch: {},
+        collections_patch: {
+          servicios: {
+            upsert: [
+              {
+                id: payload.id,
+                nombre: payload.nombre,
+                precio: payload.precio,
+                duracion_min: payload.duracion_min,
+                imagen_url: payload.imagen_url,
+                activo: payload.activo
+              }
+            ],
+            deactivate: []
+          }
+        }
+      })
+    });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok || data.ok === false) {
+      return { ok: false, message: data.message || "Error al actualizar servicio." };
+    }
+    return { ok: true, data };
+  } catch (err) {
+    return { ok: false, message: err instanceof Error ? err.message : "Error de red." };
+  }
 }
 
 export async function deleteServicio(payload: {
   barberia_id: number;
+  slug: string;
   id: number;
 }): Promise<{ ok: boolean; message?: string; data?: unknown }> {
-  return callServiciosAdminGateway({
-    action: "delete_servicio",
-    ...payload
-  });
+  try {
+    const res = await fetch("/api/configuracion/update", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json"
+      },
+      credentials: "include",
+      body: JSON.stringify({
+        mode: "edit",
+        barberia_id: payload.barberia_id,
+        slug: payload.slug,
+        patch: {},
+        collections_patch: {
+          servicios: {
+            upsert: [],
+            deactivate: [payload.id]
+          }
+        }
+      })
+    });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok || data.ok === false) {
+      return { ok: false, message: data.message || "Error al desactivar servicio." };
+    }
+    return { ok: true, data };
+  } catch (err) {
+    return { ok: false, message: err instanceof Error ? err.message : "Error de red." };
+  }
 }
 
-const CITAS_ADMIN_WEBHOOK =
-  "https://barberagency-n8n.gymh5g.easypanel.host/webhook/barberagency/dashboard/citas";
+const CITAS_ADMIN_WEBHOOK = "/api/dashboard/citas";
 
 async function callCitasAdminGateway(payload: Record<string, unknown>): Promise<{ ok: boolean; message?: string; data?: unknown }> {
   try {
