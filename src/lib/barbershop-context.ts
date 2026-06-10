@@ -1,6 +1,5 @@
 import { readStorage, removeStorage, writeStorage } from "@/lib/storage";
 
-const LANDING_SEED_KEY = "ba_landing_seed";
 const LEGACY_TEST_ID = "101";
 const LEGACY_TEST_SLUG = "barberia-58";
 
@@ -19,13 +18,6 @@ function parseRaw(raw: string | null): Record<string, unknown> | null {
   }
 }
 
-function readLandingSeed(): Record<string, unknown> | null {
-  if (typeof window === "undefined") return null;
-  const fromSession = parseRaw(window.sessionStorage.getItem(LANDING_SEED_KEY));
-  const fromLocal = parseRaw(window.localStorage.getItem(LANDING_SEED_KEY));
-  return fromSession ?? fromLocal;
-}
-
 export function resolveIdentityFromUrl(): BarbershopIdentity {
   if (typeof window === "undefined") return { id: null, slug: null };
   const params = new URLSearchParams(window.location.search || "");
@@ -40,21 +32,6 @@ export function resolveIdentityFromUrl(): BarbershopIdentity {
       params.get("id")
   );
   return { id: id || null, slug: slug || null };
-}
-
-export function resolveIdentityFromSeed(): BarbershopIdentity {
-  const seed = readLandingSeed();
-  const barberia = (seed?.barberia as Record<string, unknown>) ?? {};
-  const id =
-    safeText(String(seed?.barberia_id ?? "")) ||
-    safeText(String(seed?.id_barberia ?? "")) ||
-    safeText(String(seed?.id ?? "")) ||
-    safeText(String(barberia.id ?? ""));
-  const slug = safeText(seed?.slug) || safeText(barberia.slug);
-  return {
-    id: id || null,
-    slug: slug || null
-  };
 }
 
 function cacheKeyForUser(userId: string | number): string {

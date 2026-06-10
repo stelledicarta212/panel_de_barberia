@@ -12,10 +12,9 @@ import {
   Sparkles,
   Users
 } from "lucide-react";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useMemo } from "react";
 import { useRouter } from "next/navigation";
 import { useDashboard } from "@/store/dashboard-context";
-import { getBarberDescansos } from "@/lib/dashboard-api";
 
 type ReservationRecord = {
   id?: string;
@@ -71,9 +70,7 @@ function normalizeAppointmentRecord(
 
 export function DashboardEditor() {
   const router = useRouter();
-  const { merged, identity, loading, saving, publishing, refresh, saveDraft, publish } = useDashboard();
-  const barberiaId = identity?.barberia_id;
-  const [offDaysByBarber, setOffDaysByBarber] = useState<Record<string, string[]>>({});
+  const { merged, loading, saving, publishing, refresh, saveDraft, publish } = useDashboard();
   const reservations = useMemo<ReservationRecord[]>(() => {
     return (merged.appointments || []).map((item, idx) =>
       normalizeAppointmentRecord(item, idx)
@@ -91,22 +88,16 @@ export function DashboardEditor() {
     [merged.services]
   );
 
-  const loadDescansos = useCallback(async () => {
-    if (!barberiaId) return;
-    const rows = await getBarberDescansos(barberiaId);
+  const offDaysByBarber = useMemo(() => {
     const map: Record<string, string[]> = {};
-    for (const row of rows) {
-      const bId = String(row.barbero_id);
+    for (const row of merged.descansos) {
+      const bId = textValue(row.barbero_id);
+      if (!bId) continue;
       if (!map[bId]) map[bId] = [];
-      map[bId].push(String(row.fecha || "").split("T")[0]);
+      map[bId].push(textValue(row.fecha).split("T")[0]);
     }
-    setOffDaysByBarber(map);
-  }, [barberiaId]);
-
-  useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect
-    loadDescansos();
-  }, [loadDescansos]);
+    return map;
+  }, [merged.descansos]);
 
   const barbers = useMemo(() => {
     const now = new Date();

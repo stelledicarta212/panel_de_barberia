@@ -1,11 +1,10 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import { CalendarDays, ChevronLeft, ChevronRight, MoreHorizontal, Plus, Search, Star, X } from "lucide-react";
 import { DashboardShell } from "@/components/dashboard-shell";
 import { useDashboard } from "@/store/dashboard-context";
 import {
-  getBarberDescansos,
   addBarberDescanso,
   deleteBarberDescanso,
   updateBarberActiveStatus
@@ -83,7 +82,6 @@ export default function BarberosPage() {
   const [query, setQuery] = useState("");
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [calendarMonth, setCalendarMonth] = useState(() => new Date());
-  const [offDaysByBarber, setOffDaysByBarber] = useState<Record<string, string[]>>({});
   const [selectedCalendarDate, setSelectedCalendarDate] = useState<string | null>(null);
 
   const cards = useMemo<BarberCard[]>(() => {
@@ -91,14 +89,14 @@ export default function BarberosPage() {
       const score = Number(num(item.rating, 4.6).toFixed(1));
       return {
         id: text(item.id) || `barber-${index + 1}`,
-        name: text(item.nombre ?? item.name) || `Alex ${index + 1}.`,
+        name: text(item.nombre ?? item.name) || `Barbero ${index + 1}`,
         role: text(item.especialidad ?? item.speciality) || "Corte & Barba",
         score,
         month: Math.max(120, Math.round(score * 80 + (index + 1) * 8)),
         rank: 40 + index * 7,
         image: imageFrom(item, index),
         isActive: Boolean(item.activo ?? true),
-        clientsToday: 4 + ((index + 1) * 2),
+        clientsToday: 0,
         servicesToday: 0,
         servicesMonth: 0
       };
@@ -110,23 +108,16 @@ export default function BarberosPage() {
   const todayMonth = now.getMonth();
   const todayYear = now.getFullYear();
 
-  const loadDescansos = useCallback(async () => {
-    if (!identity?.barberia_id) return;
-    const rows = await getBarberDescansos(identity.barberia_id);
+  const offDaysByBarber = useMemo(() => {
     const map: Record<string, string[]> = {};
-    for (const row of rows) {
-      const bId = String(row.barbero_id);
+    for (const row of merged.descansos) {
+      const bId = text(row.barbero_id);
+      if (!bId) continue;
       if (!map[bId]) map[bId] = [];
-      map[bId].push(String(row.fecha || "").split("T")[0]);
+      map[bId].push(text(row.fecha).split("T")[0]);
     }
-    setOffDaysByBarber(map);
-  }, [identity]);
-
-  // Load descansos from PostgreSQL
-  useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect
-    loadDescansos();
-  }, [loadDescansos]);
+    return map;
+  }, [merged.descansos]);
 
   const cardsWithAvailability = useMemo(
     () =>
@@ -222,7 +213,6 @@ export default function BarberosPage() {
       if (exists) {
         const res = await deleteBarberDescanso(Number(calendarBarberId), dateStr);
         if (res.ok) {
-          await loadDescansos();
           await refresh();
         } else {
           alert(res.message || "Error al eliminar descanso.");
@@ -235,7 +225,6 @@ export default function BarberosPage() {
           fecha: dateStr
         });
         if (res.ok) {
-          await loadDescansos();
           await refresh();
         } else {
           alert(res.message || "Error al guardar descanso.");

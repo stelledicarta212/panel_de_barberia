@@ -1,10 +1,10 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Cake, CalendarDays, ChevronLeft, ChevronRight, Clock3, Eye, Gift, MoreHorizontal, Pencil, Plus, RefreshCcw, Scissors, Send, Trash2, X } from "lucide-react";
 import { DashboardShell } from "@/components/dashboard-shell";
 import { useDashboard } from "@/store/dashboard-context";
-import { addCitaDashboard, cancelCitaDashboard, getBarberDescansos, updateCitaDashboard } from "@/lib/dashboard-api";
+import { addCitaDashboard, cancelCitaDashboard, updateCitaDashboard } from "@/lib/dashboard-api";
 
 type RequestStatus = "Pendiente" | "Enviada" | "Aceptada";
 
@@ -95,32 +95,20 @@ function numberValue(value: unknown): number {
 }
 
 function mapServiceOptions(services: Array<Record<string, unknown>>): ServiceOption[] {
-  const mapped = services.map((item, index) => {
+  return services.map((item, index) => {
     const name = textValue(item.nombre ?? item.name) || `Servicio ${index + 1}`;
     const id = textValue(item.id ?? item.servicio_id ?? item.id_servicio) || `srv-${index + 1}`;
     const price = Math.max(0, numberValue(item.precio ?? item.price));
     return { id, name, price };
   });
-  return mapped.length
-    ? mapped
-    : [
-        { id: "default-1", name: "Corte de Pelo", price: 15 },
-        { id: "default-2", name: "Barba", price: 6 }
-      ];
 }
 
 function mapBarberOptions(barbers: Array<Record<string, unknown>>): BarberOption[] {
-  const mapped = barbers.map((item, index) => ({
+  return barbers.map((item, index) => ({
     id: textValue(item.id ?? item.barbero_id ?? item.id_barbero) || `barber-${index + 1}`,
     name: textValue(item.nombre ?? item.name) || `Barbero ${index + 1}`,
     isActive: Boolean(item.activo ?? true)
   }));
-  return mapped.length
-    ? mapped
-    : [
-        { id: "barber-default-1", name: "Alex M.", isActive: true },
-        { id: "barber-default-2", name: "James R.", isActive: true }
-      ];
 }
 
 function formatDbDate(value: unknown): string {
@@ -249,9 +237,18 @@ export default function CitasPage() {
 
   const hourOptions = useMemo(() => agendaHours, [agendaHours]);
   const [selectedServiceIds, setSelectedServiceIds] = useState<string[]>([]);
-  const [created, setCreated] = useState<CreatedAppointment | null>(null);
+  const [created] = useState<CreatedAppointment | null>(null);
   const [editingRequestId, setEditingRequestId] = useState<string | null>(null);
-  const [barberOffDays, setBarberOffDays] = useState<Record<string, string[]>>({});
+  const barberOffDays = useMemo(() => {
+    const map: Record<string, string[]> = {};
+    for (const row of merged.descansos) {
+      const bId = textValue(row.barbero_id);
+      if (!bId) continue;
+      if (!map[bId]) map[bId] = [];
+      map[bId].push(textValue(row.fecha).split("T")[0]);
+    }
+    return map;
+  }, [merged.descansos]);
   const [agendaBarberFilter, setAgendaBarberFilter] = useState<string>("global");
   const [nowTime, setNowTime] = useState(() =>
     new Intl.DateTimeFormat("es-CO", { hour: "2-digit", minute: "2-digit", second: "2-digit", hour12: false }).format(new Date())
@@ -549,23 +546,6 @@ export default function CitasPage() {
     }, 1000);
     return () => window.clearInterval(timer);
   }, []);
-
-  const loadDescansos = useCallback(async () => {
-    if (!barberiaId) return;
-    const rows = await getBarberDescansos(barberiaId);
-    const map: Record<string, string[]> = {};
-    for (const row of rows) {
-      const bId = String(row.barbero_id);
-      if (!map[bId]) map[bId] = [];
-      map[bId].push(String(row.fecha || "").split("T")[0]);
-    }
-    setBarberOffDays(map);
-  }, [barberiaId]);
-
-  useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect
-    loadDescansos();
-  }, [loadDescansos]);
 
   // Local storage reservations persistence removed for Postgres single source of truth
 

@@ -15,7 +15,7 @@ import {
   resolveIdentityFromUrl,
   clearBarbershopContext
 } from "@/lib/barbershop-context";
-import { NO_PERMISSIONS, resolveDashboardAccess, resolveLoginAccess, ALL_PERMISSIONS } from "@/lib/dashboard-access";
+import { NO_PERMISSIONS, resolveDashboardAccess, resolveLoginAccess } from "@/lib/dashboard-access";
 import { getSessionMe } from "@/lib/session-me";
 import type {
   DashboardIdentity,
@@ -23,31 +23,13 @@ import type {
   DashboardMerged,
   DashboardStateResponse,
   DashboardUserAccess,
-  PublishResponse,
-  DashboardRole,
-  DashboardPermissions
+  PublishResponse
 } from "@/types/dashboard-state";
 import { EMPTY_MERGED } from "@/types/dashboard-state";
 
-type ScalarMergedKey = Exclude<keyof DashboardMerged, "services" | "barbers" | "hours">;
-type CollectionMergedKey = Extract<keyof DashboardMerged, "services" | "barbers" | "hours">;
-const DASHBOARD_MERGED_CACHE_PREFIX = "ba_dashboard_merged_cache";
+type CollectionMergedKey = Extract<keyof DashboardMerged, "services" | "barbers" | "hours" | "clients" | "appointments" | "descansos">;
+type ScalarMergedKey = Exclude<keyof DashboardMerged, CollectionMergedKey>;
 const DASHBOARD_SESSION_PREFIX = "ba_dashboard_session";
-
-function cacheKeyForIdentity(userId: string | number, input: DashboardIdentity): string {
-  const idPart = String(input.barberia_id ?? "no-id");
-  const slugPart = String(input.slug ?? "no-slug");
-  return `${DASHBOARD_MERGED_CACHE_PREFIX}:${userId}:${idPart}:${slugPart}`;
-}
-
-function writeMergedCache(userId: string | number | null | undefined, input: DashboardIdentity, value: DashboardMerged) {
-  if (typeof window === "undefined" || !userId) return;
-  try {
-    window.localStorage.setItem(cacheKeyForIdentity(userId, input), JSON.stringify(value));
-  } catch {
-    // ignore quota errors
-  }
-}
 
 type DashboardContextValue = {
   identity: DashboardIdentity | null;
@@ -363,8 +345,6 @@ export function DashboardProvider({ children }: { children: React.ReactNode }) {
       setSession((prev) => prev ?? readLoginSession(effectiveIdentity));
       setRawState(response);
       setMerged(normalized);
-      const userId = session?.access?.user_id ?? (session?.user?.id as string | number | undefined);
-      writeMergedCache(userId, effectiveIdentity, normalized);
       const nextMessage = String(response.message ?? "").trim();
       setMessage(nextMessage.toLowerCase().startsWith("fallback:") ? null : (nextMessage || null));
     } catch (cause) {

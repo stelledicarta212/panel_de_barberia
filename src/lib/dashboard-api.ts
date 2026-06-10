@@ -1,4 +1,4 @@
-import { apiGetJson, apiPostJson } from "@/lib/api";
+import { apiPostJson } from "@/lib/api";
 import { env } from "@/lib/env";
 import type {
   DashboardIdentity,
@@ -41,55 +41,6 @@ function pickFirstText(...values: unknown[]): string {
     if (current) return current;
   }
   return "";
-}
-
-async function getPublicProfile(identity: IdentityInput): Promise<Record<string, unknown> | null> {
-  const normalized = normalizeIdentity(identity);
-  const path = normalized.barberia_id
-    ? `/barberia_public_profiles?select=*&barberia_id=eq.${encodeURIComponent(String(normalized.barberia_id))}&limit=1`
-    : normalized.slug
-      ? `/barberia_public_profiles?select=*&slug=eq.${encodeURIComponent(normalized.slug)}&limit=1`
-      : "";
-  if (!path) return null;
-  try {
-    const rows = await apiGetJson<Array<Record<string, unknown>>>(path);
-    return Array.isArray(rows) && rows.length ? rows[0] : null;
-  } catch {
-    return null;
-  }
-}
-
-function mergeStateWithPublicProfile(
-  state: DashboardStateResponse,
-  profile: Record<string, unknown> | null
-): DashboardStateResponse {
-  if (!profile) return state;
-  const profileMerged: Partial<DashboardMerged> = {
-    biz_name: safeText(profile.nombre_publico),
-    biz_slug: safeText(profile.slug),
-    address: safeText(profile.direccion),
-    maps_url: safeText(profile.maps_url),
-    logo_url: safeText(profile.logo_url),
-    cover_url: safeText(profile.cover_url),
-    public_landing_url: safeText(profile.public_landing_url),
-    reservation_url: safeText(profile.reservation_url),
-    qr_url: safeText(profile.qr_url)
-  };
-  return {
-    ...state,
-    identity: {
-      barberia_id: Number(profile.barberia_id) > 0 ? Number(profile.barberia_id) : state.identity?.barberia_id ?? null,
-      slug: safeText(profile.slug) || state.identity?.slug || null
-    },
-    published: {
-      ...(state.published ?? {}),
-      ...profileMerged
-    },
-    merged: {
-      ...(state.merged ?? {}),
-      ...profileMerged
-    }
-  };
 }
 
 export function buildIdentityQuery(identity: IdentityInput): string {
@@ -171,6 +122,13 @@ export function normalizeMergedFromState(raw: DashboardStateResponse): Dashboard
       draft["citas"],
       seed["citas"],
       seed["appointments"]
+    ),
+    descansos: pickFirstArray(
+      merged.descansos,
+      draft["descansos"],
+      seed["descansos"],
+      (seed["inherited"] as Record<string, unknown> | undefined)?.["descansos"],
+      raw.descansos
     )
   };
 }
@@ -197,9 +155,7 @@ export async function getDashboardState(identity: IdentityInput): Promise<Dashbo
     if (!res.ok) {
       throw new Error(response.message || `Error ${res.status} de dashboard/state`);
     }
-    const responseIdentity = response.identity ?? normalizeIdentity(identity);
-    const profile = await getPublicProfile(responseIdentity);
-    return mergeStateWithPublicProfile(response, profile);
+    return response;
   } catch (cause) {
     const message = cause instanceof Error ? cause.message : "Error consultando dashboard/state";
     throw new Error(`No se pudo cargar dashboard/state: ${message}`);
@@ -306,17 +262,6 @@ export async function publishBarbershopViaRpc(barberiaId: number): Promise<Publi
   }
 }
 
-
-export async function getBarberDescansos(barberiaId: number): Promise<Array<{ barbero_id: number; fecha: string }>> {
-  try {
-    const rows = await apiGetJson<Array<{ barbero_id: number; fecha: string }>>(
-      `/barberos_descansos?select=barbero_id,fecha&barberia_id=eq.${encodeURIComponent(String(barberiaId))}`
-    );
-    return Array.isArray(rows) ? rows : [];
-  } catch {
-    return [];
-  }
-}
 
 const BARBEROS_ADMIN_WEBHOOK =
   "https://barberagency-n8n.gymh5g.easypanel.host/webhook/barberagency/dashboard/barberos";

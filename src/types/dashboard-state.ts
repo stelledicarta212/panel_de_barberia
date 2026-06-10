@@ -62,6 +62,7 @@ export type DashboardMerged = {
   hours: Array<Record<string, unknown>>;
   clients: Array<Record<string, unknown>>;
   appointments: Array<Record<string, unknown>>;
+  descansos: Array<Record<string, unknown>>;
 };
 
 export type DashboardStateResponse = {
@@ -77,6 +78,7 @@ export type DashboardStateResponse = {
   draft?: Record<string, unknown>;
   published?: Record<string, unknown>;
   merged?: Partial<DashboardMerged>;
+  descansos?: Array<Record<string, unknown>>;
   message?: string;
 };
 
@@ -141,5 +143,6 @@ export const EMPTY_MERGED: DashboardMerged = {
   barbers: [],
   hours: [],
   clients: [],
-  appointments: []
+  appointments: [],
+  descansos: []
 };

@@ -24,9 +24,9 @@ export const MOCK_MERGED: DashboardMerged = {
     { id: 3, nombre: "Afeitado Premium", duracion_min: 35, precio: 30000, activo: true }
   ],
   barbers: [
-    { id: 1011, nombre: "Alex M.", rating: 4.9, activo: true },
-    { id: 1012, nombre: "James V.", rating: 4.8, activo: true },
-    { id: 1013, nombre: "Aldo H.", rating: 4.7, activo: true }
+    { id: 1011, nombre: "Barbero Demo 1", rating: 4.9, activo: true },
+    { id: 1012, nombre: "Barbero Demo 2", rating: 4.8, activo: true },
+    { id: 1013, nombre: "Barbero Demo 3", rating: 4.7, activo: true }
   ],
   hours: [
     { dia: "lunes", activo: true, hora_abre: "09:00", hora_cierra: "19:00" },
@@ -37,7 +37,8 @@ export const MOCK_MERGED: DashboardMerged = {
     { dia: "sabado", activo: true, hora_abre: "10:00", hora_cierra: "18:00" }
   ],
   clients: [],
-  appointments: []
+  appointments: [],
+  descansos: []
 };
 
 export const MOCK_CLIENTS = [
