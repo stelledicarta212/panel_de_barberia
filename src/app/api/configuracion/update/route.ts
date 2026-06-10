@@ -11,8 +11,27 @@ function readBaSession(cookieHeader: string): string {
   return match ? match[1] : "";
 }
 
-function jsonResponse(body: unknown, status: number) {
-  return NextResponse.json(body, { status });
+function getCorsHeaders(request: Request) {
+  const origin = request.headers.get("origin") || "";
+  const allowedOrigins = [
+    "https://barberagency-barberagency.gymh5g.easypanel.host",
+    "http://localhost:3000",
+    "http://localhost:8000"
+  ];
+  
+  let allowedOrigin = "";
+  if (allowedOrigins.includes(origin) || origin.endsWith(".easypanel.host")) {
+    allowedOrigin = origin;
+  } else {
+    allowedOrigin = "https://barberagency-barberagency.gymh5g.easypanel.host";
+  }
+
+  return {
+    "Access-Control-Allow-Origin": allowedOrigin,
+    "Access-Control-Allow-Methods": "POST, OPTIONS",
+    "Access-Control-Allow-Headers": "Content-Type, Authorization, X-Requested-With",
+    "Access-Control-Allow-Credentials": "true"
+  };
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -83,16 +102,24 @@ function validatePatchContract(rawBody: string): { ok: true } | { ok: false; sta
   return { ok: true };
 }
 
+export async function OPTIONS(request: Request) {
+  return new NextResponse(null, {
+    status: 204,
+    headers: getCorsHeaders(request)
+  });
+}
+
 export async function POST(request: Request) {
+  const corsHeaders = getCorsHeaders(request);
   const baSession = readBaSession(request.headers.get("cookie") || "");
   if (!baSession) {
-    return jsonResponse(
+    return NextResponse.json(
       {
         ok: false,
         code: "no_autorizado_anonimo",
         message: "Sesion requerida para actualizar configuracion"
       },
-      401
+      { status: 401, headers: corsHeaders }
     );
   }
 
@@ -100,19 +127,19 @@ export async function POST(request: Request) {
   try {
     rawBody = await request.text();
   } catch {
-    return jsonResponse(
+    return NextResponse.json(
       {
         ok: false,
         code: "body_invalido",
         message: "No se pudo leer el body de configuracion"
       },
-      400
+      { status: 400, headers: corsHeaders }
     );
   }
 
   const contract = validatePatchContract(rawBody);
   if (!contract.ok) {
-    return jsonResponse(contract.body, contract.status);
+    return NextResponse.json(contract.body, { status: contract.status, headers: corsHeaders });
   }
 
   try {
@@ -132,25 +159,25 @@ export async function POST(request: Request) {
     try {
       body = text ? JSON.parse(text) : {};
     } catch {
-      return jsonResponse(
+      return NextResponse.json(
         {
           ok: false,
           code: "respuesta_no_json",
           message: "configuracion/update devolvio respuesta no JSON"
         },
-        502
+        { status: 502, headers: corsHeaders }
       );
     }
 
-    return jsonResponse(body, upstream.status);
+    return NextResponse.json(body, { status: upstream.status, headers: corsHeaders });
   } catch (error) {
-    return jsonResponse(
+    return NextResponse.json(
       {
         ok: false,
         code: "configuracion_update_proxy_error",
         message: error instanceof Error ? error.message : "Error conectando con configuracion/update"
       },
-      502
+      { status: 502, headers: corsHeaders }
     );
   }
 }
