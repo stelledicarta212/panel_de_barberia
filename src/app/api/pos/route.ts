@@ -40,6 +40,15 @@ export async function POST(request: Request) {
       );
     }
 
+    // No permitir monto negativo desde el proxy
+    const montoTotal = Number(body.monto_total ?? body.total ?? 0);
+    if (montoTotal < 0) {
+      return NextResponse.json(
+        { ok: false, code: "monto_negativo", message: "No se permiten montos negativos." },
+        { status: 400 }
+      );
+    }
+
     const stateUrl = `${DASHBOARD_STATE_ENDPOINT}?barberia_id=${encodeURIComponent(String(barberiaId))}`;
     const stateResponse = await fetch(stateUrl, {
       method: "GET",
@@ -60,6 +69,33 @@ export async function POST(request: Request) {
         },
         { status: stateResponse.status === 401 ? 401 : 403 }
       );
+    }
+
+    const stateData = await stateResponse.json().catch(() => null);
+    if (!stateData) {
+      return NextResponse.json(
+        { ok: false, message: "Error al cargar el estado de la barbería." },
+        { status: 500 }
+      );
+    }
+
+    // Validar cita_id si viene en el payload
+    const citaId = body.cita_id ?? body.id_cita;
+    const hasCitaId = citaId !== undefined && citaId !== null && String(citaId).trim() !== "" && String(citaId) !== "undefined" && String(citaId) !== "null" && !String(citaId).startsWith("cita-");
+
+    if (hasCitaId) {
+      const appointments = stateData.reservas || stateData.merged?.appointments || stateData.seed?.appointments || [];
+      const hasCita = appointments.some((c: Record<string, unknown>) => {
+        const cid = c.id ?? c.cita_id;
+        return cid !== undefined && String(cid) === String(citaId);
+      });
+
+      if (!hasCita) {
+        return NextResponse.json(
+          { ok: false, code: "cita_ajena", message: "La cita no pertenece a esta barbería." },
+          { status: 403 }
+        );
+      }
     }
 
     const response = await fetch(POS_SALE_ENDPOINT, {

@@ -135,6 +135,90 @@ function mapAppointment(item: Record<string, unknown>, index: number): Movement 
   };
 }
 
+function safeEvaluate(expr: string): number {
+  const clean = expr.replace(/\s+/g, "");
+  let pos = 0;
+  
+  function parseExpression(): number {
+    let result = parseTerm();
+    while (pos < clean.length) {
+      const op = clean[pos];
+      if (op === "+" || op === "-") {
+        pos++;
+        const nextTerm = parseTerm();
+        if (op === "+") result += nextTerm;
+        else result -= nextTerm;
+      } else {
+        break;
+      }
+    }
+    return result;
+  }
+  
+  function parseTerm(): number {
+    let result = parseFactor();
+    while (pos < clean.length) {
+      const op = clean[pos];
+      if (op === "*" || op === "/") {
+        pos++;
+        const nextFactor = parseFactor();
+        if (op === "*") result *= nextFactor;
+        else {
+          if (nextFactor === 0) throw new Error("División por cero");
+          result /= nextFactor;
+        }
+      } else {
+        break;
+      }
+    }
+    return result;
+  }
+  
+  function parseFactor(): number {
+    if (pos >= clean.length) throw new Error("Fin inesperado");
+    
+    if (clean[pos] === "(") {
+      pos++;
+      const result = parseExpression();
+      if (pos >= clean.length || clean[pos] !== ")") {
+        throw new Error("Paréntesis desbalanceado");
+      }
+      pos++;
+      return result;
+    }
+    
+    let sign = 1;
+    if (clean[pos] === "-") {
+      sign = -1;
+      pos++;
+    } else if (clean[pos] === "+") {
+      pos++;
+    }
+    
+    const start = pos;
+    while (pos < clean.length && /[0-9.]/.test(clean[pos])) {
+      pos++;
+    }
+    if (start === pos) {
+      throw new Error("Número esperado");
+    }
+    
+    const numStr = clean.slice(start, pos);
+    const value = Number(numStr);
+    if (isNaN(value)) {
+      throw new Error("Número inválido");
+    }
+    
+    return sign * value;
+  }
+  
+  const finalResult = parseExpression();
+  if (pos < clean.length) {
+    throw new Error("Sintaxis inválida");
+  }
+  return finalResult;
+}
+
 export default function InventarioPage() {
   const { identity, merged, refresh } = useDashboard();
   const [posClient, setPosClient] = useState("");
@@ -544,8 +628,7 @@ export default function InventarioPage() {
         if (!/^[0-9+\-*/.\s()]+$/.test(cleanExpression)) {
           throw new Error("Sintaxis");
         }
-        // eslint-disable-next-line no-eval
-        const evaluated = eval(cleanExpression);
+        const evaluated = safeEvaluate(cleanExpression);
         const rounded = Math.round(Number(evaluated) * 100) / 100;
         setCalcHistory(calcDisplay + " =");
         setCalcDisplay(String(rounded));
