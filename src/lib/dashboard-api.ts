@@ -1,5 +1,4 @@
 import { apiPostJson } from "@/lib/api";
-import { env } from "@/lib/env";
 import type {
   DashboardIdentity,
   DashboardLoginResponse,
@@ -202,7 +201,7 @@ export async function recoverPasswordRequest(payload: {
   identity?: IdentityInput | null;
 }): Promise<{ ok: boolean; message: string }> {
   return apiPostJson<{ ok: boolean; message: string }, Record<string, unknown>>(
-    env.dashboardRecoverRequestEndpoint,
+    "/api/auth/recover/request",
     {
       email: payload.email,
       barberia_id: payload.identity?.barberia_id ?? null,
@@ -217,7 +216,7 @@ export async function recoverPasswordReset(payload: {
   new_password: string;
 }): Promise<{ ok: boolean; message: string }> {
   return apiPostJson<{ ok: boolean; message: string }, Record<string, unknown>>(
-    env.dashboardRecoverResetEndpoint,
+    "/api/auth/recover/reset",
     {
       token: payload.token,
       new_password: payload.new_password

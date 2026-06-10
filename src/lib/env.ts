@@ -6,22 +6,6 @@ export const env = {
     process.env.NEXT_PUBLIC_PUBLIC_BASE_URL ??
     process.env.NEXT_PUBLIC_APP_URL ??
     "",
-  dashboardLoginEndpoint:
-    ((process.env.NEXT_PUBLIC_DASHBOARD_LOGIN_ENDPOINT ?? "").startsWith("http")
-      ? process.env.NEXT_PUBLIC_DASHBOARD_LOGIN_ENDPOINT
-      : "https://barberagency-n8n.gymh5g.easypanel.host/webhook/barberagency/dashboard/login") as string,
-  dashboardRecoverRequestEndpoint:
-    ((process.env.NEXT_PUBLIC_DASHBOARD_RECOVER_REQUEST_ENDPOINT ?? "").startsWith("http")
-      ? process.env.NEXT_PUBLIC_DASHBOARD_RECOVER_REQUEST_ENDPOINT
-      : "https://barberagency-n8n.gymh5g.easypanel.host/webhook/barberagency/dashboard/recover/request") as string,
-  dashboardRecoverResetEndpoint:
-    ((process.env.NEXT_PUBLIC_DASHBOARD_RECOVER_RESET_ENDPOINT ?? "").startsWith("http")
-      ? process.env.NEXT_PUBLIC_DASHBOARD_RECOVER_RESET_ENDPOINT
-      : "https://barberagency-n8n.gymh5g.easypanel.host/webhook/barberagency/dashboard/recover/reset") as string,
-  posSaleEndpoint:
-    ((process.env.NEXT_PUBLIC_POS_SALE_ENDPOINT ?? "").startsWith("http")
-      ? process.env.NEXT_PUBLIC_POS_SALE_ENDPOINT
-      : "https://barberagency-n8n.gymh5g.easypanel.host/webhook/barberagency/pos/create-sale") as string,
   publishRpcEndpoint:
     process.env.NEXT_PUBLIC_PUBLISH_RPC_ENDPOINT ??
     "/rpc/ba_publicar_barberia",
