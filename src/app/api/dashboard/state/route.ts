@@ -1,8 +1,8 @@
 import { NextResponse } from "next/server";
+import { getCorsHeaders } from "../../editor/auth";
 
 const DASHBOARD_STATE_ENDPOINT =
-  process.env.DASHBOARD_STATE_ENDPOINT ??
-  "https://barberagency-n8n.gymh5g.easypanel.host/webhook/barberagency/dashboard/state";
+  process.env.DASHBOARD_STATE_ENDPOINT;
 
 const POSTGREST_BASE_URL =
   process.env.POSTGREST_BASE_URL ??
@@ -53,7 +53,27 @@ async function loadDescansos(barberiaId: number): Promise<Array<Record<string, u
   }
 }
 
+export async function OPTIONS(request: Request) {
+  return new NextResponse(null, {
+    status: 204,
+    headers: getCorsHeaders(request)
+  });
+}
+
 export async function GET(request: Request) {
+  const corsHeaders = getCorsHeaders(request);
+
+  if (!DASHBOARD_STATE_ENDPOINT) {
+    return NextResponse.json(
+      {
+        ok: false,
+        code: "dashboard_state_endpoint_not_configured",
+        message: "El servidor no esta configurado correctamente."
+      },
+      { status: 500, headers: corsHeaders }
+    );
+  }
+
   const { searchParams } = new URL(request.url);
   const baSession = readBaSession(request.headers.get("cookie") || "");
   const cookieHeader = baSession ? `ba_session=${baSession}` : "";
@@ -78,7 +98,7 @@ export async function GET(request: Request) {
           ok: false,
           message: "dashboard/state devolvió respuesta no JSON"
         },
-        { status: 502 }
+        { status: 502, headers: corsHeaders }
       );
     }
 
@@ -103,14 +123,14 @@ export async function GET(request: Request) {
       }
     }
 
-    return NextResponse.json(body, { status: upstream.status });
+    return NextResponse.json(body, { status: upstream.status, headers: corsHeaders });
   } catch (error) {
     return NextResponse.json(
       {
         ok: false,
         message: error instanceof Error ? error.message : "Error conectando con dashboard/state"
       },
-      { status: 502 }
+      { status: 502, headers: corsHeaders }
     );
   }
 }

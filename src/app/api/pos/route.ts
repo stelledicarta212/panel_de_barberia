@@ -1,12 +1,10 @@
 import { NextResponse } from "next/server";
 
 const POS_SALE_ENDPOINT =
-  process.env.POS_SALE_ENDPOINT ??
-  "https://barberagency-n8n.gymh5g.easypanel.host/webhook/barberagency/pos/create-sale";
+  process.env.POS_SALE_ENDPOINT;
 
 const DASHBOARD_STATE_ENDPOINT =
-  process.env.DASHBOARD_STATE_ENDPOINT ??
-  "https://barberagency-n8n.gymh5g.easypanel.host/webhook/barberagency/dashboard/state";
+  process.env.DASHBOARD_STATE_ENDPOINT;
 
 function readBaSession(cookieHeader: string): string {
   const match = cookieHeader.match(/(?:^|;\s*)ba_session=([^;]+)/);
@@ -23,6 +21,27 @@ function readBarberiaId(body: unknown): number {
 
 export async function POST(request: Request) {
   try {
+    if (!POS_SALE_ENDPOINT) {
+      return NextResponse.json(
+        {
+          ok: false,
+          code: "pos_endpoint_not_configured",
+          message: "El servidor no esta configurado correctamente."
+        },
+        { status: 500 }
+      );
+    }
+    if (!DASHBOARD_STATE_ENDPOINT) {
+      return NextResponse.json(
+        {
+          ok: false,
+          code: "dashboard_state_endpoint_not_configured",
+          message: "El servidor no esta configurado correctamente."
+        },
+        { status: 500 }
+      );
+    }
+
     const baSession = readBaSession(request.headers.get("cookie") || "");
     if (!baSession) {
       return NextResponse.json(

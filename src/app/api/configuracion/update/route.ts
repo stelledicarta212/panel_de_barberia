@@ -1,10 +1,9 @@
 import { NextResponse } from "next/server";
 
 const CONFIG_UPDATE_ENDPOINT =
+  process.env.DASHBOARD_CONFIG_UPDATE_ENDPOINT ??
   process.env.CONFIG_UPDATE_ENDPOINT ??
-  process.env.BA_CONFIG_UPDATE_ENDPOINT ??
-  process.env.NEXT_PUBLIC_BA_CONFIG_UPDATE_ENDPOINT ??
-  "https://barberagency-n8n.gymh5g.easypanel.host/webhook/barberagency/configuracion/update";
+  process.env.BA_CONFIG_UPDATE_ENDPOINT;
 
 function readBaSession(cookieHeader: string): string {
   const match = cookieHeader.match(/(?:^|;\s*)ba_session=([^;]+)/);
@@ -237,6 +236,17 @@ export async function OPTIONS(request: Request) {
 
 export async function POST(request: Request) {
   const corsHeaders = getCorsHeaders(request);
+  if (!CONFIG_UPDATE_ENDPOINT) {
+    return NextResponse.json(
+      {
+        ok: false,
+        code: "config_update_endpoint_not_configured",
+        message: "El servidor no esta configurado correctamente."
+      },
+      { status: 500, headers: corsHeaders }
+    );
+  }
+
   const baSession = readBaSession(request.headers.get("cookie") || "");
   if (!baSession) {
     return NextResponse.json(

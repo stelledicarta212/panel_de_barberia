@@ -2,9 +2,9 @@ import { NextResponse } from "next/server";
 import { getCorsHeaders, parseEditorPayload, validateEditorTenant } from "../auth";
 
 const DRAFT_ENDPOINT =
+  process.env.EDITOR_DRAFT_ENDPOINT ??
   process.env.DRAFT_SAVE_ENDPOINT ??
-  process.env.BA_DRAFT_SAVE_ENDPOINT ??
-  "https://barberagency-n8n.gymh5g.easypanel.host/webhook/barberagency/landing/draft/save";
+  process.env.BA_DRAFT_SAVE_ENDPOINT;
 
 export async function OPTIONS(request: Request) {
   return new NextResponse(null, {
@@ -15,6 +15,16 @@ export async function OPTIONS(request: Request) {
 
 export async function POST(request: Request) {
   const corsHeaders = getCorsHeaders(request);
+  if (!DRAFT_ENDPOINT) {
+    return NextResponse.json(
+      {
+        ok: false,
+        code: "editor_draft_endpoint_not_configured",
+        message: "El servidor no esta configurado correctamente."
+      },
+      { status: 500, headers: corsHeaders }
+    );
+  }
 
   let rawBody = "";
   try {

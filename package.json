@@ -6,7 +6,10 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint ."
+    "lint": "eslint .",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "ci": "npm run lint && npm run typecheck && npm run test && npm run build"
   },
   "dependencies": {
     "@tailwindcss/postcss": "^4.1.12",
@@ -22,6 +25,7 @@
     "@types/react": "^19.2.2",
     "@types/react-dom": "^19.2.2",
     "eslint": "^9.39.1",
-    "eslint-config-next": "16.2.4"
+    "eslint-config-next": "16.2.4",
+    "vitest": "^4.1.8"
   }
 }

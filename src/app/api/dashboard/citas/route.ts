@@ -1,10 +1,21 @@
 import { NextResponse } from "next/server";
 
 const CITAS_ADMIN_WEBHOOK =
-  process.env.CITAS_ADMIN_WEBHOOK ??
-  "https://barberagency-n8n.gymh5g.easypanel.host/webhook/barberagency/dashboard/citas";
+  process.env.DASHBOARD_CITAS_ENDPOINT ??
+  process.env.CITAS_ADMIN_WEBHOOK;
 
 export async function POST(request: Request) {
+  if (!CITAS_ADMIN_WEBHOOK) {
+    return NextResponse.json(
+      {
+        ok: false,
+        code: "dashboard_citas_endpoint_not_configured",
+        message: "El servidor no esta configurado correctamente."
+      },
+      { status: 500 }
+    );
+  }
+
   const cookieHeader = request.headers.get("cookie") || "";
   const match = cookieHeader.match(/(?:^|;\s*)ba_session=([^;]+)/);
   const baSession = match ? match[1] : "";

@@ -1,8 +1,7 @@
 import { NextResponse } from "next/server";
 
 const SESSION_ME_ENDPOINT =
-  process.env.SESSION_ME_ENDPOINT ??
-  "https://barberagency-n8n.gymh5g.easypanel.host/webhook/barberagency/session/me";
+  process.env.SESSION_ME_ENDPOINT;
 
 function jsonResponse(body: unknown, status: number, upstreamSetCookie?: string | null) {
   const response = NextResponse.json(body, { status });
@@ -18,6 +17,18 @@ function readBaSession(cookieHeader: string): string {
 }
 
 export async function GET(request: Request) {
+  if (!SESSION_ME_ENDPOINT) {
+    return jsonResponse(
+      {
+        ok: false,
+        code: "session_me_endpoint_not_configured",
+        message: "El servidor no esta configurado correctamente.",
+        next_action: "login"
+      },
+      500
+    );
+  }
+
   const baSession = readBaSession(request.headers.get("cookie") || "");
   const cookieHeader = baSession ? `ba_session=${baSession}` : "";
 

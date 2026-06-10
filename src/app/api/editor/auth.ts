@@ -1,6 +1,5 @@
 const SESSION_ME_ENDPOINT =
-  process.env.SESSION_ME_ENDPOINT ??
-  "https://barberagency-n8n.gymh5g.easypanel.host/webhook/barberagency/session/me";
+  process.env.SESSION_ME_ENDPOINT;
 
 export type EditorAuthResult =
   | {
@@ -108,6 +107,18 @@ function readAuthorizedBarberias(body: unknown): Array<{ id: number; slug: strin
 }
 
 export async function validateEditorTenant(request: Request, payload: Record<string, unknown>): Promise<EditorAuthResult> {
+  if (!SESSION_ME_ENDPOINT) {
+    return {
+      ok: false,
+      status: 500,
+      body: {
+        ok: false,
+        code: "session_me_endpoint_not_configured",
+        message: "El servidor no esta configurado correctamente."
+      }
+    };
+  }
+
   const baSession = readBaSession(request.headers.get("cookie") || "");
   if (!baSession) {
     return {

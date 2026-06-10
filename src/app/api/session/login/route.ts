@@ -1,9 +1,7 @@
 import { NextResponse } from "next/server";
 
 const DASHBOARD_LOGIN_ENDPOINT =
-  process.env.DASHBOARD_LOGIN_ENDPOINT ??
-  process.env.NEXT_PUBLIC_DASHBOARD_LOGIN_ENDPOINT ??
-  "https://barberagency-n8n.gymh5g.easypanel.host/webhook/barberagency/dashboard/login";
+  process.env.DASHBOARD_LOGIN_ENDPOINT;
 
 function jsonResponse(body: unknown, status: number, upstreamSetCookie?: string | null) {
   const response = NextResponse.json(body, { status });
@@ -14,6 +12,17 @@ function jsonResponse(body: unknown, status: number, upstreamSetCookie?: string 
 }
 
 export async function POST(request: Request) {
+  if (!DASHBOARD_LOGIN_ENDPOINT) {
+    return jsonResponse(
+      {
+        ok: false,
+        code: "dashboard_login_endpoint_not_configured",
+        message: "El servidor no esta configurado correctamente."
+      },
+      500
+    );
+  }
+
   let payload: unknown;
   try {
     payload = await request.json();

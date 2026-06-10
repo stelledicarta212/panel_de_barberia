@@ -1,10 +1,21 @@
 import { NextResponse } from "next/server";
 
 const BARBEROS_ADMIN_WEBHOOK =
-  process.env.BARBEROS_ADMIN_WEBHOOK ??
-  "https://barberagency-n8n.gymh5g.easypanel.host/webhook/barberagency/dashboard/barberos";
+  process.env.DASHBOARD_BARBERS_ENDPOINT ??
+  process.env.BARBEROS_ADMIN_WEBHOOK;
 
 export async function POST(request: Request) {
+  if (!BARBEROS_ADMIN_WEBHOOK) {
+    return NextResponse.json(
+      {
+        ok: false,
+        code: "dashboard_barbers_endpoint_not_configured",
+        message: "El servidor no esta configurado correctamente."
+      },
+      { status: 500 }
+    );
+  }
+
   const cookieHeader = request.headers.get("cookie") || "";
   const match = cookieHeader.match(/(?:^|;\s*)ba_session=([^;]+)/);
   const baSession = match ? match[1] : "";
