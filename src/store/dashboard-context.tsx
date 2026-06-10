@@ -482,7 +482,7 @@ export function DashboardProvider({ children }: { children: React.ReactNode }) {
     setPublishing(true);
     setError(null);
     try {
-      const response = await publishBarbershopViaRpc(identity.barberia_id);
+      const response = await publishBarbershopViaRpc(identity, merged);
       const ok = response.ok === true || response.success === true;
       if (!ok) {
         throw new Error(mapPublishError(String(response.error || "").trim()));

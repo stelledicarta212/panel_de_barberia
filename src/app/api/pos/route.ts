@@ -2,12 +2,10 @@ import { NextResponse } from "next/server";
 
 const POS_SALE_ENDPOINT =
   process.env.POS_SALE_ENDPOINT ??
-  process.env.NEXT_PUBLIC_POS_SALE_ENDPOINT ??
   "https://barberagency-n8n.gymh5g.easypanel.host/webhook/barberagency/pos/create-sale";
 
 const DASHBOARD_STATE_ENDPOINT =
   process.env.DASHBOARD_STATE_ENDPOINT ??
-  process.env.NEXT_PUBLIC_DASHBOARD_STATE_ENDPOINT ??
   "https://barberagency-n8n.gymh5g.easypanel.host/webhook/barberagency/dashboard/state";
 
 function readBaSession(cookieHeader: string): string {

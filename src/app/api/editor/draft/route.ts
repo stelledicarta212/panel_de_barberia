@@ -1,10 +1,10 @@
 import { NextResponse } from "next/server";
 import { getCorsHeaders, parseEditorPayload, validateEditorTenant } from "../auth";
 
-const PUBLISH_ENDPOINT =
-  process.env.PUBLISH_ENDPOINT ??
-  process.env.BA_PUBLISH_ENDPOINT ??
-  "https://barberagency-n8n.gymh5g.easypanel.host/webhook/barberagency/dashboard/publicar";
+const DRAFT_ENDPOINT =
+  process.env.DRAFT_SAVE_ENDPOINT ??
+  process.env.BA_DRAFT_SAVE_ENDPOINT ??
+  "https://barberagency-n8n.gymh5g.easypanel.host/webhook/barberagency/landing/draft/save";
 
 export async function OPTIONS(request: Request) {
   return new NextResponse(null, {
@@ -24,7 +24,7 @@ export async function POST(request: Request) {
       {
         ok: false,
         code: "body_invalido",
-        message: "No se pudo leer el body de la publicacion"
+        message: "No se pudo leer el body del borrador"
       },
       { status: 400, headers: corsHeaders }
     );
@@ -52,13 +52,13 @@ export async function POST(request: Request) {
   if (!tenant.ok) {
     const message =
       tenant.body.code === "no_autorizado_anonimo"
-        ? "Sesion requerida para publicar"
+        ? "Sesion requerida para guardar borrador"
         : tenant.body.message;
     return NextResponse.json({ ...tenant.body, message }, { status: tenant.status, headers: corsHeaders });
   }
 
   try {
-    const upstream = await fetch(PUBLISH_ENDPOINT, {
+    const upstream = await fetch(DRAFT_ENDPOINT, {
       method: "POST",
       headers: {
         Accept: "application/json",
@@ -78,7 +78,7 @@ export async function POST(request: Request) {
         {
           ok: false,
           code: "respuesta_no_json",
-          message: "El servidor de publicacion devolvio una respuesta no valida"
+          message: "El servidor de borrador devolvio una respuesta no valida"
         },
         { status: 502, headers: corsHeaders }
       );
@@ -89,8 +89,8 @@ export async function POST(request: Request) {
     return NextResponse.json(
       {
         ok: false,
-        code: "publish_proxy_error",
-        message: error instanceof Error ? error.message : "Error de conexion con el servidor de publicacion"
+        code: "draft_proxy_error",
+        message: error instanceof Error ? error.message : "Error de conexion con el servidor de borrador"
       },
       { status: 502, headers: corsHeaders }
     );

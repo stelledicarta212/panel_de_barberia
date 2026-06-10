@@ -2,7 +2,6 @@ import { NextResponse } from "next/server";
 
 const SESSION_ME_ENDPOINT =
   process.env.SESSION_ME_ENDPOINT ??
-  process.env.NEXT_PUBLIC_SESSION_ME_ENDPOINT ??
   "https://barberagency-n8n.gymh5g.easypanel.host/webhook/barberagency/session/me";
 
 function jsonResponse(body: unknown, status: number, upstreamSetCookie?: string | null) {

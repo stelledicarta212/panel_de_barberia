@@ -226,22 +226,32 @@ export async function recoverPasswordReset(payload: {
 }
 
 export async function saveLandingDraft(payload: Record<string, unknown>): Promise<DraftSaveResponse> {
-  return apiPostJson<DraftSaveResponse, Record<string, unknown>>(env.draftSaveEndpoint, payload);
+  return apiPostJson<DraftSaveResponse, Record<string, unknown>>("/api/editor/draft", payload, {
+    credentials: "include"
+  });
 }
 
 export async function publishLanding(payload: Record<string, unknown>): Promise<PublishResponse> {
-  return apiPostJson<PublishResponse, Record<string, unknown>>(env.publishEndpoint, payload);
+  return apiPostJson<PublishResponse, Record<string, unknown>>("/api/editor/publish", payload, {
+    credentials: "include"
+  });
 }
 
-export async function publishBarbershopViaRpc(barberiaId: number): Promise<PublishResponse> {
+export async function publishBarbershopViaRpc(identity: DashboardIdentity, currentPayload: DashboardMerged): Promise<PublishResponse> {
   try {
-    const response = await fetch("https://barberagency-n8n.gymh5g.easypanel.host/webhook/barberagency/dashboard/publicar", {
+    const response = await fetch("/api/editor/publish", {
       method: "POST",
       headers: {
         "Content-Type": "application/json"
       },
       credentials: "include",
-      body: JSON.stringify({ p_barberia_id: barberiaId })
+      body: JSON.stringify({
+        p_barberia_id: identity.barberia_id,
+        barberia_id: identity.barberia_id,
+        slug: identity.slug,
+        payload: currentPayload,
+        source: "dashboard_editor"
+      })
     });
 
     const data = await response.json().catch(() => ({}));

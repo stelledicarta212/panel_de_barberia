@@ -6,14 +6,6 @@ export const env = {
     process.env.NEXT_PUBLIC_PUBLIC_BASE_URL ??
     process.env.NEXT_PUBLIC_APP_URL ??
     "",
-  dashboardStateEndpoint:
-    ((process.env.NEXT_PUBLIC_DASHBOARD_STATE_ENDPOINT ?? "").startsWith("http")
-      ? process.env.NEXT_PUBLIC_DASHBOARD_STATE_ENDPOINT
-      : "https://barberagency-n8n.gymh5g.easypanel.host/webhook/barberagency/dashboard/state") as string,
-  sessionMeEndpoint:
-    ((process.env.NEXT_PUBLIC_SESSION_ME_ENDPOINT ?? "").startsWith("http")
-      ? process.env.NEXT_PUBLIC_SESSION_ME_ENDPOINT
-      : "https://barberagency-n8n.gymh5g.easypanel.host/webhook/barberagency/session/me") as string,
   dashboardLoginEndpoint:
     ((process.env.NEXT_PUBLIC_DASHBOARD_LOGIN_ENDPOINT ?? "").startsWith("http")
       ? process.env.NEXT_PUBLIC_DASHBOARD_LOGIN_ENDPOINT
@@ -26,14 +18,6 @@ export const env = {
     ((process.env.NEXT_PUBLIC_DASHBOARD_RECOVER_RESET_ENDPOINT ?? "").startsWith("http")
       ? process.env.NEXT_PUBLIC_DASHBOARD_RECOVER_RESET_ENDPOINT
       : "https://barberagency-n8n.gymh5g.easypanel.host/webhook/barberagency/dashboard/recover/reset") as string,
-  draftSaveEndpoint:
-    ((process.env.NEXT_PUBLIC_DRAFT_SAVE_ENDPOINT ?? "").startsWith("http")
-      ? process.env.NEXT_PUBLIC_DRAFT_SAVE_ENDPOINT
-      : "https://barberagency-n8n.gymh5g.easypanel.host/webhook/barberagency/landing/draft/save") as string,
-  publishEndpoint:
-    ((process.env.NEXT_PUBLIC_PUBLISH_ENDPOINT ?? "").startsWith("http")
-      ? process.env.NEXT_PUBLIC_PUBLISH_ENDPOINT
-      : "https://barberagency-n8n.gymh5g.easypanel.host/webhook/barberagency/landing/save-v2") as string,
   posSaleEndpoint:
     ((process.env.NEXT_PUBLIC_POS_SALE_ENDPOINT ?? "").startsWith("http")
       ? process.env.NEXT_PUBLIC_POS_SALE_ENDPOINT
