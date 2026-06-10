@@ -1,4 +1,4 @@
-import { apiFetch, apiGetJson, apiPostJson } from "@/lib/api";
+import { apiGetJson, apiPostJson } from "@/lib/api";
 import { env } from "@/lib/env";
 import type {
   DashboardIdentity,
@@ -25,11 +25,6 @@ function pickFirstArray(...values: unknown[]): Array<Record<string, unknown>> {
 
 function safeText(value: unknown): string {
   return typeof value === "string" ? value.trim() : "";
-}
-
-function safeKey(value: unknown): string {
-  const raw = String(value ?? "").trim();
-  return raw;
 }
 
 function normalizeIdentity(identity?: IdentityInput): DashboardIdentity {
@@ -95,28 +90,6 @@ function mergeStateWithPublicProfile(
       ...profileMerged
     }
   };
-}
-
-function normalizeRpcJsonb<T extends Record<string, unknown>>(raw: unknown): T {
-  if (!raw || typeof raw !== "object") return {} as T;
-  const obj = raw as Record<string, unknown>;
-  const firstValue = Object.values(obj)[0];
-  if (firstValue && typeof firstValue === "object" && !Array.isArray(firstValue)) {
-    const firstObj = firstValue as Record<string, unknown>;
-    if ("ok" in firstObj || "error" in firstObj || "public_path" in firstObj || "redirect_path" in firstObj) {
-      return firstObj as T;
-    }
-  }
-  return obj as T;
-}
-
-async function safeGetArray(path: string): Promise<Array<Record<string, unknown>>> {
-  try {
-    const rows = await apiGetJson<Array<Record<string, unknown>>>(path);
-    return Array.isArray(rows) ? rows : [];
-  } catch {
-    return [];
-  }
 }
 
 export function buildIdentityQuery(identity: IdentityInput): string {
@@ -228,101 +201,8 @@ export async function getDashboardState(identity: IdentityInput): Promise<Dashbo
     const profile = await getPublicProfile(responseIdentity);
     return mergeStateWithPublicProfile(response, profile);
   } catch (cause) {
-    if (!env.disableRemoteFetch) {
-      throw cause;
-    }
     const message = cause instanceof Error ? cause.message : "Error consultando dashboard/state";
-    const fallbackBySlug = normalizeIdentity(identity).slug;
-    const fallbackById = normalizeIdentity(identity).barberia_id;
-
-    const row = (await getPublicProfile({ barberia_id: fallbackById, slug: fallbackBySlug })) ?? {};
-    const id = Number(row?.barberia_id || fallbackById || 0);
-    const slug = safeText(row?.slug) || fallbackBySlug || "";
-    const safeId = id > 0 ? id : 0;
-
-    const servicesRows = safeId
-      ? await safeGetArray(`/servicios?select=*&barberia_id=eq.${encodeURIComponent(String(safeId))}`)
-      : [];
-
-    let barbersRows = safeId
-      ? await safeGetArray(`/barberos?select=*&barberia_id=eq.${encodeURIComponent(String(safeId))}`)
-      : [];
-    const clientsRows = safeId
-      ? await safeGetArray(`/clientes_finales?select=*&barberia_id=eq.${encodeURIComponent(String(safeId))}&order=id.desc`)
-      : [];
-    const appointmentsRows = safeId
-      ? await safeGetArray(`/citas?select=*&barberia_id=eq.${encodeURIComponent(String(safeId))}&order=fecha.desc,hora_inicio.desc`)
-      : [];
-    const servicesById = new Map(servicesRows.map((item) => [safeKey(item.id), item]));
-    const barbersById = new Map(barbersRows.map((item) => [safeKey(item.id), item]));
-    const appointmentsWithLabels = appointmentsRows.map((item) => {
-      const service = servicesById.get(safeKey(item.servicio_id));
-      const barber = barbersById.get(safeKey(item.barbero_id));
-      return {
-        ...item,
-        servicio_nombre: safeText(item.servicio_nombre) || safeText(service?.nombre ?? service?.name),
-        barbero_nombre: safeText(item.barbero_nombre) || safeText(barber?.nombre ?? barber?.name),
-        total: Number(item.total ?? service?.precio ?? service?.price ?? 0)
-      };
-    });
-
-    if (!barbersRows.length && slug) {
-      barbersRows = await safeGetArray(`/barberos?select=*&slug=eq.${encodeURIComponent(slug)}`);
-    }
-
-    if (!barbersRows.length) {
-      barbersRows = [
-        {
-          id: "b-1011",
-          nombre: "Alex M.",
-          image_url:
-            "https://barberagency-barberagency.gymh5g.easypanel.host/wp-content/uploads/2026/04/barbero1.1.png",
-          rating: 4.9,
-          activo: true
-        },
-        {
-          id: "b-1012",
-          nombre: "James V.",
-          image_url:
-            "https://barberagency-barberagency.gymh5g.easypanel.host/wp-content/uploads/2026/04/barbero2.1.png",
-          rating: 4.8,
-          activo: true
-        },
-        {
-          id: "b-1013",
-          nombre: "Aldo H.",
-          image_url:
-            "https://barberagency-barberagency.gymh5g.easypanel.host/wp-content/uploads/2026/04/barbero3.1.png",
-          rating: 4.7,
-          activo: true
-        }
-      ];
-    }
-
-    return {
-      ok: true,
-      message: `Fallback: dashboard/state no disponible, usando barberia_public_profiles + servicios/barberos. ${message}`,
-      identity: {
-        barberia_id: id > 0 ? id : null,
-        slug: slug || null
-      },
-      merged: {
-        biz_name: safeText(row?.nombre_publico),
-        biz_slug: slug,
-        address: safeText(row?.direccion),
-        logo_url: safeText(row?.logo_url),
-        public_landing_url: safeText(row?.public_landing_url),
-        reservation_url: safeText(row?.reservation_url),
-        qr_url: safeText(row?.qr_url),
-        template_id: "v7"
-      },
-      seed: {
-        servicios: servicesRows,
-        barberos: barbersRows,
-        clientes: clientsRows,
-        citas: appointmentsWithLabels
-      }
-    };
+    throw new Error(`No se pudo cargar dashboard/state: ${message}`);
   }
 }
 
@@ -331,7 +211,7 @@ export async function loginDashboard(payload: {
   email: string;
   password: string;
 }): Promise<DashboardLoginResponse> {
-  const response = await fetch("/api/auth/login", {
+  const response = await fetch("/api/session/login", {
     method: "POST",
     headers: {
       "Content-Type": "application/json"

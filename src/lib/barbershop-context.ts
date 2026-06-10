@@ -1,5 +1,4 @@
 import { readStorage, removeStorage, writeStorage } from "@/lib/storage";
-import { env } from "@/lib/env";
 
 const LANDING_SEED_KEY = "ba_landing_seed";
 const LEGACY_TEST_ID = "101";
@@ -100,17 +99,12 @@ export function resolveBarbershopIdentity(userId?: string | number | null | unde
   const fromUrl = resolveIdentityFromUrl();
   if (fromUrl.id || fromUrl.slug) return fromUrl;
 
-  if (!env.disableRemoteFetch && userId) {
+  if (userId) {
     clearLegacyTestIdentity(userId);
   }
 
-  // Se permite retornar desde cache como candidato UX temporal, pero
-  // el DashboardProvider debe validarlo siempre contra session/me antes de usarlo.
-  if (userId) {
-    const fromStorage = getBarbershopContext(userId);
-    if (fromStorage.id || fromStorage.slug) return fromStorage;
-  }
-
+  // localStorage/sessionStorage are UX cache only. They must never resolve
+  // the final private tenant identity; session/me owns that decision.
   return { id: null, slug: null };
 }
 
