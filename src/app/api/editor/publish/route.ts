@@ -1,10 +1,41 @@
 import { NextResponse } from "next/server";
-import { getCorsHeaders, parseEditorPayload, validateEditorTenant } from "../auth";
+import { getCorsHeaders, isRecord, parseEditorPayload, validateEditorTenant } from "../auth";
 
 const PUBLISH_ENDPOINT =
   process.env.EDITOR_PUBLISH_ENDPOINT ??
   process.env.PUBLISH_ENDPOINT ??
   process.env.BA_PUBLISH_ENDPOINT;
+
+type ValidatedPublishTenant = {
+  barberiaId: number;
+  slug: string | null;
+};
+
+export function normalizePublishPayloadForUpstream(
+  payload: Record<string, unknown>,
+  tenant: ValidatedPublishTenant
+): Record<string, unknown> {
+  const innerPayload = isRecord(payload.p_payload) ? payload.p_payload : payload;
+  const slug = tenant.slug ?? "";
+
+  return {
+    ...payload,
+    ...innerPayload,
+    barberia_id: tenant.barberiaId,
+    p_barberia_id: tenant.barberiaId,
+    id_barberia: tenant.barberiaId,
+    slug,
+    biz_slug: slug,
+    p_payload: {
+      ...innerPayload,
+      barberia_id: tenant.barberiaId,
+      p_barberia_id: tenant.barberiaId,
+      id_barberia: tenant.barberiaId,
+      slug,
+      biz_slug: slug
+    }
+  };
+}
 
 export async function OPTIONS(request: Request) {
   return new NextResponse(null, {
@@ -67,6 +98,8 @@ export async function POST(request: Request) {
     return NextResponse.json({ ...tenant.body, message }, { status: tenant.status, headers: corsHeaders });
   }
 
+  const upstreamPayload = normalizePublishPayloadForUpstream(parsed.payload, tenant);
+
   try {
     const upstream = await fetch(PUBLISH_ENDPOINT, {
       method: "POST",
@@ -75,7 +108,7 @@ export async function POST(request: Request) {
         "Content-Type": "application/json",
         Cookie: `ba_session=${tenant.baSession}`
       },
-      body: rawBody,
+      body: JSON.stringify(upstreamPayload),
       cache: "no-store"
     });
 
