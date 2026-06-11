@@ -79,13 +79,30 @@ export function parseEditorPayload(rawBody: string): EditorPayloadParseResult {
   return { ok: true, payload };
 }
 
-function resolvePayloadBarberiaId(payload: Record<string, unknown>): number | null {
-  const id = Number(payload.barberia_id ?? payload.p_barberia_id ?? payload.draft_seed_barberia_id ?? 0);
+export function resolvePayloadBarberiaId(payload: Record<string, unknown>): number | null {
+  const innerPayload = isRecord(payload.p_payload) ? payload.p_payload : null;
+  const id = Number(
+    payload.barberia_id ??
+      payload.p_barberia_id ??
+      payload.draft_seed_barberia_id ??
+      innerPayload?.barberia_id ??
+      innerPayload?.p_barberia_id ??
+      innerPayload?.draft_seed_barberia_id ??
+      0
+  );
   return Number.isFinite(id) && id > 0 ? id : null;
 }
 
-function resolvePayloadSlug(payload: Record<string, unknown>): string | null {
-  const slug = safeText(payload.slug ?? payload.biz_slug ?? payload.draft_seed_slug);
+export function resolvePayloadSlug(payload: Record<string, unknown>): string | null {
+  const innerPayload = isRecord(payload.p_payload) ? payload.p_payload : null;
+  const slug = safeText(
+    payload.slug ??
+      payload.biz_slug ??
+      payload.draft_seed_slug ??
+      innerPayload?.slug ??
+      innerPayload?.biz_slug ??
+      innerPayload?.draft_seed_slug
+  );
   return slug || null;
 }
 
