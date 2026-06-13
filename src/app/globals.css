@@ -2386,6 +2386,34 @@ textarea {
   padding: 8px;
 }
 
+.ba-form-feedback {
+  margin: 4px 0 0;
+  border-radius: 10px;
+  border: 1px solid var(--panel-stroke);
+  padding: 9px 10px;
+  font-size: 11px;
+  font-weight: 700;
+  line-height: 1.35;
+}
+
+.ba-form-feedback.is-loading,
+.ba-form-feedback.is-idle {
+  color: var(--muted);
+  background: rgba(255, 255, 255, 0.03);
+}
+
+.ba-form-feedback.is-success {
+  color: var(--ok);
+  border-color: color-mix(in srgb, var(--ok) 36%, var(--panel-stroke));
+  background: color-mix(in srgb, var(--ok) 12%, transparent);
+}
+
+.ba-form-feedback.is-error {
+  color: var(--danger);
+  border-color: color-mix(in srgb, var(--danger) 36%, var(--panel-stroke));
+  background: color-mix(in srgb, var(--danger) 12%, transparent);
+}
+
 .ba-mini-total {
   margin: 8px 0 7px;
   display: flex;

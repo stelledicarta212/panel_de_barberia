@@ -272,6 +272,8 @@ export async function publishBarbershopViaRpc(identity: DashboardIdentity, curre
 }
 
 const BARBEROS_ADMIN_WEBHOOK = "/api/dashboard/barberos";
+const RESERVAS_CREATE_WEBHOOK = "https://barberagency-n8n.gymh5g.easypanel.host/webhook/barberagency/reservas/create";
+const RESERVAS_SLOTS_WEBHOOK = "https://barberagency-n8n.gymh5g.easypanel.host/webhook/barberagency/reservas/slots";
 
 async function callBarberosAdminGateway(payload: Record<string, unknown>): Promise<{ ok: boolean; message?: string; data?: unknown }> {
   try {
@@ -574,6 +576,91 @@ export async function cancelCitaDashboard(payload: {
   });
 }
 
+export type ReservationSlot = {
+  barbero_id?: string | number;
+  id_barbero?: string | number;
+  hora_inicio?: string;
+  hora?: string;
+  start?: string;
+  [key: string]: unknown;
+};
+
+export async function fetchReservationSlotsDashboard(params: {
+  barberia_id: number;
+  fecha: string;
+  servicio_id?: string | number;
+  barbero_id?: string | number;
+}): Promise<{ ok: boolean; message?: string; slots: ReservationSlot[] }> {
+  try {
+    const query = new URLSearchParams({
+      barberia_id: String(params.barberia_id),
+      fecha: params.fecha,
+      _: String(Date.now())
+    });
+    if (params.servicio_id) query.set("servicio_id", String(params.servicio_id));
+    if (params.barbero_id) query.set("barbero_id", String(params.barbero_id));
+
+    const response = await fetch(`${RESERVAS_SLOTS_WEBHOOK}?${query.toString()}`, {
+      method: "GET",
+      headers: { Accept: "application/json" },
+      cache: "no-store"
+    });
+    const data = await response.json().catch(() => ({}));
+    if (!response.ok || data?.ok === false) {
+      return {
+        ok: false,
+        message: data?.message || data?.error || "No fue posible consultar disponibilidad.",
+        slots: []
+      };
+    }
+    return {
+      ok: true,
+      slots: Array.isArray(data?.slots) ? data.slots : []
+    };
+  } catch (err) {
+    return {
+      ok: false,
+      message: err instanceof Error ? err.message : "Error de red consultando disponibilidad.",
+      slots: []
+    };
+  }
+}
+
+export async function createReservationDashboard(payload: Record<string, unknown>): Promise<{
+  ok: boolean;
+  message?: string;
+  data?: Record<string, unknown>;
+  cita_confirmada?: Record<string, unknown> | null;
+}> {
+  try {
+    const response = await fetch(RESERVAS_CREATE_WEBHOOK, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify(payload)
+    });
+    const data = await response.json().catch(() => ({}));
+    if (!response.ok || data?.ok === false) {
+      return {
+        ok: false,
+        message: data?.message || data?.error || "No fue posible crear la cita.",
+        data
+      };
+    }
+    return {
+      ok: true,
+      message: data?.message,
+      data,
+      cita_confirmada: data?.cita_confirmada || null
+    };
+  } catch (err) {
+    return {
+      ok: false,
+      message: err instanceof Error ? err.message : "Error de red creando la cita."
+    };
+  }
+}
 export async function savePosSale(payload: {
   barberia_id: number;
   cliente_nombre: string;
