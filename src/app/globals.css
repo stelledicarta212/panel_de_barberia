@@ -30,10 +30,17 @@
   box-sizing: border-box;
 }
 
+*,
+*::before,
+*::after {
+  min-width: 0;
+}
+
 html,
 body {
   margin: 0;
   min-height: 100%;
+  max-width: 100%;
 }
 
 body {
@@ -46,14 +53,28 @@ body {
   overflow-x: hidden;
 }
 
+img,
+video,
+canvas {
+  max-width: 100%;
+}
+
+button,
+input,
+select,
+textarea {
+  max-width: 100%;
+}
+
 .ba-dashboard-shell {
   min-height: 100dvh;
   width: 100%;
   padding: 0;
+  overflow-x: clip;
 }
 
 .ba-dashboard-frame {
-  width: 100vw;
+  width: 100%;
   min-height: 100dvh;
   border-radius: 0;
   overflow: hidden;
@@ -153,6 +174,9 @@ body {
   display: grid;
   gap: 12px;
   min-width: 0;
+  width: 100%;
+  max-width: 100%;
+  overflow-x: clip;
 }
 
 .ba-card {
@@ -161,6 +185,8 @@ body {
   background: var(--panel);
   backdrop-filter: blur(12px);
   padding: 12px;
+  min-width: 0;
+  max-width: 100%;
 }
 
 .ba-topbar {
@@ -5210,6 +5236,246 @@ body {
   }
 }
 
+@media (max-width: 767px) {
+  html,
+  body {
+    width: 100%;
+    overflow-x: hidden;
+  }
+
+  .ba-dashboard-shell,
+  .ba-dashboard-frame,
+  .ba-main,
+  .ba-card,
+  .ba-sidebar,
+  .ba-topbar,
+  .ba-modal,
+  .ba-pos-appointments-card {
+    max-width: 100%;
+  }
+
+  .ba-main {
+    padding: 10px;
+    gap: 10px;
+  }
+
+  .ba-card {
+    border-radius: 12px;
+  }
+
+  .ba-mobile-head-row,
+  .ba-topbar,
+  .ba-card-title,
+  .ba-client-head,
+  .ba-barbers-header,
+  .ba-loyalty-head,
+  .ba-stamp-card-head,
+  .ba-pos-appointments-card > header,
+  .ba-pos-actions,
+  .ba-modal-actions {
+    flex-wrap: wrap;
+  }
+
+  .ba-nav {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  .ba-nav-item {
+    min-width: 0;
+    width: 100%;
+  }
+
+  .ba-nav-item-inner {
+    min-width: 0;
+  }
+
+  .ba-nav-item-inner span,
+  .ba-nav-item-inner {
+    overflow-wrap: anywhere;
+  }
+
+  .ba-btn-main,
+  .ba-btn-gold,
+  .ba-card-gold,
+  .ba-pos-close-btn,
+  .ba-pos-calc-launch,
+  .ba-citas-actions button,
+  .ba-modal-actions button {
+    max-width: 100%;
+    white-space: normal;
+    text-align: center;
+  }
+
+  .ba-pos-appointments-card {
+    padding: 14px !important;
+    overflow: hidden;
+  }
+
+  .ba-pos-appointments-card > header {
+    align-items: stretch;
+  }
+
+  .ba-pos-appointments-card > header > div:last-child {
+    width: 100%;
+    display: grid;
+    grid-template-columns: 34px minmax(58px, 0.55fr) minmax(0, 1fr) 34px;
+    gap: 6px;
+    padding: 6px;
+  }
+
+  .ba-pos-appointments-card input[type="date"] {
+    width: 100% !important;
+    min-width: 0;
+  }
+
+  .ba-mobile-card-table {
+    overflow: visible !important;
+    border: 0 !important;
+    background: transparent !important;
+  }
+
+  .ba-mobile-card-table table,
+  .ba-mobile-card-table thead,
+  .ba-mobile-card-table tbody,
+  .ba-mobile-card-table tr,
+  .ba-mobile-card-table td {
+    display: block;
+    width: 100%;
+  }
+
+  .ba-mobile-card-table thead {
+    display: none;
+  }
+
+  .ba-mobile-card-table tbody {
+    display: grid;
+    gap: 10px;
+  }
+
+  .ba-mobile-card-table tr {
+    border: 1px solid var(--panel-stroke);
+    border-radius: 14px;
+    padding: 10px 12px;
+    background:
+      radial-gradient(circle at 90% 0%, rgba(223, 196, 131, 0.08), transparent 42%),
+      color-mix(in srgb, var(--panel) 94%, transparent);
+  }
+
+  .ba-mobile-card-table td {
+    display: flex !important;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    padding: 8px 0 !important;
+    border-top: 1px solid color-mix(in srgb, var(--panel-stroke) 64%, transparent);
+    text-align: right !important;
+    overflow-wrap: anywhere;
+  }
+
+  .ba-mobile-card-table td:first-child {
+    border-top: 0;
+  }
+
+  .ba-mobile-card-table td::before {
+    content: attr(data-label);
+    flex: 0 0 auto;
+    color: var(--muted);
+    font-size: 10px;
+    font-weight: 800;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+  }
+
+  .ba-mobile-card-table td[data-label="Cliente"] {
+    justify-content: flex-start;
+    text-align: left !important;
+    flex-wrap: wrap;
+  }
+
+  .ba-mobile-card-table td[data-label="Cliente"]::before {
+    width: 100%;
+  }
+
+  .ba-mobile-card-table td[data-label="Accion"],
+  .ba-mobile-card-table td[data-label="Estado"] {
+    align-items: stretch;
+  }
+
+  .ba-mobile-card-table td[data-label="Accion"] button,
+  .ba-mobile-card-table td[data-label="Estado"] button,
+  .ba-mobile-card-table td[data-label="Estado"] span {
+    width: 100%;
+    justify-content: center;
+    white-space: normal;
+    text-align: center;
+  }
+
+  .ba-citas-table-wrap,
+  .ba-client-table,
+  .ba-services-main,
+  .ba-barbers-main,
+  .ba-loyalty-main,
+  .ba-pos-layout,
+  .ba-pos-main-grid,
+  .ba-pos-bottom-grid {
+    overflow-x: clip;
+  }
+
+  .ba-form-row,
+  .ba-modal-form,
+  .ba-modal-actions {
+    grid-template-columns: 1fr;
+  }
+
+  .ba-modal-overlay {
+    align-items: start;
+    place-items: start center;
+    padding: 12px;
+    overflow-y: auto;
+  }
+
+  .ba-modal {
+    width: min(100%, 520px);
+    max-height: calc(100dvh - 24px);
+    overflow-y: auto;
+  }
+
+  .ba-modal-header {
+    gap: 10px;
+  }
+
+  .ba-modal-actions {
+    display: grid;
+    gap: 10px;
+  }
+}
+
+@media (min-width: 768px) and (max-width: 1024px) {
+  .ba-dashboard-frame {
+    grid-template-columns: 220px minmax(0, 1fr);
+  }
+
+  .ba-main {
+    padding: 12px;
+  }
+
+  .ba-pos-main-grid,
+  .ba-citas-layout,
+  .ba-client-layout,
+  .ba-services-layout,
+  .ba-barbers-layout,
+  .ba-loyalty-layout {
+    grid-template-columns: 1fr;
+  }
+
+  .ba-pos-top-grid,
+  .ba-overview-top,
+  .ba-overview-bottom-grid,
+  .ba-stats-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
 /* ==========================================
    TARJETA DE BIENVENIDA PREMIUM (WELCOME CARD)
    ========================================== */
@@ -5515,4 +5781,25 @@ body {
   margin-top: 8px;
   border-top: 1px solid var(--panel-stroke);
   padding-top: 16px;
+}
+
+@media (max-width: 767px) {
+  .ba-modal-overlay {
+    align-items: start;
+    place-items: start center;
+    padding: 12px;
+    overflow-y: auto;
+  }
+
+  .ba-modal {
+    width: min(100%, 520px);
+    max-height: calc(100dvh - 24px);
+    overflow-y: auto;
+  }
+
+  .ba-modal-actions {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 10px;
+  }
 }

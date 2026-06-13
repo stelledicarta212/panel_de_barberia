@@ -746,7 +746,7 @@ export default function InventarioPage() {
 
   return (
     <DashboardShell>
-      <section className="p-4 max-w-7xl mx-auto flex flex-col gap-6">
+      <section className="p-4 max-w-7xl mx-auto flex flex-col gap-6 w-full min-w-0">
         
         {/* KPI Panel */}
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
@@ -792,7 +792,7 @@ export default function InventarioPage() {
         </div>
 
         {/* Citas Agendadas Hoy (Pendientes de Cobro) */}
-          <div className="ba-card p-5 relative overflow-hidden flex flex-col gap-3">
+          <div className="ba-card p-5 relative overflow-hidden flex flex-col gap-3 ba-pos-appointments-card">
             <div className="absolute top-0 left-0 right-0 h-[2px] bg-gradient-to-r from-amber-500 to-amber-700" />
             <header className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
               <div>
@@ -846,8 +846,8 @@ export default function InventarioPage() {
             </header>
 
             {selectedPendingAppointments.length > 0 ? (
-            <div className="overflow-x-auto w-full border border-[var(--panel-stroke)] rounded-2xl bg-[var(--bg-soft)]/20">
-              <table className="w-full text-left text-xs border-collapse">
+              <div className="overflow-x-auto w-full border border-[var(--panel-stroke)] rounded-2xl bg-[var(--bg-soft)]/20 ba-mobile-card-table">
+              <table className="w-full text-left text-xs border-collapse ba-pos-appointments-table">
                 <thead>
                   <tr className="border-b border-[var(--panel-stroke)] bg-[var(--bg-soft)]/60 text-[var(--muted)] font-bold uppercase tracking-wider text-[10px]">
                     <th className="p-3">Cliente</th>
@@ -880,7 +880,7 @@ export default function InventarioPage() {
                           }
                         }}
                       >
-                        <td className="p-3 font-semibold text-[var(--text)] flex items-center gap-2">
+                        <td className="p-3 font-semibold text-[var(--text)] flex items-center gap-2" data-label="Cliente">
                           <span className="w-6 h-6 rounded-full bg-amber-500/10 border border-amber-500/30 text-amber-500 text-[9px] font-extrabold flex items-center justify-center shrink-0">
                             {initialsFrom(appt.client)}
                           </span>
@@ -891,16 +891,16 @@ export default function InventarioPage() {
                             </span>
                           )}
                         </td>
-                        <td className="p-3 text-[var(--text)] font-medium">
+                        <td className="p-3 text-[var(--text)] font-medium" data-label="Hora">
                           {appt.hour}
                         </td>
-                        <td className="p-3 text-[var(--muted)]">
+                        <td className="p-3 text-[var(--muted)]" data-label="Servicio">
                           {appt.service}
                         </td>
-                        <td className="p-3 text-[var(--muted)]">
+                        <td className="p-3 text-[var(--muted)]" data-label="Barbero">
                           {appt.barber}
                         </td>
-                        <td className="p-3 text-right">
+                        <td className="p-3 text-right" data-label="Accion">
                           {isSyncing ? (
                             <button
                               type="button"
@@ -935,7 +935,7 @@ export default function InventarioPage() {
 
         {/* Citas Agendadas Hoy Cobradas / Finalizadas */}
         {finishedAppointments.length > 0 && (
-          <div className="ba-card p-5 relative overflow-hidden flex flex-col gap-3">
+          <div className="ba-card p-5 relative overflow-hidden flex flex-col gap-3 ba-pos-appointments-card">
             <div className="absolute top-0 left-0 right-0 h-[2px] bg-gradient-to-r from-emerald-500 to-emerald-700" />
             <header className="flex justify-between items-center">
               <div>
@@ -952,8 +952,8 @@ export default function InventarioPage() {
               </span>
             </header>
 
-            <div className="overflow-x-auto w-full border border-[var(--panel-stroke)] rounded-2xl bg-[var(--bg-soft)]/20">
-              <table className="w-full text-left text-xs border-collapse">
+            <div className="overflow-x-auto w-full border border-[var(--panel-stroke)] rounded-2xl bg-[var(--bg-soft)]/20 ba-mobile-card-table">
+              <table className="w-full text-left text-xs border-collapse ba-pos-appointments-table">
                 <thead>
                   <tr className="border-b border-[var(--panel-stroke)] bg-[var(--bg-soft)]/60 text-[var(--muted)] font-bold uppercase tracking-wider text-[10px]">
                     <th className="p-3">Cliente</th>
@@ -969,22 +969,22 @@ export default function InventarioPage() {
                       key={appt.id}
                       className="bg-emerald-500/[0.01] hover:bg-emerald-500/[0.02] transition-colors"
                     >
-                      <td className="p-3 font-semibold text-[var(--text)] flex items-center gap-2">
+                      <td className="p-3 font-semibold text-[var(--text)] flex items-center gap-2" data-label="Cliente">
                         <span className="w-6 h-6 rounded-full bg-emerald-500/10 border border-emerald-500/30 text-emerald-500 text-[9px] font-extrabold flex items-center justify-center shrink-0">
                           {initialsFrom(appt.client)}
                         </span>
                         <span>{appt.client}</span>
                       </td>
-                      <td className="p-3 text-[var(--text)] font-medium">
+                      <td className="p-3 text-[var(--text)] font-medium" data-label="Hora">
                         {appt.hour}
                       </td>
-                      <td className="p-3 text-[var(--muted)]">
+                      <td className="p-3 text-[var(--muted)]" data-label="Servicio">
                         {appt.service}
                       </td>
-                      <td className="p-3 text-[var(--muted)]">
+                      <td className="p-3 text-[var(--muted)]" data-label="Barbero">
                         {appt.barber}
                       </td>
-                      <td className="p-3 text-right select-none">
+                      <td className="p-3 text-right select-none" data-label="Estado">
                         <span className="inline-flex items-center gap-1 px-3 py-1.5 bg-emerald-950/20 text-emerald-400 font-extrabold text-[10px] rounded-lg uppercase tracking-wider border border-emerald-900/20">
                           Cobrado ✓ ({appt.method})
                         </span>
