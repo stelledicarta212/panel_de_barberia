@@ -16,7 +16,10 @@ import {
   Sparkles,
   User,
   AlertCircle,
-  RefreshCw
+  RefreshCw,
+  CalendarDays,
+  ChevronLeft,
+  ChevronRight
 } from "lucide-react";
 import { DashboardShell } from "@/components/dashboard-shell";
 import { useDashboard } from "@/store/dashboard-context";
@@ -34,6 +37,7 @@ type Movement = {
   barber: string;
   serviceId?: string;
   barberId?: string;
+  dateKey: string;
 };
 
 function text(value: unknown): string {
@@ -52,6 +56,61 @@ function money(value: number): string {
 
 function money2(value: number): string {
   return `$${Math.round(value).toLocaleString()}`;
+}
+
+function todayDateKey(): string {
+  const now = new Date();
+  const yyyy = now.getFullYear();
+  const mm = String(now.getMonth() + 1).padStart(2, "0");
+  const dd = String(now.getDate()).padStart(2, "0");
+  return `${yyyy}-${mm}-${dd}`;
+}
+
+function normalizeDateKey(value: unknown): string {
+  const raw = text(value);
+  if (!raw) return "";
+
+  const isoMatch = raw.match(/^(\d{4})-(\d{2})-(\d{2})/);
+  if (isoMatch) return `${isoMatch[1]}-${isoMatch[2]}-${isoMatch[3]}`;
+
+  const slashMatch = raw.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
+  if (slashMatch) {
+    const dd = slashMatch[1].padStart(2, "0");
+    const mm = slashMatch[2].padStart(2, "0");
+    return `${slashMatch[3]}-${mm}-${dd}`;
+  }
+
+  const parsed = new Date(raw);
+  if (!Number.isNaN(parsed.getTime())) {
+    const yyyy = parsed.getFullYear();
+    const mm = String(parsed.getMonth() + 1).padStart(2, "0");
+    const dd = String(parsed.getDate()).padStart(2, "0");
+    return `${yyyy}-${mm}-${dd}`;
+  }
+
+  return raw;
+}
+
+function shiftDateKey(dateKey: string, days: number): string {
+  const [yyyy, mm, dd] = dateKey.split("-").map(Number);
+  const date = new Date(yyyy, (mm || 1) - 1, dd || 1);
+  date.setDate(date.getDate() + days);
+  const nextYear = date.getFullYear();
+  const nextMonth = String(date.getMonth() + 1).padStart(2, "0");
+  const nextDay = String(date.getDate()).padStart(2, "0");
+  return `${nextYear}-${nextMonth}-${nextDay}`;
+}
+
+function formatLongDate(dateKey: string): string {
+  const [yyyy, mm, dd] = dateKey.split("-").map(Number);
+  const date = new Date(yyyy, (mm || 1) - 1, dd || 1);
+  if (Number.isNaN(date.getTime())) return dateKey;
+  const formatted = date.toLocaleDateString("es-CO", {
+    day: "numeric",
+    month: "long",
+    year: "numeric"
+  });
+  return formatted.charAt(0).toUpperCase() + formatted.slice(1);
 }
 
 function formatDate(value: unknown): string {
@@ -120,6 +179,7 @@ function mapAppointment(item: Record<string, unknown>, index: number): Movement 
   const pagoId = item.pago_id;
   const paidAt = item.pagado_en;
   const hasPayment = Boolean(pagoId || paidAt || (typeof rawMethod === "string" && rawMethod.trim().length > 0));
+  const rawDate = item.fecha ?? item.date;
   return {
     id: text(item.id) || `cita-${index + 1}`,
     client: text(item.cliente_nombre ?? item.client ?? item.nombre_cliente) || "Cliente",
@@ -127,7 +187,8 @@ function mapAppointment(item: Record<string, unknown>, index: number): Movement 
     method: text(rawMethod) || "Pendiente",
     amount: num(item.total_pagado ?? item.total),
     status: hasPayment ? "Aceptada" : "Pendiente",
-    date: formatDate(item.fecha ?? item.date),
+    date: formatDate(rawDate),
+    dateKey: normalizeDateKey(rawDate),
     hour: formatHour(item.hora_inicio ?? item.hora ?? item.hour),
     barber: text(item.barbero_nombre ?? item.barber ?? item.nombre_barbero) || "Sin barbero",
     serviceId: text(item.servicio_id ?? item.id_servicio),
@@ -242,6 +303,7 @@ export default function InventarioPage() {
   // Control de vinculación de cita agendada en checkout y estados de sincronización en caliente
   const [loadedAppointmentId, setLoadedAppointmentId] = useState<string | null>(null);
   const [syncingAppointmentIds, setSyncingAppointmentIds] = useState<Record<string, boolean>>({});
+  const [selectedPendingDate, setSelectedPendingDate] = useState(() => todayDateKey());
 
   // Control de Reporte Z
   const [showZReport, setShowZReport] = useState(false);
@@ -500,6 +562,23 @@ export default function InventarioPage() {
     closeRows
   } = posSummary;
 
+  const selectedPendingSummary = useMemo(() => {
+    const selectedMovements = movements.filter((m) => m.dateKey === selectedPendingDate);
+    const pendingForDate = selectedMovements.filter((m) => {
+      const isPending = m.status === "Pendiente";
+      const isSourceAppointment = m.id.startsWith("cita-") || !isNaN(Number(m.id));
+      return isPending && isSourceAppointment;
+    });
+
+    return {
+      dateLabel: formatLongDate(selectedPendingDate),
+      pendingAppointments: pendingForDate,
+      totalPendiente: pendingForDate.reduce((acc, item) => acc + item.amount, 0)
+    };
+  }, [movements, selectedPendingDate]);
+
+  const selectedPendingAppointments = selectedPendingSummary.pendingAppointments;
+
   const handleChargeNow = async () => {
     if (!canCharge || charging) return;
     setCharging(true);
@@ -713,24 +792,60 @@ export default function InventarioPage() {
         </div>
 
         {/* Citas Agendadas Hoy (Pendientes de Cobro) */}
-        {pendingAppointments.length > 0 && (
           <div className="ba-card p-5 relative overflow-hidden flex flex-col gap-3">
             <div className="absolute top-0 left-0 right-0 h-[2px] bg-gradient-to-r from-amber-500 to-amber-700" />
-            <header className="flex justify-between items-center">
+            <header className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
               <div>
                 <h3 className="text-sm font-bold text-[var(--text)] flex items-center gap-2">
                   <Sparkles size={16} className="text-amber-500 animate-pulse" />
-                  Citas Agendadas de Hoy Pendientes de Cobro
+                  Citas pendientes de cobro — {selectedPendingSummary.dateLabel}
                 </h3>
                 <p className="text-[11px] text-[var(--muted)] mt-0.5">
                   Haz clic en cualquier fila para cargar automáticamente los datos y servicios al POS.
                 </p>
               </div>
               <span className="text-[10px] text-amber-500 font-bold uppercase tracking-wider bg-amber-500/10 border border-amber-500/25 px-2.5 py-1 rounded-full">
-                {pendingAppointments.length} POR COBRAR
+                {selectedPendingAppointments.length} POR COBRAR · {money2(selectedPendingSummary.totalPendiente)}
               </span>
+              <div className="flex items-center gap-1.5 rounded-2xl border border-[var(--panel-stroke)] bg-[var(--bg-soft)]/30 p-1">
+                <button
+                  type="button"
+                  aria-label="Dia anterior"
+                  onClick={() => setSelectedPendingDate((current) => shiftDateKey(current, -1))}
+                  className="h-8 w-8 rounded-xl border border-[var(--panel-stroke)] bg-[var(--panel)] text-[var(--text)] grid place-items-center hover:border-amber-500/40 hover:text-amber-500 transition-colors cursor-pointer"
+                >
+                  <ChevronLeft size={15} />
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setSelectedPendingDate(todayDateKey())}
+                  className="h-8 px-3 rounded-xl border border-amber-500/30 bg-amber-500/10 text-amber-500 text-[10px] font-extrabold uppercase tracking-wider hover:bg-amber-500/15 transition-colors cursor-pointer"
+                >
+                  Hoy
+                </button>
+                <label className="h-8 px-2 rounded-xl border border-[var(--panel-stroke)] bg-[var(--panel)] text-[var(--muted)] flex items-center gap-1.5">
+                  <CalendarDays size={14} className="text-amber-500" />
+                  <input
+                    type="date"
+                    value={selectedPendingDate}
+                    onChange={(event) => {
+                      if (event.target.value) setSelectedPendingDate(event.target.value);
+                    }}
+                    className="bg-transparent text-[var(--text)] text-xs font-bold outline-none w-[120px] cursor-pointer"
+                  />
+                </label>
+                <button
+                  type="button"
+                  aria-label="Dia siguiente"
+                  onClick={() => setSelectedPendingDate((current) => shiftDateKey(current, 1))}
+                  className="h-8 w-8 rounded-xl border border-[var(--panel-stroke)] bg-[var(--panel)] text-[var(--text)] grid place-items-center hover:border-amber-500/40 hover:text-amber-500 transition-colors cursor-pointer"
+                >
+                  <ChevronRight size={15} />
+                </button>
+              </div>
             </header>
 
+            {selectedPendingAppointments.length > 0 ? (
             <div className="overflow-x-auto w-full border border-[var(--panel-stroke)] rounded-2xl bg-[var(--bg-soft)]/20">
               <table className="w-full text-left text-xs border-collapse">
                 <thead>
@@ -743,7 +858,7 @@ export default function InventarioPage() {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-[var(--panel-stroke)]/40">
-                  {pendingAppointments.map((appt) => {
+                  {selectedPendingAppointments.map((appt) => {
                     const isSyncing = syncingAppointmentIds[appt.id];
                     return (
                       <tr
@@ -810,8 +925,13 @@ export default function InventarioPage() {
                 </tbody>
               </table>
             </div>
+            ) : (
+              <div className="rounded-2xl border border-dashed border-[var(--panel-stroke)] bg-[var(--bg-soft)]/20 px-4 py-8 text-center">
+                <p className="text-sm font-bold text-[var(--text)]">No hay citas pendientes de cobro para esta fecha.</p>
+                <p className="text-xs text-[var(--muted)] mt-1">Puedes cambiar el dia con las flechas o seleccionar una fecha en el calendario.</p>
+              </div>
+            )}
           </div>
-        )}
 
         {/* Citas Agendadas Hoy Cobradas / Finalizadas */}
         {finishedAppointments.length > 0 && (
