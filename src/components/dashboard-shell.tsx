@@ -35,7 +35,7 @@ const NAV_ITEMS = [
   { href: "/soporte", label: "Soporte", icon: ShieldQuestion, permission: "canViewSupport" }
 ];
 
-const CORE_BASE_URL = "https://barberagency-barberagency.gymh5g.easypanel.host";
+const CORE_BASE_URL = "";
 
 function labelFromSlug(slug: string): string {
   const clean = slug.trim();
@@ -265,7 +265,7 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
           <div className="ba-welcome-card" onClick={(e) => e.stopPropagation()}>
             <div className="ba-welcome-image-wrapper">
               <img
-                src="https://barberagency-barberagency.gymh5g.easypanel.host/wp-content/uploads/2026/02/Sin-titulo-600-x-700-px.png"
+                src="/wp-content/uploads/2026/02/Sin-titulo-600-x-700-px.png"
                 alt="Welcome illustration"
                 className="ba-welcome-image"
               />

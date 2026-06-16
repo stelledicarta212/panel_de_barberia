@@ -11,10 +11,10 @@ import {
 } from "@/lib/dashboard-api";
 
 const FALLBACK = [
-  "https://barberagency-barberagency.gymh5g.easypanel.host/wp-content/uploads/2026/04/barbero1.1.png",
-  "https://barberagency-barberagency.gymh5g.easypanel.host/wp-content/uploads/2026/04/barbero2.1.png",
-  "https://barberagency-barberagency.gymh5g.easypanel.host/wp-content/uploads/2026/04/barbero3.1.png",
-  "https://barberagency-barberagency.gymh5g.easypanel.host/wp-content/uploads/2026/04/barbero4.1.png"
+  "/wp-content/uploads/2026/04/barbero1.1.png",
+  "/wp-content/uploads/2026/04/barbero2.1.png",
+  "/wp-content/uploads/2026/04/barbero3.1.png",
+  "/wp-content/uploads/2026/04/barbero4.1.png"
 ];
 
 type BarberCard = {
@@ -252,7 +252,7 @@ export default function BarberosPage() {
             <h1>Barberos</h1>
             <a
               className="ba-mini-gold"
-              href="https://barberagency-barberagency.gymh5g.easypanel.host/registro-barberias/"
+              href="/registro-barberias/"
               target="_blank"
               rel="noreferrer"
             >
