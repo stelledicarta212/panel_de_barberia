@@ -73,4 +73,63 @@ describe("editor publish upstream payload normalization", () => {
       biz_slug: "barberia-prueba-4"
     });
   });
+
+  it("preserves service and barber media aliases through p_payload", () => {
+    const normalized = normalizePublishPayloadForUpstream(
+      {
+        p_payload: {
+          barberia_id: 198,
+          slug: "barberia-prueba-4",
+          servicios: [
+            {
+              id: 489,
+              id_servicio: 489,
+              servicio_id: 489,
+              nombre: "Corte Clasico",
+              imagen_url: "https://pub.example/logos/file-427726.jpg",
+              image_url: "https://pub.example/logos/file-427726.jpg",
+              foto_url: "https://pub.example/logos/file-427726.jpg"
+            }
+          ],
+          barberos: [
+            {
+              id: 439,
+              id_barbero: 439,
+              barbero_id: 439,
+              nombre: "Barbero prueba 4",
+              foto: "https://pub.example/logos/file-427729.jpg",
+              foto_url: "https://pub.example/logos/file-427729.jpg",
+              imagen_url: "https://pub.example/logos/file-427729.jpg"
+            }
+          ]
+        }
+      },
+      { barberiaId: 198, slug: "barberia-prueba-4" }
+    );
+
+    expect(normalized.p_payload).toMatchObject({
+      servicios: [
+        {
+          id: 489,
+          id_servicio: 489,
+          servicio_id: 489,
+          imagen_url: "https://pub.example/logos/file-427726.jpg",
+          image_url: "https://pub.example/logos/file-427726.jpg",
+          foto_url: "https://pub.example/logos/file-427726.jpg"
+        }
+      ],
+      barberos: [
+        {
+          id: 439,
+          id_barbero: 439,
+          barbero_id: 439,
+          foto: "https://pub.example/logos/file-427729.jpg",
+          foto_url: "https://pub.example/logos/file-427729.jpg",
+          imagen_url: "https://pub.example/logos/file-427729.jpg"
+        }
+      ]
+    });
+    expect(normalized.servicios).toEqual((normalized.p_payload as { servicios: unknown }).servicios);
+    expect(normalized.barberos).toEqual((normalized.p_payload as { barberos: unknown }).barberos);
+  });
 });

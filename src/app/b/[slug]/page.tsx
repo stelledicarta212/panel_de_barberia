@@ -4,6 +4,14 @@ type LandingPageProps = {
   params: Promise<{ slug: string }>;
 };
 
+function text(value: unknown): string {
+  return typeof value === "string" ? value.trim() : "";
+}
+
+function pickImage(...values: Array<unknown>): string {
+  return values.map(text).find(Boolean) ?? "";
+}
+
 export default async function PublicLandingPage({ params }: LandingPageProps) {
   const { slug } = await params;
   const safeSlug = String(slug || "").trim();
@@ -49,15 +57,25 @@ export default async function PublicLandingPage({ params }: LandingPageProps) {
         <h2>Servicios activos</h2>
         {services.length ? (
           <ul>
-            {services.map((service, idx) => (
-              <li key={`${service.id ?? idx}-${service.nombre ?? "servicio"}`}>
-                <strong>{service.nombre || "Servicio"}</strong>
-                {" · "}
-                {Number(service.duracion_min || 0)} min
-                {" · "}
-                ${Number(service.precio || 0)}
-              </li>
-            ))}
+            {services.map((service, idx) => {
+              const image = pickImage(service.imagen_url, service.image_url, service.foto_url, service.image);
+              return (
+                <li key={`${service.id ?? idx}-${service.nombre ?? "servicio"}`} style={{ marginBottom: 12 }}>
+                  {image ? (
+                    <img
+                      src={image}
+                      alt={service.nombre || "Servicio"}
+                      style={{ width: 96, height: 64, objectFit: "cover", borderRadius: 8, marginRight: 12, verticalAlign: "middle" }}
+                    />
+                  ) : null}
+                  <strong>{service.nombre || "Servicio"}</strong>
+                  {" - "}
+                  {Number(service.duracion_min || 0)} min
+                  {" - "}
+                  ${Number(service.precio || 0)}
+                </li>
+              );
+            })}
           </ul>
         ) : (
           <p>No hay servicios activos.</p>
@@ -68,9 +86,30 @@ export default async function PublicLandingPage({ params }: LandingPageProps) {
         <h2>Barberos activos</h2>
         {barbers.length ? (
           <ul>
-            {barbers.map((barber, idx) => (
-              <li key={`${barber.id ?? idx}-${barber.nombre ?? "barbero"}`}>{barber.nombre || "Barbero"}</li>
-            ))}
+            {barbers.map((barber, idx) => {
+              const image = pickImage(
+                barber.foto_url,
+                barber.foto,
+                barber.imagen_url,
+                barber.image_url,
+                barber.photo_url,
+                barber.photo,
+                barber.picture_url,
+                barber.avatar_url
+              );
+              return (
+                <li key={`${barber.id ?? idx}-${barber.nombre ?? "barbero"}`} style={{ marginBottom: 12 }}>
+                  {image ? (
+                    <img
+                      src={image}
+                      alt={barber.nombre || "Barbero"}
+                      style={{ width: 64, height: 64, objectFit: "cover", borderRadius: 999, marginRight: 12, verticalAlign: "middle" }}
+                    />
+                  ) : null}
+                  {barber.nombre || "Barbero"}
+                </li>
+              );
+            })}
           </ul>
         ) : (
           <p>No hay barberos activos.</p>

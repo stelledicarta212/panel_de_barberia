@@ -58,10 +58,22 @@ export type LandingPublicaResponse = {
     nombre?: string;
     duracion_min?: number;
     precio?: number;
+    imagen_url?: string;
+    image_url?: string;
+    foto_url?: string;
+    image?: string;
   }>;
   barberos?: Array<{
     id?: number;
     nombre?: string;
+    foto?: string;
+    foto_url?: string;
+    imagen_url?: string;
+    image_url?: string;
+    photo_url?: string;
+    photo?: string;
+    picture_url?: string;
+    avatar_url?: string;
   }>;
 };
 
