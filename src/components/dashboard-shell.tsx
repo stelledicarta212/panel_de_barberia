@@ -36,6 +36,7 @@ const NAV_ITEMS = [
 ];
 
 const CORE_BASE_URL = "";
+const REGISTRO_BASE_URL = "https://barberagency-barberagency.gymh5g.easypanel.host";
 
 function labelFromSlug(slug: string): string {
   const clean = slug.trim();
@@ -56,7 +57,7 @@ function buildSettingsEditUrl(input: DashboardIdentity | null): string {
     barberia_id: String(barberiaId),
     slug: cleanSlug
   });
-  return `${CORE_BASE_URL}/registro-barberias/?${params.toString()}`;
+  return `${REGISTRO_BASE_URL}/registro-barberias/?${params.toString()}`;
 }
 
 export function DashboardShell({ children }: { children: React.ReactNode }) {
