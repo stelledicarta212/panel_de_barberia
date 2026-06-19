@@ -1,12 +1,13 @@
 import { NextResponse } from "next/server";
+import { normalizeSessionSetCookies } from "../cookies";
 
 const DASHBOARD_LOGIN_ENDPOINT =
   process.env.DASHBOARD_LOGIN_ENDPOINT;
 
 function jsonResponse(body: unknown, status: number, upstreamSetCookie?: string | null) {
   const response = NextResponse.json(body, { status });
-  if (upstreamSetCookie) {
-    response.headers.set("Set-Cookie", upstreamSetCookie);
+  for (const cookie of normalizeSessionSetCookies(upstreamSetCookie)) {
+    response.headers.append("Set-Cookie", cookie);
   }
   return response;
 }
