@@ -272,8 +272,8 @@ export async function publishBarbershopViaRpc(identity: DashboardIdentity, curre
 }
 
 const BARBEROS_ADMIN_WEBHOOK = "/api/dashboard/barberos";
-const RESERVAS_CREATE_WEBHOOK = "https://barberagency-n8n.gymh5g.easypanel.host/webhook/barberagency/reservas/create";
-const RESERVAS_SLOTS_WEBHOOK = "https://barberagency-n8n.gymh5g.easypanel.host/webhook/barberagency/reservas/slots";
+const RESERVAS_CREATE_WEBHOOK = "/api/reservas/create";
+const RESERVAS_SLOTS_WEBHOOK = "/api/reservas/slots";
 
 async function callBarberosAdminGateway(payload: Record<string, unknown>): Promise<{ ok: boolean; message?: string; data?: unknown }> {
   try {

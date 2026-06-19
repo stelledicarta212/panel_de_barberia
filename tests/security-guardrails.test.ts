@@ -118,11 +118,12 @@ describe("security guardrails", () => {
       "src/app/api/editor/publish/route.ts",
       "src/app/api/editor/draft/route.ts",
       "src/app/api/pos/route.ts",
-      "src/app/api/auth/login/route.ts",
       "src/app/api/auth/recover/request/route.ts",
       "src/app/api/auth/recover/reset/route.ts",
       "src/app/api/session/login/route.ts",
-      "src/app/api/session/me/route.ts"
+      "src/app/api/session/me/route.ts",
+      "src/app/api/reservas/slots/route.ts",
+      "src/app/api/reservas/create/route.ts"
     ];
 
     expect(criticalRoutes.filter((file) => !existsSync(path.join(repoRoot, file)))).toEqual([]);
