@@ -77,8 +77,25 @@ export function normalizeMergedFromState(raw: DashboardStateResponse): Dashboard
     template_id: pickFirstText(merged.template_id, draft["template_id"], published["template_id"]) || "v7",
     public_landing_url: pickFirstText(
       merged.public_landing_url,
+      (merged as Record<string, unknown>)["public_url"],
+      (merged as Record<string, unknown>)["url_publica"],
+      (merged as Record<string, unknown>)["landing_url"],
+      (merged as Record<string, unknown>)["published_url"],
       draft["public_landing_url"],
-      published["public_landing_url"]
+      draft["public_url"],
+      draft["url_publica"],
+      draft["landing_url"],
+      draft["published_url"],
+      published["public_landing_url"],
+      published["public_url"],
+      published["url_publica"],
+      published["landing_url"],
+      published["published_url"],
+      (((raw as Record<string, unknown>).barberia as Record<string, unknown> | undefined) as Record<string, unknown> | undefined)?.["public_url"],
+      (((raw as Record<string, unknown>).barberia as Record<string, unknown> | undefined) as Record<string, unknown> | undefined)?.["public_landing_url"],
+      (raw as Record<string, unknown>)["public_url"],
+      (raw as Record<string, unknown>)["landing_url"],
+      (raw as Record<string, unknown>)["public_landing_url"]
     ),
     reservation_url: pickFirstText(
       merged.reservation_url,
@@ -86,7 +103,22 @@ export function normalizeMergedFromState(raw: DashboardStateResponse): Dashboard
       published["reservation_url"],
       published["url_reservas"]
     ),
-    qr_url: pickFirstText(merged.qr_url, draft["qr_url"], published["qr_url"]),
+    qr_url: pickFirstText(
+      merged.qr_url,
+      (merged as Record<string, unknown>)["qr_image"],
+      (merged as Record<string, unknown>)["qr"],
+      (merged as Record<string, unknown>)["qr_public_url"],
+      draft["qr_url"],
+      draft["qr_image"],
+      draft["qr"],
+      draft["qr_public_url"],
+      published["qr_url"],
+      published["qr_image"],
+      published["qr"],
+      published["qr_public_url"],
+      (((raw as Record<string, unknown>).barberia as Record<string, unknown> | undefined) as Record<string, unknown> | undefined)?.["qr_url"],
+      (raw as Record<string, unknown>)["qr_url"]
+    ),
     services: pickFirstArray(
       merged.services,
       draft["services"],

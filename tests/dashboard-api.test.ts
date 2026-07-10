@@ -86,3 +86,76 @@ describe("normalizeMergedFromState appointments resolution", () => {
     expect(normalized.appointments).toEqual([{ id: 300 }]);
   });
 });
+
+describe("normalizeMergedFromState URLs and QR resolution", () => {
+  it("payload con public_url hidrata URL", () => {
+    const rawState = {
+      ok: true,
+      published: {
+        public_url: "https://barberagency.host/b/barberia-url"
+      }
+    };
+    const normalized = normalizeMergedFromState(rawState as any);
+    expect(normalized.public_landing_url).toBe("https://barberagency.host/b/barberia-url");
+  });
+
+  it("payload con landing_url hidrata URL", () => {
+    const rawState = {
+      ok: true,
+      published: {
+        landing_url: "https://barberagency.host/b/barberia-landing"
+      }
+    };
+    const normalized = normalizeMergedFromState(rawState as any);
+    expect(normalized.public_landing_url).toBe("https://barberagency.host/b/barberia-landing");
+  });
+
+  it("payload con qr_url hidrata QR", () => {
+    const rawState = {
+      ok: true,
+      published: {
+        qr_url: "https://quickchart.io/qr?text=1"
+      }
+    };
+    const normalized = normalizeMergedFromState(rawState as any);
+    expect(normalized.qr_url).toBe("https://quickchart.io/qr?text=1");
+  });
+
+  it("caso sin publicación mantiene los valores vacíos (mensaje 'Publica para generar el QR estable' en UI)", () => {
+    const rawState = {
+      ok: true
+    };
+    const normalized = normalizeMergedFromState(rawState as any);
+    expect(normalized.public_landing_url).toBe("");
+    expect(normalized.qr_url).toBe("");
+  });
+
+  it("resolves from alternate qr keys like qr_public_url or qr_image", () => {
+    const rawState = {
+      ok: true,
+      published: {
+        qr_image: "https://quickchart.io/qr?text=2"
+      }
+    };
+    const normalized = normalizeMergedFromState(rawState as any);
+    expect(normalized.qr_url).toBe("https://quickchart.io/qr?text=2");
+
+    const rawState2 = {
+      ok: true,
+      published: {
+        qr_public_url: "https://quickchart.io/qr?text=3"
+      }
+    };
+    const normalized2 = normalizeMergedFromState(rawState2 as any);
+    expect(normalized2.qr_url).toBe("https://quickchart.io/qr?text=3");
+  });
+
+  it("resolves public_url from raw.public_url or raw.public_landing_url", () => {
+    const rawState = {
+      ok: true,
+      public_landing_url: "https://barberagency.host/b/barberia-raw"
+    };
+    const normalized = normalizeMergedFromState(rawState as any);
+    expect(normalized.public_landing_url).toBe("https://barberagency.host/b/barberia-raw");
+  });
+});

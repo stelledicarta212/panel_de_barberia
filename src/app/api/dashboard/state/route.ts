@@ -53,6 +53,29 @@ async function loadDescansos(barberiaId: number): Promise<Array<Record<string, u
   }
 }
 
+async function loadPublishedLanding(barberiaId: number): Promise<Record<string, unknown> | null> {
+  const base = String(POSTGREST_BASE_URL || "").trim().replace(/\/+$/, "");
+  if (!base) {
+    return null;
+  }
+  const url = `${base}/barberia_landing_publish?barberia_id=eq.${encodeURIComponent(String(barberiaId))}`;
+  try {
+    const response = await fetch(url, {
+      method: "GET",
+      headers: {
+        Accept: "application/json"
+      },
+      cache: "no-store"
+    });
+    if (!response.ok) return null;
+    const text = await response.text().catch(() => "");
+    const rows = text ? JSON.parse(text) : [];
+    return Array.isArray(rows) && rows.length > 0 ? rows[0] : null;
+  } catch {
+    return null;
+  }
+}
+
 export async function OPTIONS(request: Request) {
   return new NextResponse(null, {
     status: 204,
@@ -106,11 +129,13 @@ export async function GET(request: Request) {
       const barberiaId = resolveBarberiaId(body, searchParams);
       if (barberiaId) {
         const descansos = await loadDescansos(barberiaId);
+        const publishedLanding = await loadPublishedLanding(barberiaId);
         const seed = isRecord(body.seed) ? body.seed : {};
         const merged = isRecord(body.merged) ? body.merged : {};
         body = {
           ...body,
           descansos,
+          published: publishedLanding || undefined,
           seed: {
             ...seed,
             descansos
