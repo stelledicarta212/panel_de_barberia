@@ -117,10 +117,14 @@ export function normalizeMergedFromState(raw: DashboardStateResponse): Dashboard
     clients: pickFirstArray(merged.clients, draft["clients"], draft["clientes"], seed["clientes"], seed["clients"]),
     appointments: pickFirstArray(
       merged.appointments,
+      (merged as Record<string, unknown>)["reservas"],
       draft["appointments"],
+      draft["reservas"],
       draft["citas"],
       seed["citas"],
-      seed["appointments"]
+      seed["reservas"],
+      seed["appointments"],
+      (raw as Record<string, unknown>)["reservas"]
     ),
     descansos: pickFirstArray(
       merged.descansos,
