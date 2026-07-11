@@ -6681,3 +6681,52 @@ body{background:linear-gradient(var(--ba-photo-veil),var(--ba-photo-veil)),url("
   opacity: 1;
   box-shadow: 0 4px 12px rgba(216, 181, 109, 0.28);
 }
+
+
+/* Classic dark theme readability and receipt parity */
+:root[data-theme="classic-dark"] .ba-dashboard-frame select,
+:root[data-theme="classic-dark"] .ba-dashboard-frame select option {
+  color: #f8fafc !important;
+  background-color: #101317 !important;
+}
+:root[data-theme="classic-dark"] .ba-dashboard-frame select:focus {
+  border-color: rgba(255,179,64,.78) !important;
+  box-shadow: 0 0 0 2px rgba(249,115,22,.16) !important;
+}
+:root[data-theme="classic-dark"] .ba-dashboard-frame input[type="date"] {
+  color: #fff !important;
+  color-scheme: dark;
+}
+:root[data-theme="classic-dark"] .ba-dashboard-frame input[type="date"]::-webkit-calendar-picker-indicator {
+  opacity: 1 !important;
+  filter: invert(1) brightness(1.8) !important;
+}
+:root[data-theme="classic-dark"] .ba-pos-receipt-slip {
+  color: #0f172a !important;
+  background: #fff !important;
+  border-color: #e2e8f0 !important;
+  -webkit-backdrop-filter: none !important;
+  backdrop-filter: none !important;
+}
+:root[data-theme="classic-dark"] .ba-pos-receipt-slip :is(h1,h2,h3,h4,p,span,small,strong,label,div) {
+  color: inherit;
+}
+:root[data-theme="classic-dark"] .ba-pos-receipt-slip .text-slate-500,
+:root[data-theme="classic-dark"] .ba-pos-receipt-slip .text-slate-600,
+:root[data-theme="classic-dark"] .ba-pos-receipt-slip .text-slate-700 {
+  color: #475569 !important;
+}
+:root[data-theme="classic-dark"] .ba-pos-receipt-slip .text-slate-900,
+:root[data-theme="classic-dark"] .ba-pos-receipt-slip .text-slate-950,
+:root[data-theme="classic-dark"] .ba-pos-receipt-rows p.is-total {
+  color: #0f172a !important;
+}
+:root[data-theme="classic-dark"] .ba-pos-whatsapp-box {
+  color: #065f46 !important;
+  background: #ecfdf5 !important;
+  border-color: #a7f3d0 !important;
+}
+:root[data-theme="classic-dark"] .ba-pos-whatsapp-box input {
+  color: #064e3b !important;
+  background: #fff !important;
+}
