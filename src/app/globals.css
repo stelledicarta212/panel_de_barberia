@@ -6760,3 +6760,84 @@ body{background:linear-gradient(var(--ba-photo-veil),var(--ba-photo-veil)),url("
 :root[data-theme="classic-dark"] .ba-service-list-card{background:linear-gradient(155deg,#191d23,#101318)!important;border-color:rgba(222,180,79,.32)!important}
 :root[data-theme="classic-dark"] .ba-service-list-body{background:linear-gradient(155deg,#1b2027,#12161c)}
 @media(max-width:720px){.ba-services-grid{grid-template-columns:1fr}.ba-service-list-card{grid-template-rows:190px auto}.ba-service-list-thumb{height:190px}}
+
+
+/* Viewport-safe overlays and receipts across desktop, tablet and mobile */
+.ba-dashboard-frame:has(.ba-client-overlay-card),
+.ba-dashboard-frame:has(.ba-citas-overlay-card),
+.ba-dashboard-frame:has(.ba-pos-receipt-modal) {
+  -webkit-backdrop-filter: none !important;
+  backdrop-filter: none !important;
+  transform: none !important;
+}
+.ba-client-overlay-backdrop,
+.ba-citas-overlay-backdrop {
+  position: fixed !important;
+  inset: 0 !important;
+  z-index: 1000 !important;
+  background: rgba(3,7,10,.68) !important;
+  -webkit-backdrop-filter: blur(8px);
+  backdrop-filter: blur(8px);
+}
+.ba-client-overlay-card,
+.ba-citas-overlay-card {
+  position: fixed !important;
+  top: 50% !important;
+  left: 50% !important;
+  right: auto !important;
+  bottom: auto !important;
+  transform: translate(-50%,-50%) !important;
+  width: min(560px,calc(100vw - 32px)) !important;
+  max-width: calc(100vw - 32px) !important;
+  max-height: min(84dvh,760px) !important;
+  margin: 0 !important;
+  overflow-x: hidden !important;
+  overflow-y: auto !important;
+  overscroll-behavior: contain;
+  z-index: 1010 !important;
+  box-shadow: 0 28px 80px rgba(0,0,0,.56) !important;
+}
+.ba-pos-receipt-modal {
+  position: fixed !important;
+  inset: 0 !important;
+  width: 100vw !important;
+  height: 100dvh !important;
+  padding: max(14px,env(safe-area-inset-top)) max(12px,env(safe-area-inset-right)) max(14px,env(safe-area-inset-bottom)) max(12px,env(safe-area-inset-left)) !important;
+  justify-content: flex-start !important;
+  overflow-x: hidden !important;
+  overflow-y: auto !important;
+  overscroll-behavior: contain;
+  z-index: 1100 !important;
+}
+.ba-pos-receipt-modal>.ba-pos-printer-slot {
+  flex: 0 0 auto;
+  margin-top: auto;
+}
+.ba-pos-receipt-modal>.ba-pos-receipt-slip {
+  flex: 0 0 auto;
+  width: min(380px,calc(100vw - 24px)) !important;
+  max-width: 100% !important;
+  max-height: none !important;
+  margin-bottom: auto;
+}
+.ba-pos-receipt-slip footer {
+  flex-wrap: wrap;
+}
+@media(max-width:767px) {
+  .ba-client-overlay-card,
+  .ba-citas-overlay-card {
+    top: max(10px,env(safe-area-inset-top)) !important;
+    left: 50% !important;
+    transform: translateX(-50%) !important;
+    width: calc(100vw - 20px) !important;
+    max-width: calc(100vw - 20px) !important;
+    max-height: calc(100dvh - max(20px,env(safe-area-inset-top) + env(safe-area-inset-bottom))) !important;
+    border-radius: 18px !important;
+  }
+  .ba-pos-receipt-modal>.ba-pos-receipt-slip {
+    padding: 22px 16px !important;
+  }
+  .ba-pos-receipt-slip footer>* {
+    flex: 1 1 130px;
+  }
+}
