@@ -5974,3 +5974,53 @@ body{background:linear-gradient(var(--ba-photo-veil),var(--ba-photo-veil)),url("
 :root[data-theme="light"] .ba-service-list-card {
   box-shadow: 10px 12px 28px rgba(48,55,50,.18), -5px -5px 18px rgba(255,255,255,.56), inset 1px 1px 0 rgba(255,255,255,.7), inset -1px -1px 0 rgba(65,72,67,.1) !important;
 }
+
+
+/* Dark theme correction: replace only dark cards and secondary controls with light glass */
+:root[data-theme="dark"] .ba-card,
+:root[data-theme="dark"] .ba-barber-card,
+:root[data-theme="dark"] .ba-barber-v2-card,
+:root[data-theme="dark"] .ba-citas-live-card,
+:root[data-theme="dark"] .ba-citas-table-wrap,
+:root[data-theme="dark"] .ba-citas-row,
+:root[data-theme="dark"] .ba-client-table,
+:root[data-theme="dark"] .ba-client-row,
+:root[data-theme="dark"] .ba-client-card-popup,
+:root[data-theme="dark"] .ba-overlay-card,
+:root[data-theme="dark"] .ba-client-loyalty-card,
+:root[data-theme="dark"] .ba-service-card,
+:root[data-theme="dark"] .ba-service-list-card,
+:root[data-theme="dark"] .ba-loyalty-points-card,
+:root[data-theme="dark"] .ba-loyalty-reward-card,
+:root[data-theme="dark"] .ba-loyalty-feature-card,
+:root[data-theme="dark"] .ba-stamp-card,
+:root[data-theme="dark"] .ba-pos-widget,
+:root[data-theme="dark"] .ba-pos-kpi,
+:root[data-theme="dark"] .ba-pos-summary,
+:root[data-theme="dark"] .ba-pos-table-head,
+:root[data-theme="dark"] .ba-pos-table-row,
+:root[data-theme="dark"] .ba-cita-reserve-calendar {
+  background: linear-gradient(145deg, rgba(255,255,255,.68), rgba(255,255,255,.46)) !important;
+  border-color: rgba(255,255,255,.78) !important;
+  box-shadow: 10px 12px 28px rgba(0,0,0,.2), -4px -4px 16px rgba(255,255,255,.24), inset 1px 1px 0 rgba(255,255,255,.82), inset -1px -1px 0 rgba(45,52,48,.12) !important;
+  -webkit-backdrop-filter: blur(22px) saturate(105%);
+  backdrop-filter: blur(22px) saturate(105%);
+}
+:root[data-theme="dark"] .ba-icon-btn,
+:root[data-theme="dark"] .ba-btn-ghost,
+:root[data-theme="dark"] .ba-card-menu,
+:root[data-theme="dark"] .ba-citas-tabs button:not(.is-active),
+:root[data-theme="dark"] .ba-citas-table-head button,
+:root[data-theme="dark"] .ba-cita-form .ba-right-header button,
+:root[data-theme="dark"] .ba-cita-summary .ba-right-header button,
+:root[data-theme="dark"] .ba-citas-actions button:not(.is-gold-action):not(.is-danger),
+:root[data-theme="dark"] .ba-service-actions button,
+:root[data-theme="dark"] .ba-services-filter,
+:root[data-theme="dark"] .ba-pos-num-btn:not(.is-clear),
+:root[data-theme="dark"] .ba-modal-header button,
+:root[data-theme="dark"] .ba-topbar-actions button:not(.ba-btn-gold) {
+  color: #101217 !important;
+  background: linear-gradient(145deg, rgba(255,255,255,.78), rgba(255,255,255,.54)) !important;
+  border-color: rgba(255,255,255,.82) !important;
+  box-shadow: 4px 5px 12px rgba(0,0,0,.18), -2px -2px 7px rgba(255,255,255,.28), inset 1px 1px 0 rgba(255,255,255,.88) !important;
+}
