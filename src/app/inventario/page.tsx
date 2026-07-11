@@ -447,17 +447,25 @@ export default function InventarioPage() {
   const canCharge = subtotal > 0 && (posMethod !== "Efectivo" || receivedAmount >= subtotal);
 
   const posSummary = useMemo(() => {
-    const now = new Date();
-    const yyyy = now.getFullYear();
-    const mm = String(now.getMonth() + 1).padStart(2, "0");
-    const dd = String(now.getDate()).padStart(2, "0");
-    const todayStr = `${yyyy}-${mm}-${dd}`;
-    const formattedToday = `${dd}/${mm}/${yyyy}`;
+    // Cargar dinámicamente según la fecha seleccionada en el POS
+    const match = selectedPendingDate.match(/^(\d{4})-(\d{2})-(\d{2})/);
+    let todayStr = selectedPendingDate;
+    let formattedToday = "";
+    if (match) {
+      formattedToday = `${match[3]}/${match[2]}/${match[1]}`;
+    } else {
+      const now = new Date();
+      const yyyy = now.getFullYear();
+      const mm = String(now.getMonth() + 1).padStart(2, "0");
+      const dd = String(now.getDate()).padStart(2, "0");
+      todayStr = `${yyyy}-${mm}-${dd}`;
+      formattedToday = `${dd}/${mm}/${yyyy}`;
+    }
 
     // 1. Movimientos del día
     const todayMovements = movements.filter((m) => {
       const mDate = text(m.date);
-      return mDate === formattedToday || mDate === todayStr;
+      return mDate === formattedToday || mDate === todayStr || m.dateKey === selectedPendingDate;
     });
 
     // 2. Movimientos cobrados del día
@@ -544,9 +552,10 @@ export default function InventarioPage() {
       totalPendienteHoy,
       pendingAppointments,
       finishedAppointments,
-      closeRows
+      closeRows,
+      formattedToday
     };
-  }, [movements, barbers]);
+  }, [movements, barbers, selectedPendingDate]);
 
   // Desestructuración segura del sumario de verdad única para mantener compatibilidad
   const {
@@ -559,7 +568,8 @@ export default function InventarioPage() {
     totalPendienteHoy,
     pendingAppointments,
     finishedAppointments,
-    closeRows
+    closeRows,
+    formattedToday
   } = posSummary;
 
   const selectedPendingSummary = useMemo(() => {
@@ -1438,16 +1448,16 @@ export default function InventarioPage() {
                 <span className="text-right">Monto</span>
               </div>
               <div className="max-h-[170px] overflow-y-auto flex flex-col gap-2 pr-1 scrollbar-thin">
-                {movements.map((item) => (
+                {todayMovements.map((item) => (
                   <div key={item.id} className="grid grid-cols-4 items-center text-xs text-[var(--text)] py-1.5 border-b border-[var(--panel-stroke)]/30 last:border-b-0">
                     <span className="truncate font-semibold text-[var(--text)]">{item.client}</span>
                     <span className="col-span-2 truncate text-[var(--muted)] pr-1">{item.service}</span>
                     <strong className="text-right text-amber-500">{money2(item.amount)}</strong>
                   </div>
                 ))}
-                {!movements.length ? (
+                {!todayMovements.length ? (
                   <div className="text-center py-6 text-xs text-[var(--muted)] font-medium">
-                    Sin movimientos registrados
+                    Sin movimientos registrados para esta fecha
                   </div>
                 ) : null}
               </div>
@@ -1971,7 +1981,7 @@ export default function InventarioPage() {
                       .join("\n");
                     
                     // Consumir el estado unificado posSummary para evitar discrepancias
-                    const textMessage = `💈 *BARBERÍA ${merged.biz_name.toUpperCase()}* 💈\n================================\n🔒 *REPORTE DE CIERRE DE CAJA (Z)* 🔒\n--------------------------------\n📅 *Fecha Cierre:* ${new Date().toLocaleDateString("es-CO")}\n⏰ *Hora Cierre:* ${new Date().toLocaleTimeString("es-CO", { hour: "2-digit", minute: "2-digit" })}\n================================\n💰 *VENTAS TOTALES:* $${Math.round(salesDay).toLocaleString()}\n💵 *Efectivo en Caja:* $${Math.round(cashDay).toLocaleString()}\n💳 *Pago Digital:* $${Math.round(salesDay - cashDay).toLocaleString()}\n--------------------------------\n🛍️ *Servicios Realizados:* ${paidMovements.length}\n⏳ *Servicios Pendientes:* ${pendingAppointments.length} ($${Math.round(totalPendienteHoy).toLocaleString()})\n================================\n💈 *VENTAS POR BARBERO:*\n${barbersText}\n================================\n¡Reporte Z de Caja generado con éxito! 🔥🔒`;
+                    const textMessage = `💈 *BARBERÍA ${merged.biz_name.toUpperCase()}* 💈\n================================\n🔒 *REPORTE DE CIERRE DE CAJA (Z)* 🔒\n--------------------------------\n📅 *Fecha Cierre:* ${formattedToday || new Date().toLocaleDateString("es-CO")}\n⏰ *Hora Cierre:* ${new Date().toLocaleTimeString("es-CO", { hour: "2-digit", minute: "2-digit" })}\n================================\n💰 *VENTAS TOTALES:* $${Math.round(salesDay).toLocaleString()}\n💵 *Efectivo en Caja:* $${Math.round(cashDay).toLocaleString()}\n💳 *Pago Digital:* $${Math.round(salesDay - cashDay).toLocaleString()}\n--------------------------------\n🛍️ *Servicios Realizados:* ${paidMovements.length}\n⏳ *Servicios Pendientes:* ${pendingAppointments.length} ($${Math.round(totalPendienteHoy).toLocaleString()})\n================================\n💈 *VENTAS POR BARBERO:*\n${barbersText}\n================================\n¡Reporte Z de Caja generado con éxito! 🔥🔒`;
                     
                     const cleanPhone = zReportWhatsappPhone.replace(/\D/g, "");
                     let targetPhone = cleanPhone;
