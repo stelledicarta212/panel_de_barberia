@@ -17,6 +17,7 @@ type RequestItem = {
   id: string;
   client: string;
   phone?: string;
+  email?: string;
   service: string;
   date: string;
   hour?: string;
@@ -135,6 +136,7 @@ function mapAppointmentRequests(appointments: Array<Record<string, unknown>>): R
       id: textValue(item.id) || `cita-${index + 1}`,
       client,
       phone: textValue(item.cliente_tel ?? item.telefono ?? item.phone),
+      email: textValue(item.cliente_email ?? item.email),
       service: textValue(item.servicio_nombre ?? item.service ?? item.nombre_servicio) || "Servicio",
       date: formatDbDate(item.fecha ?? item.date),
       hour: textValue(item.hora_inicio ?? item.hora ?? item.hour).slice(0, 5),
@@ -204,17 +206,15 @@ export default function CitasPage() {
   const [isDayPickerOpen, setIsDayPickerOpen] = useState(false);
   const [currentMonth, setCurrentMonth] = useState(() => new Date());
   const [selectedDay, setSelectedDay] = useState<number | null>(new Date().getDate());
-  const [reserveMonth, setReserveMonth] = useState(() => new Date());
-  const [reserveDay, setReserveDay] = useState<number | null>(new Date().getDate());
   const [form, setForm] = useState({
-    cliente: "",
-    apellido: "",
-    telefono: "",
+    cliente_nombre: "",
+    cliente_tel: "",
     email: "",
+    fecha: todayIsoDate(),
     servicio: "",
     barbero: "",
     hora: "",
-    descripcion: ""
+    notas: ""
   });
   const serviceOptions = useMemo(() => mapServiceOptions(merged.services), [merged.services]);
   const barberOptions = useMemo(() => mapBarberOptions(merged.barbers), [merged.barbers]);
@@ -268,6 +268,13 @@ export default function CitasPage() {
   }>({ type: "idle", message: "" });
   const [created] = useState<CreatedAppointment | null>(null);
   const [editingRequestId, setEditingRequestId] = useState<string | null>(null);
+  const displayHours = useMemo(() => {
+    const list = [...slotOptions];
+    if (editingRequestId && form.hora && !list.includes(form.hora)) {
+      list.unshift(form.hora);
+    }
+    return list;
+  }, [slotOptions, editingRequestId, form.hora]);
   const barberOffDays = useMemo(() => {
     const map: Record<string, string[]> = {};
     for (const row of merged.descansos) {
@@ -288,14 +295,17 @@ export default function CitasPage() {
   const selected = requests.find((req) => req.id === selectedId) ?? null;
   const calendarCells = useMemo(() => buildCalendar(currentMonth), [currentMonth]);
   const monthLabel = `${MONTHS[currentMonth.getMonth()]} ${currentMonth.getFullYear()}`;
-  const reserveCalendarCells = useMemo(() => buildCalendar(reserveMonth), [reserveMonth]);
-  const reserveMonthLabel = `${MONTHS[reserveMonth.getMonth()]} ${reserveMonth.getFullYear()}`;
   const selectedDateString = selectedDay
     ? formatDate(selectedDay, currentMonth.getMonth(), currentMonth.getFullYear())
     : null;
-  const reserveDateString = reserveDay
-    ? formatDate(reserveDay, reserveMonth.getMonth(), reserveMonth.getFullYear())
-    : null;
+  const reserveDateStr = form.fecha;
+  const reserveDateString = useMemo(() => {
+    if (!form.fecha) return "";
+    const parts = form.fecha.split("-");
+    if (parts.length !== 3) return "";
+    const [y, m, d] = parts;
+    return `${d}/${m}/${y}`;
+  }, [form.fecha]);
 
   const selectedService = useMemo(
     () => serviceOptions.find((service) => service.id === form.servicio) ?? null,
@@ -315,7 +325,7 @@ export default function CitasPage() {
 
   const activeSummary = created ?? {
     ticketId: "1234",
-    client: `${form.cliente} ${form.apellido}`.trim() || "cliente",
+    client: form.cliente_nombre.trim() || "cliente",
     date: reserveDateString ?? "Sin fecha",
     barber: selectedBarber?.name || "Sin barbero",
     hour: form.hora || "Sin hora",
@@ -330,10 +340,6 @@ export default function CitasPage() {
     setSelectedDay(null);
     setIsDayPickerOpen(false);
   };
-
-  const reserveDateStr = reserveDay && reserveMonth
-    ? `${reserveMonth.getFullYear()}-${String(reserveMonth.getMonth() + 1).padStart(2, "0")}-${String(reserveDay).padStart(2, "0")}`
-    : null;
 
   const availableBarberOptions = useMemo(() => {
     return barberOptions.filter((barber) => {
@@ -351,20 +357,24 @@ export default function CitasPage() {
     setSelectedDay(null);
     setIsDayPickerOpen(false);
   };
-
   const handleCreateCita = async () => {
     if (!reserveDateString || !reserveDateStr || !barberiaId) return;
-    const cleanNombre = form.cliente.trim();
-    const cleanApellido = form.apellido.trim();
-    const clienteNombre = `${cleanNombre} ${cleanApellido}`.trim();
+    const clienteNombre = form.cliente_nombre.trim();
+    const clienteTel = form.cliente_tel.trim();
+    const clienteEmail = form.email.trim();
 
     if (reserveDateStr < todayIsoDate()) {
       setCreateStatus({ type: "error", message: "Selecciona una fecha de hoy en adelante." });
       return;
     }
 
-    if (!clienteNombre || !form.telefono.trim()) {
-      setCreateStatus({ type: "error", message: "Cliente y telefono son obligatorios." });
+    if (!clienteNombre) {
+      setCreateStatus({ type: "error", message: "El nombre y apellido son obligatorios." });
+      return;
+    }
+
+    if (!clienteTel) {
+      setCreateStatus({ type: "error", message: "El teléfono es obligatorio." });
       return;
     }
 
@@ -378,12 +388,12 @@ export default function CitasPage() {
       : false;
 
     if (!selectedBarber.isActive || barberIsResting) {
-      setCreateStatus({ type: "error", message: "El barbero seleccionado no esta disponible para la fecha elegida." });
+      setCreateStatus({ type: "error", message: "El barbero seleccionado no está disponible para la fecha elegida." });
       return;
     }
 
-    if (!slotOptions.includes(form.hora)) {
-      setCreateStatus({ type: "error", message: "Ese horario no esta disponible. Actualiza y elige otro slot." });
+    if (!slotOptions.includes(form.hora) && !(editingRequestId && form.hora)) {
+      setCreateStatus({ type: "error", message: "Ese horario no está disponible. Actualiza y elige otro slot." });
       return;
     }
 
@@ -391,11 +401,11 @@ export default function CitasPage() {
     const barberoId = Number(selectedBarber.id);
     const isEditing = Boolean(editingRequestId);
     if (!Number.isFinite(serviceId) || !Number.isFinite(barberoId)) {
-      setCreateStatus({ type: "error", message: "Servicio o barbero invalido." });
+      setCreateStatus({ type: "error", message: "Servicio o barbero inválido." });
       return;
     }
 
-    setCreateStatus({ type: "loading", message: isEditing ? "Guardando cambios..." : "Creando cita..." });
+    setCreateStatus({ type: "loading", message: isEditing ? "Guardando cambios..." : "Creando reserva..." });
 
     try {
       let res;
@@ -404,34 +414,37 @@ export default function CitasPage() {
           barberia_id: barberiaId,
           id: Number(editingRequestId),
           cliente_nombre: clienteNombre,
-          cliente_tel: form.telefono || "",
+          cliente_tel: clienteTel,
           barbero_id: barberoId,
           servicio_id: serviceId,
           fecha: reserveDateStr,
           hora_inicio: form.hora,
           estado: "confirmada",
-          notas: form.descripcion || ""
+          notas: form.notas || ""
         });
       } else {
         const slug = identity?.slug || merged.biz_slug;
         res = await createReservationDashboard({
           barberia_id: barberiaId,
-          id_barberia: barberiaId,
           slug,
-          biz_slug: slug,
-          servicio_id: serviceId,
-          id_servicio: serviceId,
-          barbero_id: barberoId,
-          id_barbero: barberoId,
-          fecha: reserveDateStr,
-          hora: form.hora,
           cliente_nombre: clienteNombre,
-          cliente_tel: form.telefono.trim(),
-          cliente_email: form.email.trim(),
+          cliente_tel: clienteTel,
+          email: clienteEmail,
+          fecha: reserveDateStr,
+          barbero_id: barberoId,
+          servicio_id: serviceId,
+          hora_inicio: form.hora,
+          notas: form.notas.trim(),
+          id_barberia: barberiaId,
+          biz_slug: slug,
+          id_servicio: serviceId,
+          id_barbero: barberoId,
+          hora: form.hora,
+          cliente_email: clienteEmail,
           clientes_finales: {
             nombre_completo: clienteNombre,
-            telefono: form.telefono.trim(),
-            email: form.email.trim()
+            telefono: clienteTel,
+            email: clienteEmail
           },
           citas: {
             barberia_id: barberiaId,
@@ -446,7 +459,7 @@ export default function CitasPage() {
             hora: form.hora,
             hora_inicio: form.hora,
             estado: "confirmada",
-            notas: form.descripcion.trim(),
+            notas: form.notas.trim(),
             created_at: new Date().toISOString()
           }
         });
@@ -455,19 +468,19 @@ export default function CitasPage() {
       if (res.ok) {
         setCreateStatus({
           type: "success",
-          message: isEditing ? "Cita modificada con exito." : "Cita creada desde Fuente de Verdad."
+          message: isEditing ? "Cita modificada con éxito." : "Reserva creada correctamente"
         });
         setEditingRequestId(null);
         if (!isEditing) {
           setForm({
-            cliente: "",
-            apellido: "",
-            telefono: "",
+            cliente_nombre: "",
+            cliente_tel: "",
             email: "",
+            fecha: todayIsoDate(),
             servicio: "",
             barbero: "",
             hora: "",
-            descripcion: ""
+            notas: ""
           });
           setSlotOptions([]);
           setAvailableBarberIds([]);
@@ -484,17 +497,8 @@ export default function CitasPage() {
   const handleEditRequest = (req: RequestItem) => {
     setEditingRequestId(req.id);
     setIsCreateOpen(true);
-    setForm((prev) => ({
-      ...prev,
-      cliente: req.client,
-      apellido: "",
-      telefono: req.phone ?? prev.telefono,
-      email: prev.email,
-      barbero: barberOptions.find((barber) => barber.name === req.barber)?.id ?? prev.barbero,
-      hora: req.hour ?? prev.hora,
-      descripcion: req.description ?? prev.descripcion
-    }));
 
+    let matchedServicioId = "";
     const targetServices = req.service
       .split(",")
       .map((name) => name.trim().toLowerCase())
@@ -503,22 +507,38 @@ export default function CitasPage() {
       .filter((srv) => targetServices.some((target) => srv.name.toLowerCase().includes(target) || target.includes(srv.name.toLowerCase())))
       .map((srv) => srv.id);
     if (matchedIds.length) {
-      setForm((prev) => ({ ...prev, servicio: matchedIds[0], hora: "" }));
+      matchedServicioId = matchedIds[0];
     } else {
       const fallback = serviceOptions.find((srv) => req.service.toLowerCase().includes(srv.name.toLowerCase()));
-      setForm((prev) => ({ ...prev, servicio: fallback ? fallback.id : "", hora: "" }));
+      matchedServicioId = fallback ? fallback.id : "";
     }
+
+    let formattedDate = todayIsoDate();
+    const parts = req.date.split("/");
+    if (parts.length === 3) {
+      formattedDate = `${parts[2]}-${parts[1]}-${parts[0]}`; // YYYY-MM-DD
+    }
+
+    setForm({
+      cliente_nombre: req.client,
+      cliente_tel: req.phone ?? "",
+      email: req.email ?? "",
+      barbero: barberOptions.find((barber) => barber.name === req.barber)?.id ?? "",
+      hora: req.hour ?? "",
+      notas: req.description ?? "",
+      servicio: matchedServicioId,
+      fecha: formattedDate
+    });
 
     const [d, m, y] = req.date.split("/");
     const day = Number(d);
     const month = Number(m) - 1;
     const year = Number(y);
     if (Number.isFinite(day) && Number.isFinite(month) && Number.isFinite(year)) {
-      setReserveMonth(new Date(year, month, 1));
-      setReserveDay(day);
       setCurrentMonth(new Date(year, month, 1));
       setSelectedDay(day);
     }
+
     setTimeout(() => {
       formRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
     }, 50);
@@ -552,15 +572,6 @@ export default function CitasPage() {
   const handleOpenDetail = (id: string) => {
     setSelectedId(id);
     setDetailOpen(true);
-  };
-
-  const prevReserveMonth = () => {
-    setReserveMonth((prev) => new Date(prev.getFullYear(), prev.getMonth() - 1, 1));
-    setReserveDay(null);
-  };
-  const nextReserveMonth = () => {
-    setReserveMonth((prev) => new Date(prev.getFullYear(), prev.getMonth() + 1, 1));
-    setReserveDay(null);
   };
   const filteredRequests = selectedDateString
     ? requests.filter((req) => req.date === selectedDateString)
@@ -651,10 +662,18 @@ export default function CitasPage() {
     let cancelled = false;
     async function loadSlots() {
       if (cancelled) return;
-      if (!barberiaId || !reserveDateStr || !form.servicio || !form.barbero) return;
-      if (reserveDateStr < todayIsoDate()) return;
+      if (!barberiaId || !reserveDateStr || !form.servicio || !form.barbero) {
+        setSlotOptions([]);
+        setAvailabilityStatus({ type: "idle", message: "" });
+        return;
+      }
+      if (reserveDateStr < todayIsoDate()) {
+        setSlotOptions([]);
+        setAvailabilityStatus({ type: "error", message: "Selecciona una fecha de hoy en adelante." });
+        return;
+      }
 
-      setAvailabilityStatus({ type: "loading", message: "Consultando slots reales..." });
+      setAvailabilityStatus({ type: "loading", message: "Consultando disponibilidad..." });
       const response = await fetchReservationSlotsDashboard({
         barberia_id: barberiaId,
         fecha: reserveDateStr,
@@ -676,7 +695,7 @@ export default function CitasPage() {
       setSlotOptions(slots);
       setAvailabilityStatus({
         type: "success",
-        message: slots.length ? `${slots.length} horario(s) reales disponibles.` : "No hay slots libres para ese barbero."
+        message: slots.length ? `${slots.length} horario(s) reales disponibles.` : ""
       });
     }
     void loadSlots();
@@ -967,10 +986,12 @@ export default function CitasPage() {
                             handleOpenDetail(reqAtHour.id);
                             return;
                           }
+                          const matchedBarber = barberOptions.find(b => b.name === agendaBarberFilter);
                           setForm((prev) => ({
                             ...prev,
                             hora: hour,
-                            barbero: agendaBarberFilter !== "global" ? agendaBarberFilter : prev.barbero
+                            barbero: matchedBarber ? matchedBarber.id : prev.barbero,
+                            fecha: boardDateStr ?? prev.fecha
                           }));
                           setIsCreateOpen(true);
                         }}
@@ -1119,96 +1140,51 @@ export default function CitasPage() {
           {isCreateOpen ? (
             <article className="ba-card ba-cita-form" ref={formRef}>
               <header className="ba-right-header">
-                <h3>{editingRequestId ? `Editar Cita ${editingRequestId}` : "Crear Nueva Cita"}</h3>
+                <h3>{editingRequestId ? `Editar Cita ${editingRequestId}` : "Formulario de reserva"}</h3>
                 <button type="button" aria-label="Opciones"><MoreHorizontal size={12} /></button>
               </header>
 
-              <label>Nombre</label>
+              <label>Nombre y apellido</label>
               <input
                 className="ba-mini-field"
-                value={form.cliente}
-                onChange={(e) => setForm((prev) => ({ ...prev, cliente: e.target.value }))}
-                placeholder="Nombre del cliente"
+                value={form.cliente_nombre}
+                onChange={(e) => setForm((prev) => ({ ...prev, cliente_nombre: e.target.value }))}
+                placeholder="Tu nombre completo"
+                required
               />
 
-              <label>Apellido</label>
+              <label>Teléfono / WhatsApp</label>
               <input
                 className="ba-mini-field"
-                value={form.apellido}
-                onChange={(e) => setForm((prev) => ({ ...prev, apellido: e.target.value }))}
-                placeholder="Apellido"
+                value={form.cliente_tel}
+                onChange={(e) => setForm((prev) => ({ ...prev, cliente_tel: e.target.value }))}
+                placeholder="Tu número de contacto"
+                required
               />
 
-              <label>Telefono</label>
-              <input
-                className="ba-mini-field"
-                value={form.telefono}
-                onChange={(e) => setForm((prev) => ({ ...prev, telefono: e.target.value }))}
-                placeholder="3001234567"
-              />
-
-              <label>Email opcional</label>
+              <label>Correo opcional</label>
               <input
                 className="ba-mini-field"
                 type="email"
                 value={form.email}
                 onChange={(e) => setForm((prev) => ({ ...prev, email: e.target.value }))}
-                placeholder="cliente@correo.com"
+                placeholder="correo@ejemplo.com"
               />
 
-              <label>Servicio</label>
-              <select
+              <label>Fecha</label>
+              <input
                 className="ba-mini-field"
-                value={form.servicio}
+                type="date"
+                value={form.fecha}
                 onChange={(e) => {
-                  setForm((prev) => ({ ...prev, servicio: e.target.value, barbero: "", hora: "" }));
+                  setForm((prev) => ({ ...prev, fecha: e.target.value, barbero: "", hora: "" }));
                   setSlotOptions([]);
                   setAvailableBarberIds([]);
                   setCreateStatus({ type: "idle", message: "" });
                 }}
-              >
-                <option value="">Selecciona servicio</option>
-                {serviceOptions.map((service) => (
-                  <option key={service.id} value={service.id}>
-                    {service.name} - {toCurrency(service.price)} - {service.duration} min
-                  </option>
-                ))}
-              </select>
-
-              <label>Calendario de Reserva</label>
-              <div className="ba-cita-reserve-calendar">
-                <div className="ba-calendar-nav">
-                  <button type="button" aria-label="Mes anterior reserva" onClick={prevReserveMonth}><ChevronLeft size={12} /></button>
-                  <span>{reserveMonthLabel}</span>
-                  <button type="button" aria-label="Mes siguiente reserva" onClick={nextReserveMonth}><ChevronRight size={12} /></button>
-                </div>
-                <div className="ba-mini-calendar">
-                  {DAYS.map((day) => (
-                    <div key={`reserve-head-${day}`} className="is-head">{day}</div>
-                  ))}
-                  {reserveCalendarCells.map((cell) => (
-                    <button
-                      key={`reserve-${cell.key}`}
-                      type="button"
-                      className={`is-cell ${cell.day !== null && reserveDay === cell.day ? "is-active" : ""}`}
-                      onClick={() => {
-                        if (cell.day === null) return;
-                        setReserveDay(cell.day);
-                        setForm((prev) => ({ ...prev, barbero: "", hora: "" }));
-                        setSlotOptions([]);
-                        setAvailableBarberIds([]);
-                        setCreateStatus({ type: "idle", message: "" });
-                      }}
-                      disabled={
-                        cell.day === null ||
-                        `${reserveMonth.getFullYear()}-${String(reserveMonth.getMonth() + 1).padStart(2, "0")}-${String(cell.day).padStart(2, "0")}` < todayIsoDate()
-                      }
-                    >
-                      {cell.day ?? ""}
-                    </button>
-                  ))}
-                </div>
-              </div>
+                required
+                min={todayIsoDate()}
+              />
 
               <label>Barbero</label>
               <select
@@ -1219,6 +1195,7 @@ export default function CitasPage() {
                   setSlotOptions([]);
                   setCreateStatus({ type: "idle", message: "" });
                 }}
+                required
               >
                 <option value="">Selecciona barbero</option>
                 {barberOptions.map((barber) => {
@@ -1255,29 +1232,61 @@ export default function CitasPage() {
                   );
                 })}
               </select>
-              {reserveDay && availableBarberOptions.length === 0 ? (
+              {form.fecha && availableBarberOptions.length === 0 ? (
                 <small className="ba-loyal-note">No hay barberos disponibles para ese día (descanso).</small>
               ) : null}
+
+              <label>Servicio</label>
+              <select
+                className="ba-mini-field"
+                value={form.servicio}
+                onChange={(e) => {
+                  setForm((prev) => ({ ...prev, servicio: e.target.value, barbero: "", hora: "" }));
+                  setSlotOptions([]);
+                  setAvailableBarberIds([]);
+                  setCreateStatus({ type: "idle", message: "" });
+                }}
+                required
+              >
+                <option value="">Selecciona servicio</option>
+                {serviceOptions.map((service) => (
+                  <option key={service.id} value={service.id}>
+                    {service.name} - {toCurrency(service.price)} - {service.duration} min
+                  </option>
+                ))}
+              </select>
 
               <label>Hora</label>
               <select
                 className="ba-mini-field"
                 value={form.hora}
                 onChange={(e) => setForm((prev) => ({ ...prev, hora: e.target.value }))}
-                disabled={!form.barbero || availabilityStatus.type === "loading"}
+                disabled={!form.fecha || !form.servicio || !form.barbero || availabilityStatus.type === "loading" || (availabilityStatus.type === "success" && slotOptions.length === 0)}
+                required
               >
-                <option value="">Selecciona hora disponible</option>
-                {slotOptions.map((hour) => (
-                  <option key={hour} value={hour}>{hour}</option>
-                ))}
+                {(!form.fecha || !form.servicio || !form.barbero) ? (
+                  <option value="">Selecciona fecha, barbero y servicio</option>
+                ) : availabilityStatus.type === "loading" ? (
+                  <option value="">Consultando disponibilidad...</option>
+                ) : (availabilityStatus.type === "success" && slotOptions.length === 0) ? (
+                  <option value="">No hay horarios disponibles</option>
+                ) : (
+                  <>
+                    <option value="">Selecciona hora disponible</option>
+                    {displayHours.map((hour) => (
+                      <option key={hour} value={hour}>{hour}</option>
+                    ))}
+                  </>
+                )}
               </select>
 
-              <label>Notas / descripcion</label>
+              <label>Notas</label>
               <textarea
                 className="ba-mini-textarea"
-                value={form.descripcion}
-                onChange={(e) => setForm((prev) => ({ ...prev, descripcion: e.target.value }))}
-                placeholder="Notas internas de la cita..."
+                value={form.notas}
+                onChange={(e) => setForm((prev) => ({ ...prev, notas: e.target.value }))}
+                placeholder="Detalle de preferencia"
+                rows={3}
               />
 
               {availabilityStatus.message ? (
@@ -1289,7 +1298,7 @@ export default function CitasPage() {
               ) : null}
 
               <div className="ba-mini-total">
-                <small>Dia seleccionado</small>
+                <small>Día seleccionado</small>
                 <strong>{reserveDateString ?? "Sin fecha"}</strong>
               </div>
 
@@ -1304,15 +1313,15 @@ export default function CitasPage() {
                 onClick={handleCreateCita}
                 disabled={
                   createStatus.type === "loading" ||
-                  !reserveDateString ||
+                  !form.fecha ||
                   !form.servicio ||
                   !form.barbero ||
                   !form.hora ||
-                  !form.cliente.trim() ||
-                  !form.telefono.trim()
+                  !form.cliente_nombre.trim() ||
+                  !form.cliente_tel.trim()
                 }
               >
-                {createStatus.type === "loading" ? "Creando..." : editingRequestId ? "Guardar cambios" : "Crear cita"}
+                {createStatus.type === "loading" ? "Creando reserva..." : editingRequestId ? "Guardar cambios" : "Confirmar reserva"}
               </button>
             </article>
           ) : (
