@@ -5895,3 +5895,82 @@ body{background:linear-gradient(var(--ba-photo-veil),var(--ba-photo-veil)),url("
 .ba-search,.ba-input,.ba-textarea,.ba-icon-btn,.ba-list li,.ba-calendar-slot{border-color:var(--ba-glass-stroke);background-color:rgba(255,255,255,.09);-webkit-backdrop-filter:blur(14px);backdrop-filter:blur(14px);box-shadow:inset 2px 2px 5px var(--ba-card-pressed),inset -1px -1px 3px var(--ba-glass-shine)}
 :root[data-theme="light"] .ba-search,:root[data-theme="light"] .ba-input,:root[data-theme="light"] .ba-textarea,:root[data-theme="light"] .ba-icon-btn,:root[data-theme="light"] .ba-list li,:root[data-theme="light"] .ba-calendar-slot{background-color:rgba(255,255,255,.48)}
 @media(max-width:767px){.ba-dashboard-shell{padding:0}.ba-dashboard-frame{min-height:100dvh;border-radius:0}}
+
+
+/* Contrast correction: visible neutral glass and black typography in both themes */
+:root,
+:root[data-theme="light"] {
+  --text: #101217;
+  --muted: #3f4650;
+  --ba-glass: rgba(255, 255, 255, 0.2);
+  --ba-glass-strong: rgba(255, 255, 255, 0.26);
+  --ba-card-raised: rgba(255, 255, 255, 0.22);
+}
+:root[data-theme="light"] {
+  --ba-glass: rgba(255, 255, 255, 0.2);
+  --ba-glass-strong: rgba(255, 255, 255, 0.27);
+  --ba-photo-veil: rgba(255, 255, 255, 0.02);
+}
+.ba-dashboard-frame,
+.ba-dashboard-frame h1,
+.ba-dashboard-frame h2,
+.ba-dashboard-frame h3,
+.ba-dashboard-frame h4,
+.ba-dashboard-frame p,
+.ba-dashboard-frame span,
+.ba-dashboard-frame small,
+.ba-dashboard-frame label,
+.ba-dashboard-frame strong,
+.ba-dashboard-frame a,
+.ba-dashboard-frame button,
+.ba-dashboard-frame input,
+.ba-dashboard-frame textarea,
+.ba-dashboard-frame select,
+.ba-dashboard-frame option,
+.ba-dashboard-frame th,
+.ba-dashboard-frame td {
+  color: #101217;
+}
+.ba-dashboard-frame input::placeholder,
+.ba-dashboard-frame textarea::placeholder {
+  color: rgba(16, 18, 23, 0.58);
+}
+:root[data-theme="light"] .ba-dashboard-frame,
+:root[data-theme="light"] .ba-sidebar,
+:root[data-theme="light"] .ba-topbar,
+:root[data-theme="light"] .ba-card,
+:root[data-theme="light"] .ba-barber-card,
+:root[data-theme="light"] .ba-barber-v2-card,
+:root[data-theme="light"] .ba-citas-live-card,
+:root[data-theme="light"] .ba-citas-tabs,
+:root[data-theme="light"] .ba-citas-table-wrap,
+:root[data-theme="light"] .ba-citas-row,
+:root[data-theme="light"] .ba-client-table,
+:root[data-theme="light"] .ba-client-row,
+:root[data-theme="light"] .ba-service-card,
+:root[data-theme="light"] .ba-service-list-card,
+:root[data-theme="light"] .ba-loyalty-points-card,
+:root[data-theme="light"] .ba-loyalty-reward-card,
+:root[data-theme="light"] .ba-loyalty-feature-card,
+:root[data-theme="light"] .ba-pos-widget,
+:root[data-theme="light"] .ba-pos-kpi,
+:root[data-theme="light"] .ba-pos-summary,
+:root[data-theme="light"] .ba-cita-reserve-calendar,
+:root[data-theme="light"] .ba-mini-field,
+:root[data-theme="light"] .ba-mini-tags,
+:root[data-theme="light"] .ba-mini-textarea {
+  background: linear-gradient(145deg, rgba(255,255,255,.28), rgba(255,255,255,.1)) !important;
+  border-color: rgba(255,255,255,.68) !important;
+  -webkit-backdrop-filter: blur(24px) saturate(108%);
+  backdrop-filter: blur(24px) saturate(108%);
+}
+:root[data-theme="light"] .ba-dashboard-frame {
+  background: rgba(255,255,255,.14) !important;
+}
+:root[data-theme="light"] .ba-card,
+:root[data-theme="light"] .ba-barber-card,
+:root[data-theme="light"] .ba-barber-v2-card,
+:root[data-theme="light"] .ba-service-card,
+:root[data-theme="light"] .ba-service-list-card {
+  box-shadow: 10px 12px 28px rgba(48,55,50,.18), -5px -5px 18px rgba(255,255,255,.56), inset 1px 1px 0 rgba(255,255,255,.7), inset -1px -1px 0 rgba(65,72,67,.1) !important;
+}
