@@ -1898,7 +1898,7 @@ export default function InventarioPage() {
                 ================================
               </div>
               <div className="flex justify-between items-center text-[9px] text-slate-600 px-1 font-semibold font-mono">
-                <span>Fecha: {new Date().toLocaleDateString("es-CO")}</span>
+                <span>Fecha: {formattedToday || new Date().toLocaleDateString("es-CO")}</span>
                 <span>Hora: {new Date().toLocaleTimeString("es-CO", { hour: "2-digit", minute: "2-digit" })}</span>
               </div>
               <div className="text-[7px] text-slate-500 font-bold uppercase select-none">
@@ -1928,13 +1928,13 @@ export default function InventarioPage() {
                 <p className="flex justify-between text-xs my-0.5">
                   <span className="text-slate-700">Cant. Servicios Pendientes</span>
                   <strong className="text-slate-900 font-mono font-bold">
-                    {movements.filter(m => m.status === "Pendiente").length}
+                    {pendingAppointments.length}
                   </strong>
                 </p>
                 <p className="flex justify-between text-xs my-0.5">
                   <span className="text-slate-700">Monto Pendiente de Cobro</span>
                   <strong className="text-slate-950 font-mono font-bold">
-                    {money(movements.filter(m => m.status === "Pendiente").reduce((acc, m) => acc + m.amount, 0))}
+                    {money(totalPendienteHoy)}
                   </strong>
                 </p>
                 
