@@ -257,36 +257,55 @@
 }
 
 /* POS Quick bills and Calculator / charge buttons in classic-dark */
-:root[data-theme="classic-dark"] .ba-pos-quick-bill,
-:root[data-theme="classic-dark"] .ba-pos-clear {
-  background: #12161b !important;
-  color: #f7f4ec !important;
-  border: 1px solid rgba(216, 181, 109, 0.20) !important;
-  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.22) !important;
+:root[data-theme="classic-dark"] .ba-pos-quick-bill {
+  background: linear-gradient(135deg, #f7c64c 0%, #ff9800 100%) !important;
+  color: #111111 !important;
+  border: 1px solid rgba(255, 190, 60, 0.35) !important;
+  border-radius: 999px !important;
+  box-shadow: 0 8px 18px rgba(255, 153, 0, 0.22) !important;
+  transition: all 0.2s ease-in-out !important;
 }
 
-:root[data-theme="classic-dark"] .ba-pos-quick-bill:hover,
-:root[data-theme="classic-dark"] .ba-pos-clear:hover {
-  border-color: rgba(245, 210, 132, 0.55) !important;
+:root[data-theme="classic-dark"] .ba-pos-quick-bill:hover {
+  transform: translateY(-1px) !important;
+  box-shadow: 0 12px 24px rgba(255, 153, 0, 0.28) !important;
+  filter: brightness(1.04) !important;
+}
+
+:root[data-theme="classic-dark"] .ba-pos-clear {
+  background: linear-gradient(135deg, #ff7a59 0%, #ff3d3d 100%) !important;
   color: #ffffff !important;
-  background: #171b21 !important;
+  border: 1px solid rgba(255, 120, 120, 0.28) !important;
+  border-radius: 999px !important;
+  box-shadow: 0 8px 18px rgba(255, 80, 80, 0.22) !important;
+  transition: all 0.2s ease-in-out !important;
+}
+
+:root[data-theme="classic-dark"] .ba-pos-clear:hover {
+  transform: translateY(-1px) !important;
+  box-shadow: 0 12px 24px rgba(255, 80, 80, 0.28) !important;
+  filter: brightness(1.04) !important;
 }
 
 :root[data-theme="classic-dark"] .ba-pos-calculator-action {
-  background: #12161b !important;
-  color: #f7f4ec !important;
-  border: 1px solid rgba(216, 181, 109, 0.20) !important;
-  box-shadow: 0 6px 14px rgba(0, 0, 0, 0.26) !important;
+  background: linear-gradient(135deg, #8b5cf6 0%, #6d28d9 100%) !important;
+  color: #ffffff !important;
+  border: 1px solid rgba(167, 139, 250, 0.3) !important;
+  border-radius: 18px !important;
+  box-shadow: 0 10px 22px rgba(109, 40, 217, 0.20) !important;
+  transition: all 0.2s ease-in-out !important;
 }
 
 :root[data-theme="classic-dark"] .ba-pos-calculator-action:hover {
-  border-color: rgba(245, 210, 132, 0.55) !important;
-  color: #ffffff !important;
-  background: #171b21 !important;
+  transform: translateY(-1px) !important;
+  box-shadow: 0 14px 28px rgba(109, 40, 217, 0.28) !important;
+  filter: brightness(1.04) !important;
 }
 
+/* Pay / Charge button */
 :root[data-theme="classic-dark"] .ba-pos-calculator-action + button {
-  box-shadow: 0 6px 14px rgba(0, 0, 0, 0.26) !important;
+  border-radius: 18px !important;
+  transition: all 0.2s ease-in-out !important;
 }
 
 :root[data-theme="classic-dark"] .ba-pos-calculator-action + button:disabled {
@@ -298,15 +317,55 @@
 }
 
 :root[data-theme="classic-dark"] .ba-pos-calculator-action + button:not(:disabled) {
-  background: linear-gradient(135deg, #f5d284, #b47e2a) !important;
-  color: #14110a !important;
-  border: 1px solid rgba(245, 210, 132, 0.68) !important;
-  font-weight: 800 !important;
+  background: linear-gradient(135deg, #ffb000 0%, #d86a00 100%) !important;
+  color: #111111 !important;
+  border: 1px solid rgba(255, 176, 0, 0.28) !important;
+  box-shadow: 0 12px 26px rgba(216, 106, 0, 0.24) !important;
+  font-weight: 700 !important;
 }
 
 :root[data-theme="classic-dark"] .ba-pos-calculator-action + button:not(:disabled):hover {
-  background: linear-gradient(135deg, #f7d998, #c68e37) !important;
-  box-shadow: 0 8px 20px rgba(216, 181, 109, 0.35) !important;
+  transform: translateY(-1px) !important;
+  box-shadow: 0 16px 28px rgba(216, 106, 0, 0.30) !important;
+  filter: brightness(1.04) !important;
+}
+
+/* Quantity and Delete buttons inside the Cart Detail */
+:root[data-theme="classic-dark"] .ba-pos-qty-minus {
+  background: linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%) !important;
+  color: #ffffff !important;
+  border: 1px solid rgba(147, 197, 253, 0.3) !important;
+  box-shadow: 0 4px 10px rgba(29, 78, 216, 0.22) !important;
+  border-radius: 50% !important;
+  width: 22px !important;
+  height: 22px !important;
+}
+
+:root[data-theme="classic-dark"] .ba-pos-qty-plus {
+  background: linear-gradient(135deg, #10b981 0%, #047857 100%) !important;
+  color: #ffffff !important;
+  border: 1px solid rgba(167, 243, 208, 0.3) !important;
+  box-shadow: 0 4px 10px rgba(4, 120, 87, 0.22) !important;
+  border-radius: 50% !important;
+  width: 22px !important;
+  height: 22px !important;
+}
+
+:root[data-theme="classic-dark"] .ba-pos-item-delete {
+  background: linear-gradient(135deg, #ef4444 0%, #b91c1c 100%) !important;
+  color: #ffffff !important;
+  border: 1px solid rgba(252, 165, 165, 0.3) !important;
+  box-shadow: 0 4px 10px rgba(185, 28, 28, 0.22) !important;
+  border-radius: 50% !important;
+  width: 22px !important;
+  height: 22px !important;
+}
+
+:root[data-theme="classic-dark"] .ba-pos-qty-minus:hover,
+:root[data-theme="classic-dark"] .ba-pos-qty-plus:hover,
+:root[data-theme="classic-dark"] .ba-pos-item-delete:hover {
+  filter: brightness(1.15) !important;
+  transform: scale(1.05) !important;
 }
 
 * {
