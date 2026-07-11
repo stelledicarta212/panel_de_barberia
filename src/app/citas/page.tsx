@@ -573,10 +573,8 @@ export default function CitasPage() {
     setSelectedId(id);
     setDetailOpen(true);
   };
-  const filteredRequests = selectedDateString
-    ? requests.filter((req) => req.date === selectedDateString)
-    : requests;
   const boardDateString = selectedDateString ?? formatDate(new Date().getDate(), currentMonth.getMonth(), currentMonth.getFullYear());
+  const filteredRequests = requests.filter((req) => req.date === boardDateString);
   const [boardDayPart] = boardDateString.split("/");
   const agendaDayNumber = Number(boardDayPart);
 
