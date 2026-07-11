@@ -1,33 +1,39 @@
 @import "tailwindcss";
 
 :root {
-  --bg: #030508;
-  --bg-soft: #070a13;
-  --bg-overlay: rgba(3, 5, 8, 0.58);
-  --panel: rgba(13, 20, 35, 0.42);
-  --panel-stroke: rgba(255, 255, 255, 0.09);
-  --glare: rgba(255, 255, 255, 0.08);
-  --text: #f3f6fc;
-  --muted: #94a3b8;
-  --gold: #ff7a1a;
-  --gold-strong: #e65c00;
-  --ok: #10b981;
-  --danger: #ef4444;
+  --bg: #07090e;
+  --bg-soft: rgba(15, 18, 20, 0.42);
+  --bg-overlay: rgba(0, 0, 0, 0.28);
+  --panel: rgba(255, 255, 255, 0.16);
+  --panel-stroke: rgba(255, 255, 255, 0.22);
+  --glare: rgba(255, 255, 255, 0.12);
+  --text: #ffffff;
+  --muted: rgba(255, 255, 255, 0.72);
+  --gold: #d8b56d;
+  --gold-strong: #c09c53;
+  --ok: #6de19e;
+  --danger: #ff7e7e;
+  --card-bg-strong: rgba(255, 255, 255, 0.24);
+  --accent-soft: rgba(216, 181, 109, 0.22);
+  --dark-soft: rgba(0, 0, 0, 0.28);
 }
 
 :root[data-theme="light"] {
   --bg: #f8fafc;
-  --bg-soft: #f1f5f9;
-  --bg-overlay: rgba(248, 250, 252, 0.65);
-  --panel: rgba(255, 255, 255, 0.48);
-  --panel-stroke: rgba(15, 23, 42, 0.08);
-  --glare: rgba(255, 255, 255, 0.4);
+  --bg-soft: rgba(255, 255, 255, 0.45);
+  --bg-overlay: rgba(255, 255, 255, 0.58);
+  --panel: rgba(255, 255, 255, 0.55);
+  --panel-stroke: rgba(255, 255, 255, 0.65);
+  --glare: rgba(255, 255, 255, 0.45);
   --text: #0f172a;
-  --muted: #475569;
-  --gold: #ff7a1a;
-  --gold-strong: #e65c00;
-  --ok: #10b981;
-  --danger: #ef4444;
+  --muted: rgba(15, 23, 42, 0.75);
+  --gold: #c09e53;
+  --gold-strong: #a17c37;
+  --ok: #16a34a;
+  --danger: #dc2626;
+  --card-bg-strong: rgba(255, 255, 255, 0.75);
+  --accent-soft: rgba(216, 181, 109, 0.12);
+  --dark-soft: rgba(0, 0, 0, 0.08);
 }
 
 * {
@@ -106,16 +112,14 @@ textarea {
   display: grid;
   grid-template-columns: 300px minmax(0, 1fr);
   border: 1px solid var(--panel-stroke);
-  background: transparent;
-  backdrop-filter: none;
-  box-shadow: none;
+  background: var(--bg-soft);
+  backdrop-filter: blur(16px);
+  box-shadow: 0 8px 32px 0 var(--dark-soft);
 }
 
 .ba-sidebar {
-  background:
-    linear-gradient(180deg, var(--glare), transparent),
-    var(--panel);
-  backdrop-filter: blur(30px) saturate(140%);
+  background: var(--dark-soft);
+  backdrop-filter: blur(20px);
   border-right: 1px solid var(--panel-stroke);
   padding: 24px 18px;
   display: grid;
@@ -178,13 +182,13 @@ textarea {
 }
 
 .ba-nav-item.is-active {
-  color: #ffffff;
-  background: linear-gradient(135deg, rgba(255, 122, 26, 0.9), rgba(230, 92, 0, 0.9));
+  color: #000000;
+  background: var(--gold);
   box-shadow: 
-    0 4px 20px rgba(255, 122, 26, 0.35),
+    0 4px 15px rgba(216, 181, 109, 0.45),
     inset 0 1px 0 rgba(255, 255, 255, 0.25);
   font-weight: 600;
-  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.4);
+  text-shadow: none;
 }
 
 .ba-sidebar-footer {
@@ -215,7 +219,7 @@ textarea {
   background: var(--panel);
   backdrop-filter: blur(28px) saturate(160%);
   box-shadow: 
-    0 8px 32px 0 rgba(0, 0, 0, 0.18),
+    0 8px 32px 0 var(--dark-soft),
     inset 0 1px 1px var(--glare);
   padding: 16px;
   min-width: 0;
@@ -226,11 +230,11 @@ textarea {
 .ba-card[role="button"]:hover,
 .ba-card.is-clickable:hover {
   transform: translateY(-2px);
-  border-color: rgba(255, 255, 255, 0.14) !important;
+  border-color: rgba(255, 255, 255, 0.35) !important;
+  background: var(--card-bg-strong);
   box-shadow: 
-    0 12px 40px rgba(0, 0, 0, 0.55), 
-    0 0 20px rgba(255, 122, 26, 0.06),
-    inset 0 1px 1px rgba(255, 255, 255, 0.1);
+    0 12px 40px rgba(0, 0, 0, 0.45), 
+    inset 0 1px 1px var(--glare);
 }
 
 .ba-topbar {
