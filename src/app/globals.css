@@ -194,23 +194,53 @@
   color: rgba(247, 244, 236, 0.42) !important;
 }
 
-/* Modern gold and solid secondary buttons */
+/* Modern fire/orange and solid secondary buttons */
 :root[data-theme="classic-dark"] .ba-card-gold,
 :root[data-theme="classic-dark"] .ba-primary-btn,
 :root[data-theme="classic-dark"] button.ba-primary,
-:root[data-theme="classic-dark"] .ba-btn-main {
-  background: linear-gradient(135deg, #f5d284, #b47e2a) !important;
-  color: #14110a !important;
-  border: 1px solid rgba(245, 210, 132, 0.68) !important;
-  box-shadow:
-    0 12px 28px rgba(216, 181, 109, 0.24),
-    inset 0 1px 0 rgba(255, 255, 255, 0.38) !important;
+:root[data-theme="classic-dark"] .ba-btn-main,
+:root[data-theme="classic-dark"] button.bg-gradient-to-r[class*="from-amber--"]:not(:disabled),
+:root[data-theme="classic-dark"] button.bg-gradient-to-r[class*="from-amber-5"]:not(:disabled),
+:root[data-theme="classic-dark"] button.bg-gradient-to-r[class*="from-yellow-"]:not(:disabled),
+:root[data-theme="classic-dark"] button[class*="bg-amber-"]:not(:disabled),
+:root[data-theme="classic-dark"] .ba-pos-calculator-action + button:not(:disabled) {
+  background: linear-gradient(135deg, #ff9e45 0%, #e05300 100%) !important;
+  color: #ffffff !important;
+  border: 1px solid rgba(255, 158, 69, 0.4) !important;
+  box-shadow: 
+    0 8px 20px rgba(224, 83, 0, 0.35),
+    inset 0 1px 0 rgba(255, 255, 255, 0.2) !important;
+  font-weight: 700 !important;
+}
+
+:root[data-theme="classic-dark"] .ba-card-gold:hover,
+:root[data-theme="classic-dark"] .ba-primary-btn:hover,
+:root[data-theme="classic-dark"] button.ba-primary:hover,
+:root[data-theme="classic-dark"] .ba-btn-main:hover,
+:root[data-theme="classic-dark"] button.bg-gradient-to-r[class*="from-amber-"]:not(:disabled):hover,
+:root[data-theme="classic-dark"] button.bg-gradient-to-r[class*="from-yellow-"]:not(:disabled):hover,
+:root[data-theme="classic-dark"] button[class*="bg-amber-"]:not(:disabled):hover,
+:root[data-theme="classic-dark"] .ba-pos-calculator-action + button:not(:disabled):hover {
+  background: linear-gradient(135deg, #ffa858 0%, #f0620c 100%) !important;
+  box-shadow: 
+    0 12px 26px rgba(224, 83, 0, 0.45),
+    inset 0 1px 0 rgba(255, 255, 255, 0.3) !important;
+  transform: translateY(-1px) !important;
+}
+
+:root[data-theme="classic-dark"] button.bg-gradient-to-r[class*="from-amber-"]:disabled,
+:root[data-theme="classic-dark"] button[class*="bg-amber-"]:disabled {
+  background: #0d1014 !important;
+  color: rgba(247, 244, 236, 0.38) !important;
+  border: 1px solid rgba(216, 181, 109, 0.1) !important;
+  box-shadow: none !important;
+  cursor: not-allowed !important;
 }
 
 :root[data-theme="classic-dark"] .ba-icon-btn,
 :root[data-theme="classic-dark"] .ba-secondary-btn,
 :root[data-theme="classic-dark"] .ba-btn-ghost,
-:root[data-theme="classic-dark"] button:not(.ba-card-gold):not(.ba-primary):not(.ba-btn-main) {
+:root[data-theme="classic-dark"] button:not(.ba-card-gold):not(.ba-primary):not(.ba-btn-main):not(.ba-pos-quick-bill):not(.ba-pos-clear):not(.ba-pos-calculator-action):not(.ba-pos-qty-minus):not(.ba-pos-qty-plus):not(.ba-pos-item-delete):not([class*="from-amber-"]):not([class*="bg-amber-"]) {
   background: #12161b !important;
   color: #f7f4ec !important;
   border: 1px solid rgba(216, 181, 109, 0.20) !important;
@@ -254,6 +284,12 @@
   background: #101419 !important;
   border: 1px solid rgba(216, 181, 109, 0.18) !important;
   color: #f7f4ec !important;
+}
+
+/* POS summary cards text in classic-dark */
+:root[data-theme="classic-dark"] .grid.grid-cols-2.lg\:grid-cols-4 > article.ba-card,
+:root[data-theme="classic-dark"] .grid.grid-cols-2.lg\:grid-cols-4 > article.ba-card :is(span, strong, div, header, svg) {
+  color: #ffffff !important;
 }
 
 /* POS Quick bills in all themes */
