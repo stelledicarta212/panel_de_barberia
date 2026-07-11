@@ -6213,3 +6213,12 @@ body{background:linear-gradient(var(--ba-photo-veil),var(--ba-photo-veil)),url("
   cursor: pointer;
   filter: brightness(.25) sepia(1) saturate(2);
 }
+
+
+/* POS station contrast: amounts, status KPIs and disabled payment action */
+.ba-pos-station .grid.grid-cols-3 > div:nth-child(1){background:linear-gradient(145deg,#2563eb,#1d4ed8)!important;border-color:#60a5fa!important;box-shadow:0 7px 18px rgba(37,99,235,.3)!important}
+.ba-pos-station .grid.grid-cols-3 > div:nth-child(2){background:linear-gradient(145deg,#16a34a,#08783a)!important;border-color:#4ade80!important;box-shadow:0 7px 18px rgba(22,163,74,.28)!important}
+.ba-pos-station .grid.grid-cols-3 > div:nth-child(3){background:linear-gradient(145deg,#f59e0b,#ea580c)!important;border-color:#fcd34d!important;box-shadow:0 7px 18px rgba(234,88,12,.3)!important}
+.ba-pos-station .grid.grid-cols-3 > div :is(span,strong){color:#fff!important;text-shadow:0 1px 2px rgba(0,0,0,.3)}
+.ba-pos-layout button:disabled{color:rgba(23,16,6,.76)!important;background:linear-gradient(145deg,rgba(255,190,69,.72),rgba(232,91,14,.62))!important;border-color:rgba(255,190,76,.58)!important;box-shadow:inset 0 1px 0 rgba(255,245,207,.42)!important;opacity:.76!important}
+.ba-pos-load-confirmation{display:flex;align-items:center;gap:8px;margin:0;padding:10px 12px;border:1px solid rgba(74,222,128,.72);border-radius:12px;color:#052e16!important;background:linear-gradient(145deg,rgba(134,239,172,.95),rgba(34,197,94,.82));box-shadow:0 8px 20px rgba(22,163,74,.24),inset 0 1px 0 rgba(255,255,255,.65);font-size:12px;font-weight:800}

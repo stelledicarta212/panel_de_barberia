@@ -304,6 +304,7 @@ export default function InventarioPage() {
   const [loadedAppointmentId, setLoadedAppointmentId] = useState<string | null>(null);
   const [syncingAppointmentIds, setSyncingAppointmentIds] = useState<Record<string, boolean>>({});
   const [selectedPendingDate, setSelectedPendingDate] = useState(() => todayDateKey());
+  const [appointmentLoadMessage, setAppointmentLoadMessage] = useState<string | null>(null);
 
   // Control de Reporte Z
   const [showZReport, setShowZReport] = useState(false);
@@ -855,6 +856,13 @@ export default function InventarioPage() {
               </div>
             </header>
 
+            {appointmentLoadMessage ? (
+              <p className="ba-pos-load-confirmation" role="status" aria-live="polite">
+                <Sparkles size={15} />
+                {appointmentLoadMessage}
+              </p>
+            ) : null}
+
             {selectedPendingAppointments.length > 0 ? (
               <div className="overflow-x-auto w-full border border-[var(--panel-stroke)] rounded-2xl bg-[var(--bg-soft)]/20 ba-mobile-card-table">
               <table className="w-full text-left text-xs border-collapse ba-pos-appointments-table">
@@ -879,6 +887,7 @@ export default function InventarioPage() {
                           setPosClient(appt.client);
                           setPosBarber(appt.barber);
                           setLoadedAppointmentId(appt.id); // Guardar vinculación de la cita agendada
+                          setAppointmentLoadMessage("Cita de " + appt.client + " cargada y lista para pago.");
                           
                           let matchedService = services.find(s => s.id === appt.serviceId);
                           if (!matchedService) {
