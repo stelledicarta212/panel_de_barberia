@@ -391,23 +391,25 @@ export default function InventarioPage() {
 
   const services = useMemo(
     () =>
-      merged.services.map((item, index) => {
-        const name = text(item.nombre ?? item.name) || `Servicio ${index + 1}`;
-        const inheritedImage = text(
-          item.image_url ??
-          item.foto_url ??
-          item.cover_url ??
-          item.imagen_url ??
-          item.imagen ??
-          item.photo_url
-        );
-        return {
-          id: text(item.id) || `service-${index + 1}`,
-          name,
-          amount: num(item.precio ?? item.price),
-          image: inheritedImage || buildDefaultServiceImage(name)
-        };
-      }),
+      merged.services
+        .filter((item) => item !== null && item !== undefined)
+        .map((item, index) => {
+          const name = text(item.nombre ?? item.name) || `Servicio ${index + 1}`;
+          const inheritedImage = text(
+            item.image_url ??
+            item.foto_url ??
+            item.cover_url ??
+            item.imagen_url ??
+            item.imagen ??
+            item.photo_url
+          );
+          return {
+            id: text(item.id) || `service-${index + 1}`,
+            name,
+            amount: num(item.precio ?? item.price),
+            image: inheritedImage || buildDefaultServiceImage(name)
+          };
+        }),
     [merged.services]
   );
 
@@ -420,7 +422,7 @@ export default function InventarioPage() {
   const barbers = useMemo(
     () =>
       merged.barbers
-        .filter((item) => item.activo !== false && item.active !== false)
+        .filter((item) => item !== null && item !== undefined && item.activo !== false && item.active !== false)
         .map((item, index) => ({
           id: text(item.id ?? item.barbero_id ?? item.id_barbero) || `barber-${index + 1}`,
           name: text(item.nombre ?? item.name ?? item.barbero_nombre) || `Barbero ${index + 1}`,
@@ -616,10 +618,10 @@ export default function InventarioPage() {
       }
 
       // Buscar el objeto del barbero seleccionado para enviar su ID real en la DB
-      const selectedBarberObj = merged.barbers.find(
-        (b) => text(b.nombre ?? b.name) === posBarber
+      const selectedBarberObj = barbers.find(
+        (b) => b.name === posBarber
       );
-      const barberoIdReal = selectedBarberObj ? text(selectedBarberObj.id) : "";
+      const barberoIdReal = selectedBarberObj ? selectedBarberObj.id : "";
 
       const parseId = (val: string) => (val && !isNaN(Number(val)) ? Number(val) : val);
 
@@ -1134,7 +1136,7 @@ export default function InventarioPage() {
               </header>
               <div className="ba-pos-barber-grid">
                 {barbers.map((barber) => {
-                  const isSelected = posBarber.trim().toLowerCase() === barber.name.trim().toLowerCase();
+                  const isSelected = (posBarber || "").trim().toLowerCase() === barber.name.trim().toLowerCase();
                   return (
                     <button
                       key={barber.id}
