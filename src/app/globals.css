@@ -6112,3 +6112,62 @@ body{background:linear-gradient(var(--ba-photo-veil),var(--ba-photo-veil)),url("
 :root[data-theme="dark"] .ba-card-gold {
   color: #18130d !important;
 }
+
+
+/* Light photo visibility and full-width appointments console */
+:root[data-theme="light"] {
+  --ba-photo-veil: rgba(255,255,255,0);
+  --ba-glass: rgba(255,255,255,.11);
+  --ba-glass-strong: rgba(255,255,255,.17);
+}
+:root[data-theme="light"] body {
+  background: url("https://barberagency-barberagency.gymh5g.easypanel.host/wp-content/uploads/2026/02/img1.jpg") center / cover fixed no-repeat !important;
+}
+:root[data-theme="light"] .ba-dashboard-frame {
+  background: rgba(255,255,255,.1) !important;
+  -webkit-backdrop-filter: blur(18px) saturate(108%);
+  backdrop-filter: blur(18px) saturate(108%);
+}
+:root[data-theme="light"] .ba-sidebar,
+:root[data-theme="light"] .ba-topbar,
+:root[data-theme="light"] .ba-card,
+:root[data-theme="light"] .ba-barber-card,
+:root[data-theme="light"] .ba-barber-v2-card,
+:root[data-theme="light"] .ba-citas-live-card,
+:root[data-theme="light"] .ba-citas-table-wrap,
+:root[data-theme="light"] .ba-citas-row,
+:root[data-theme="light"] .ba-client-table,
+:root[data-theme="light"] .ba-client-row,
+:root[data-theme="light"] .ba-service-card,
+:root[data-theme="light"] .ba-service-list-card,
+:root[data-theme="light"] .ba-loyalty-points-card,
+:root[data-theme="light"] .ba-loyalty-reward-card,
+:root[data-theme="light"] .ba-loyalty-feature-card,
+:root[data-theme="light"] .ba-pos-widget,
+:root[data-theme="light"] .ba-pos-kpi,
+:root[data-theme="light"] .ba-pos-summary,
+:root[data-theme="light"] .ba-cita-reserve-calendar {
+  background: linear-gradient(145deg, rgba(255,255,255,.22), rgba(255,255,255,.07)) !important;
+  -webkit-backdrop-filter: blur(20px) saturate(108%);
+  backdrop-filter: blur(20px) saturate(108%);
+}
+@media (min-width: 901px) {
+  .ba-citas-layout {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .ba-citas-table-wrap {
+    width: 100%;
+    min-height: 250px;
+  }
+  .ba-citas-row {
+    grid-template-columns: minmax(155px,1.25fr) minmax(125px,1fr) minmax(95px,.75fr) minmax(70px,.55fr) minmax(125px,1fr) minmax(90px,.7fr) minmax(285px,1.7fr);
+  }
+  .ba-citas-actions {
+    flex-wrap: nowrap;
+    justify-content: flex-start;
+    width: 100%;
+  }
+  .ba-citas-actions button {
+    flex: 0 0 auto;
+  }
+}
