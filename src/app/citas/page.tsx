@@ -195,7 +195,7 @@ function phoneToWhatsappUrl(phone: string, clientName: string): string | null {
 }
 
 export default function CitasPage() {
-  const { merged, identity, refresh } = useDashboard();
+  const { merged, identity, refresh, loading } = useDashboard();
   const barberiaId = identity?.barberia_id;
   const requests = useMemo(() => mapAppointmentRequests(merged.appointments), [merged.appointments]);
   const [selectedId, setSelectedId] = useState<string | null>(null);
@@ -722,6 +722,51 @@ export default function CitasPage() {
 
   // Local storage reservations persistence removed for Postgres single source of truth
 
+  const [notice, setNotice] = useState<string | null>(null);
+  const [outsideNotice, setOutsideNotice] = useState<boolean>(false);
+  const prevCountRef = useRef<number | null>(null);
+  const prevIdsRef = useRef<Set<string>>(new Set());
+
+  // Polling suave cada 30 segundos
+  useEffect(() => {
+    const interval = setInterval(() => {
+      if (typeof document !== "undefined" && document.visibilityState === "visible" && !loading && refresh) {
+        refresh().catch((err) => console.error("Error al actualizar agenda automáticamente:", err));
+      }
+    }, 30000);
+    return () => clearInterval(interval);
+  }, [refresh, loading]);
+
+  // Aviso de nueva cita
+  useEffect(() => {
+    if (prevCountRef.current !== null && requests.length > prevCountRef.current) {
+      setNotice("La agenda fue actualizada. Nueva cita recibida.");
+      const timer = setTimeout(() => setNotice(null), 5000);
+      return () => clearTimeout(timer);
+    }
+    prevCountRef.current = requests.length;
+  }, [requests.length]);
+
+  // Aviso de citas en otra fecha
+  useEffect(() => {
+    const currentIds = new Set(requests.map((r) => r.id));
+    if (prevIdsRef.current.size > 0) {
+      const newIds = [...currentIds].filter((id) => !prevIdsRef.current.has(id));
+      if (newIds.length > 0) {
+        const hasDifferentDate = newIds.some((id) => {
+          const req = requests.find((r) => r.id === id);
+          return req && req.date !== selectedDateString;
+        });
+        if (hasDifferentDate) {
+          setOutsideNotice(true);
+          const timer = setTimeout(() => setOutsideNotice(false), 8000);
+          return () => clearTimeout(timer);
+        }
+      }
+    }
+    prevIdsRef.current = currentIds;
+  }, [requests, selectedDateString]);
+
   useEffect(() => {
     if (!form.barbero) return;
     const stillAvailable = availableBarberOptions.some((barber) => barber.id === form.barbero);
@@ -737,10 +782,25 @@ export default function CitasPage() {
         <div className="ba-citas-left ba-card">
           <header className="ba-citas-head">
             <h1>Citas</h1>
-            <button type="button" className="ba-mini-gold" onClick={() => setIsCreateOpen((v) => !v)}>
-              <Plus size={12} />
-              {isCreateOpen ? "Ocultar Nueva Cita" : "Crear Nueva Cita"}
-            </button>
+            <div style={{ display: "flex", gap: "8px" }}>
+              <button
+                type="button"
+                className="ba-mini-gold"
+                onClick={async () => {
+                  if (refresh) {
+                    await refresh();
+                  }
+                }}
+                disabled={loading}
+              >
+                <RefreshCcw size={12} className={loading ? "animate-spin" : ""} />
+                {loading ? "Actualizando..." : "Actualizar agenda"}
+              </button>
+              <button type="button" className="ba-mini-gold" onClick={() => setIsCreateOpen((v) => !v)}>
+                <Plus size={12} />
+                {isCreateOpen ? "Ocultar Nueva Cita" : "Crear Nueva Cita"}
+              </button>
+            </div>
           </header>
 
           <section className="ba-citas-live-grid">
@@ -764,6 +824,19 @@ export default function CitasPage() {
               </small>
             </article>
           </section>
+
+          {notice && (
+            <div className="ba-alert ba-alert-info" style={{ marginBottom: "16px", padding: "12px", borderRadius: "8px", backgroundColor: "#1e3a8a", color: "#bfdbfe", display: "flex", alignItems: "center", gap: "8px" }}>
+              <RefreshCcw size={14} className="animate-spin" />
+              <span>{notice}</span>
+            </div>
+          )}
+          {outsideNotice && (
+            <div className="ba-alert ba-alert-warning" style={{ marginBottom: "16px", padding: "12px", borderRadius: "8px", backgroundColor: "#78350f", color: "#fef3c7", display: "flex", alignItems: "center", gap: "8px" }}>
+              <CalendarDays size={14} />
+              <span>Hay nuevas citas en otra fecha en el calendario.</span>
+            </div>
+          )}
 
           <article className="ba-card ba-citas-calendar-inline">
             <header className="ba-card-title">
@@ -976,31 +1049,42 @@ export default function CitasPage() {
                 <span>Acciones</span>
               </div>
 
-              {filteredRequests.map((req) => (
-                <div
-                  className={`ba-citas-row ba-citas-row-selectable ${selected?.id === req.id ? "is-selected" : ""}`}
-                  key={req.id}
-                  onClick={() => handleOpenDetail(req.id)}
-                >
-                  <span className="ba-citas-client">
-                    <span className="ba-citas-initials" aria-hidden="true">{initialsFromName(req.client)}</span>
-                    <span data-label="Cliente">{req.client}</span>
-                  </span>
-                  <span data-label="Servicio">{req.service}</span>
-                  <span data-label="Fecha">{req.date}</span>
-                  <span data-label="Hora">{(req.hour ?? form.hora) || "Sin hora"}</span>
-                  <span data-label="Barbero">{(req.barber ?? selectedBarber?.name) || "Sin barbero"}</span>
-                  <span data-label="Estado">
-                    <em className={`ba-status-chip ${statusClass(req.status)}`}>{req.status}</em>
-                  </span>
-                  <span className="ba-citas-actions" data-label="Acciones">
-                    <button type="button" className="is-gold-action" onClick={(e) => { e.stopPropagation(); handleOpenDetail(req.id); }}><Eye size={11} />Ver</button>
-                    <button type="button" className="is-gold-action" onClick={(e) => { e.stopPropagation(); handleEditRequest(req); }}><Pencil size={11} />Editar</button>
-                    <button type="button" className="is-gold-action" onClick={(e) => { e.stopPropagation(); handleDeleteRequest(req.id); }}><Trash2 size={11} />Borrar</button>
-                    <button type="button" className="is-gold-action"><Send size={11} />Enviar</button>
-                  </span>
+              {filteredRequests.length === 0 ? (
+                <div className="ba-empty-state-message" style={{ padding: "32px 16px", textAlign: "center", color: "#888", width: "100%" }}>
+                  <p style={{ fontWeight: "500", fontSize: "1.1em" }}>No hay citas para esta fecha seleccionada.</p>
+                  {requests.length > 0 && (
+                    <p style={{ fontSize: "0.9em", marginTop: "8px", color: "#ff7a1a" }}>
+                      Tienes citas en otros días. Selecciona otra fecha en el calendario.
+                    </p>
+                  )}
                 </div>
-              ))}
+              ) : (
+                filteredRequests.map((req) => (
+                  <div
+                    className={`ba-citas-row ba-citas-row-selectable ${selected?.id === req.id ? "is-selected" : ""}`}
+                    key={req.id}
+                    onClick={() => handleOpenDetail(req.id)}
+                  >
+                    <span className="ba-citas-client">
+                      <span className="ba-citas-initials" aria-hidden="true">{initialsFromName(req.client)}</span>
+                      <span data-label="Cliente">{req.client}</span>
+                    </span>
+                    <span data-label="Servicio">{req.service}</span>
+                    <span data-label="Fecha">{req.date}</span>
+                    <span data-label="Hora">{(req.hour ?? form.hora) || "Sin hora"}</span>
+                    <span data-label="Barbero">{(req.barber ?? selectedBarber?.name) || "Sin barbero"}</span>
+                    <span data-label="Estado">
+                      <em className={`ba-status-chip ${statusClass(req.status)}`}>{req.status}</em>
+                    </span>
+                    <span className="ba-citas-actions" data-label="Acciones">
+                      <button type="button" className="is-gold-action" onClick={(e) => { e.stopPropagation(); handleOpenDetail(req.id); }}><Eye size={11} />Ver</button>
+                      <button type="button" className="is-gold-action" onClick={(e) => { e.stopPropagation(); handleEditRequest(req); }}><Pencil size={11} />Editar</button>
+                      <button type="button" className="is-gold-action" onClick={(e) => { e.stopPropagation(); handleDeleteRequest(req.id); }}><Trash2 size={11} />Borrar</button>
+                      <button type="button" className="is-gold-action"><Send size={11} />Enviar</button>
+                    </span>
+                  </div>
+                ))
+              )}
             </div>
           </article>
 
