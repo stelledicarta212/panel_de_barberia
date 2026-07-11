@@ -142,13 +142,34 @@ export default function ClientesPage() {
   const [detailOpen, setDetailOpen] = useState(false);
   const [calendarMonth, setCalendarMonth] = useState(() => new Date());
   const [calendarDay, setCalendarDay] = useState<number | null>(new Date().getDate());
+  const [filterMode, setFilterMode] = useState<"day" | "all">("day");
 
   const realClients = useMemo(() => mapRealClients(merged.clients, merged.appointments), [merged.clients, merged.appointments]);
+
+  const daysWithVisits = useMemo(() => {
+    const days = new Set<number>();
+    const month = String(calendarMonth.getMonth() + 1).padStart(2, "0");
+    const year = String(calendarMonth.getFullYear());
+    realClients.forEach((client) => {
+      const match = client.lastVisit.match(/^(\d{2})\/(\d{2})\/(\d{4})/);
+      if (match && match[2] === month && match[3] === year) {
+        days.add(Number(match[1]));
+      }
+    });
+    return days;
+  }, [realClients, calendarMonth]);
   const filtered = useMemo(() => {
+    let list = realClients;
+    if (filterMode === "day" && calendarDay) {
+      const day = String(calendarDay).padStart(2, "0");
+      const month = String(calendarMonth.getMonth() + 1).padStart(2, "0");
+      const year = String(calendarMonth.getFullYear());
+      list = realClients.filter((client) => client.lastVisit.startsWith(`${day}/${month}/${year}`));
+    }
     const q = query.trim().toLowerCase();
-    if (!q) return realClients;
-    return realClients.filter((c) => c.name.toLowerCase().includes(q) || c.email.toLowerCase().includes(q) || c.phone.includes(q));
-  }, [query, realClients]);
+    if (!q) return list;
+    return list.filter((c) => c.name.toLowerCase().includes(q) || c.email.toLowerCase().includes(q) || c.phone.includes(q));
+  }, [query, realClients, filterMode, calendarDay, calendarMonth]);
 
   const selected = realClients.find((c) => c.id === selectedId) ?? null;
   const calendarCells = useMemo(() => buildCalendar(calendarMonth), [calendarMonth]);
@@ -178,15 +199,53 @@ export default function ClientesPage() {
             </button>
           </header>
 
-          <label className="ba-mini-search">
-            <Search size={12} />
-            <input
-              value={query}
-              onChange={(e) => setQuery(e.target.value)}
-              placeholder="Search"
-              aria-label="Buscar clientes"
-            />
-          </label>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: "16px", marginBottom: "16px", flexWrap: "wrap" }}>
+            <label className="ba-mini-search" style={{ flex: 1, marginBottom: 0 }}>
+              <Search size={12} />
+              <input
+                value={query}
+                onChange={(e) => setQuery(e.target.value)}
+                placeholder="Buscar clientes..."
+                aria-label="Buscar clientes"
+              />
+            </label>
+            <div className="ba-filter-tabs" style={{ display: "flex", gap: "8px" }}>
+              <button
+                type="button"
+                style={{
+                  backgroundColor: filterMode === "day" ? "#ff7a1a" : "transparent",
+                  color: filterMode === "day" ? "#000" : "#fff",
+                  border: "1px solid #ff7a1a",
+                  padding: "6px 12px",
+                  borderRadius: "4px",
+                  cursor: "pointer",
+                  fontSize: "0.85em",
+                  fontWeight: "500",
+                  transition: "all 0.2s"
+                }}
+                onClick={() => setFilterMode("day")}
+              >
+                Clientes del día
+              </button>
+              <button
+                type="button"
+                style={{
+                  backgroundColor: filterMode === "all" ? "#ff7a1a" : "transparent",
+                  color: filterMode === "all" ? "#000" : "#fff",
+                  border: "1px solid #ff7a1a",
+                  padding: "6px 12px",
+                  borderRadius: "4px",
+                  cursor: "pointer",
+                  fontSize: "0.85em",
+                  fontWeight: "500",
+                  transition: "all 0.2s"
+                }}
+                onClick={() => setFilterMode("all")}
+              >
+                Todos los clientes
+              </button>
+            </div>
+          </div>
 
           <div className="ba-client-table">
             <div className="ba-client-row ba-client-row-head">
@@ -216,15 +275,16 @@ export default function ClientesPage() {
               </button>
             ))}
             {!filtered.length ? (
-              <div className="ba-client-row">
-                <span className="ba-client-id">
+              <div className="ba-client-row" style={{ gridColumn: "1 / -1", textAlign: "center", padding: "32px 16px" }}>
+                <span className="ba-client-id" style={{ display: "block", margin: "0 auto" }}>
                   <span className="ba-client-initials">CL</span>
-                  <b>Sin clientes reales</b>
-                  <small>Las reservas de la landing apareceran aqui</small>
+                  <b>No hay visitas registradas para este filtro</b>
+                  <small style={{ marginTop: "4px", display: "block" }}>
+                    {filterMode === "day" 
+                      ? "Selecciona otra fecha en el calendario o cambia el filtro a \"Todos los clientes\" para ver la lista completa."
+                      : "Las reservas de la landing aparecerán aquí."}
+                  </small>
                 </span>
-                <span>-</span>
-                <span>-</span>
-                <span><em className="ba-status-chip is-pending">Vacio</em></span>
               </div>
             ) : null}
           </div>
@@ -401,17 +461,21 @@ export default function ClientesPage() {
               {DAYS.map((day) => (
                 <div key={`client-head-${day}`} className="is-head">{day}</div>
               ))}
-              {calendarCells.map((cell) => (
-                <button
-                  key={`client-cell-${cell.key}`}
-                  type="button"
-                  className={`is-cell ${cell.day !== null && calendarDay === cell.day ? "is-active" : ""}`}
-                  onClick={() => cell.day !== null && setCalendarDay(cell.day)}
-                  disabled={cell.day === null}
-                >
-                  {cell.day ?? ""}
-                </button>
-              ))}
+              {calendarCells.map((cell) => {
+                const hasVisit = cell.day !== null && daysWithVisits.has(cell.day);
+                return (
+                  <button
+                    key={`client-cell-${cell.key}`}
+                    type="button"
+                    className={`is-cell ${cell.day !== null && calendarDay === cell.day ? "is-active" : ""} ${hasVisit ? "has-visit" : ""}`}
+                    style={hasVisit && cell.day !== calendarDay ? { borderBottom: "2px solid #ff7a1a" } : undefined}
+                    onClick={() => cell.day !== null && setCalendarDay(cell.day)}
+                    disabled={cell.day === null}
+                  >
+                    {cell.day ?? ""}
+                  </button>
+                );
+              })}
             </div>
           </article>
 
@@ -463,15 +527,21 @@ export default function ClientesPage() {
                   <div key={`client-mobile-head-${day}`} className="is-head">{day}</div>
                 ))}
                 {calendarCells.map((cell) => (
-                  <button
-                    key={`client-mobile-cell-${cell.key}`}
-                    type="button"
-                    className={`is-cell ${cell.day !== null && calendarDay === cell.day ? "is-active" : ""}`}
-                    onClick={() => cell.day !== null && setCalendarDay(cell.day)}
-                    disabled={cell.day === null}
-                  >
-                    {cell.day ?? ""}
-                  </button>
+                  (() => {
+                    const hasVisit = cell.day !== null && daysWithVisits.has(cell.day);
+                    return (
+                      <button
+                        key={`client-mobile-cell-${cell.key}`}
+                        type="button"
+                        className={`is-cell ${cell.day !== null && calendarDay === cell.day ? "is-active" : ""} ${hasVisit ? "has-visit" : ""}`}
+                        style={hasVisit && cell.day !== calendarDay ? { borderBottom: "2px solid #ff7a1a" } : undefined}
+                        onClick={() => cell.day !== null && setCalendarDay(cell.day)}
+                        disabled={cell.day === null}
+                      >
+                        {cell.day ?? ""}
+                      </button>
+                    );
+                  })()
                 ))}
               </div>
             </article>
