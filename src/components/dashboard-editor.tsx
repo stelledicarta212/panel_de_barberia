@@ -208,6 +208,170 @@ export function DashboardEditor() {
     return Math.min(100, Math.round((allTodayReservations.length / totalSlots) * 100));
   }, [merged.barbers, merged.hours, allTodayReservations]);
 
+  // 1. Ingresos del Día blocks
+  const incomeBlocks = useMemo(() => {
+    const blocks = [0, 0, 0, 0, 0, 0];
+    allTodayReservations.forEach(r => {
+      const hourStr = String(r.hour || "").split(":")[0];
+      const hh = Number(hourStr) || 0;
+      const val = Number(r.total ?? 0);
+      if (hh < 10) blocks[0] += val;
+      else if (hh < 12) blocks[1] += val;
+      else if (hh < 14) blocks[2] += val;
+      else if (hh < 16) blocks[3] += val;
+      else if (hh < 18) blocks[4] += val;
+      else blocks[5] += val;
+    });
+    const max = Math.max(...blocks, 1);
+    return blocks.map(v => (v / max) * 100);
+  }, [allTodayReservations]);
+
+  // 2. Citas de Hoy blocks & points
+  const appointmentsBlocks = useMemo(() => {
+    const blocks = [0, 0, 0, 0, 0, 0];
+    allTodayReservations.forEach(r => {
+      const hourStr = String(r.hour || "").split(":")[0];
+      const hh = Number(hourStr) || 0;
+      if (hh < 10) blocks[0]++;
+      else if (hh < 12) blocks[1]++;
+      else if (hh < 14) blocks[2]++;
+      else if (hh < 16) blocks[3]++;
+      else if (hh < 18) blocks[4]++;
+      else blocks[5]++;
+    });
+    return blocks;
+  }, [allTodayReservations]);
+
+  const maxAppointments = useMemo(() => {
+    return Math.max(...appointmentsBlocks, 1);
+  }, [appointmentsBlocks]);
+
+  const points = useMemo(() => {
+    return appointmentsBlocks.map((v, i) => {
+      const x = i * 10 + 2;
+      const y = 16 - (v / maxAppointments) * 12;
+      return `${x},${y}`;
+    }).join(" ");
+  }, [appointmentsBlocks, maxAppointments]);
+
+  // 3. Nuevos Clientes percent (Target = 10)
+  const newClientsPercent = useMemo(() => {
+    const target = 10;
+    return Math.min(100, Math.round((newClientsTodayCount / target) * 100));
+  }, [newClientsTodayCount]);
+
+  const renderKpiChart = (label: string) => {
+    switch (label) {
+      case "Ingresos del Día":
+        return (
+          <div style={{ display: "flex", gap: "3px", alignItems: "flex-end", height: "26px", paddingRight: "4px" }}>
+            {incomeBlocks.map((h, i) => (
+              <div 
+                key={i} 
+                style={{ 
+                  width: "4px", 
+                  height: `${Math.max(15, h)}%`, 
+                  background: h > 0 ? "linear-gradient(180deg, var(--gold) 0%, var(--gold-strong) 100%)" : "rgba(255,255,255,0.06)", 
+                  borderRadius: "1px" 
+                }} 
+              />
+            ))}
+          </div>
+        );
+      case "Citas de Hoy":
+        return (
+          <div style={{ display: "flex", alignItems: "center", height: "26px", paddingRight: "4px" }}>
+            <svg width="60" height="20" style={{ overflow: "visible" }}>
+              <polyline
+                fill="none"
+                stroke="var(--gold)"
+                strokeWidth="1.75"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                points={points}
+              />
+              {appointmentsBlocks.map((v, i) => {
+                const x = i * 10 + 2;
+                const y = 16 - (v / maxAppointments) * 12;
+                return (
+                  <circle 
+                    key={i} 
+                    cx={x} 
+                    cy={y} 
+                    r="2" 
+                    fill="var(--gold)" 
+                    stroke="rgba(20,27,39,0.9)" 
+                    strokeWidth="0.5" 
+                  />
+                );
+              })}
+            </svg>
+          </div>
+        );
+      case "Nuevos Clientes":
+        return (
+          <div style={{ display: "flex", alignItems: "center", height: "26px", paddingRight: "4px" }}>
+            <div style={{ position: "relative", width: "26px", height: "26px" }}>
+              <svg width="26" height="26" style={{ transform: "rotate(-90deg)" }}>
+                <circle
+                  cx="13"
+                  cy="13"
+                  r={9}
+                  fill="transparent"
+                  stroke="rgba(255,255,255,0.06)"
+                  strokeWidth="2.2"
+                />
+                <circle
+                  cx="13"
+                  cy="13"
+                  r={9}
+                  fill="transparent"
+                  stroke="var(--gold)"
+                  strokeWidth="2.2"
+                  strokeDasharray={2 * Math.PI * 9}
+                  strokeDashoffset={2 * Math.PI * 9 - (newClientsPercent / 100) * 2 * Math.PI * 9}
+                  strokeLinecap="round"
+                />
+              </svg>
+              <div style={{ 
+                position: "absolute", 
+                top: 0, left: 0, right: 0, bottom: 0, 
+                display: "flex", alignItems: "center", justifyContent: "center", 
+                fontSize: "7.5px", fontWeight: "800", color: "var(--gold)" 
+              }}>
+                {newClientsPercent}%
+              </div>
+            </div>
+          </div>
+        );
+      case "Tasa de Ocupacion":
+        return (
+          <div style={{ display: "flex", flexDirection: "column", gap: "4px", width: "65px", paddingRight: "2px" }}>
+            <div style={{ 
+              width: "100%", 
+              height: "5px", 
+              background: "rgba(255,255,255,0.06)", 
+              borderRadius: "3px", 
+              overflow: "hidden" 
+            }}>
+              <div style={{ 
+                width: `${occupancyRate}%`, 
+                height: "100%", 
+                background: "linear-gradient(90deg, var(--gold) 0%, var(--gold-strong) 100%)", 
+                borderRadius: "3px" 
+              }} />
+            </div>
+            <div style={{ display: "flex", justifyContent: "space-between", fontSize: "7.5px", color: "var(--muted)", fontWeight: "500" }}>
+              <span>0%</span>
+              <span>100%</span>
+            </div>
+          </div>
+        );
+      default:
+        return null;
+    }
+  };
+
   const topStats = [
     { label: "Ingresos del Día", value: money(dailyIncome), delta: "Hoy", icon: CircleDollarSign },
     { label: "Citas de Hoy", value: String(allTodayReservations.length), delta: "Hoy", icon: CalendarClock },
@@ -246,8 +410,15 @@ export function DashboardEditor() {
               <span>{stat.label}</span>
               <stat.icon size={14} />
             </header>
-            <strong>{stat.value}</strong>
-            <small>{stat.delta}</small>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-end", marginTop: "4px" }}>
+              <div>
+                <strong style={{ fontSize: "28px", margin: 0, lineHeight: 1.1 }}>{stat.value}</strong>
+                <small style={{ fontSize: "11px", color: "var(--ok)", display: "block", marginTop: "2px" }}>{stat.delta}</small>
+              </div>
+              <div style={{ paddingBottom: "2px" }}>
+                {renderKpiChart(stat.label)}
+              </div>
+            </div>
           </article>
         ))}
       </div>
@@ -405,8 +576,15 @@ export function DashboardEditor() {
                 <span>{stat.label}</span>
                 <stat.icon size={14} />
               </header>
-              <strong>{stat.value}</strong>
-              <small>{stat.delta}</small>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-end", marginTop: "4px" }}>
+                <div>
+                  <strong style={{ fontSize: "28px", margin: 0, lineHeight: 1.1 }}>{stat.value}</strong>
+                  <small style={{ fontSize: "11px", color: "var(--ok)", display: "block", marginTop: "2px" }}>{stat.delta}</small>
+                </div>
+                <div style={{ paddingBottom: "2px" }}>
+                  {renderKpiChart(stat.label)}
+                </div>
+              </div>
             </article>
           ))}
 
