@@ -1,16 +1,16 @@
 @import "tailwindcss";
 
 :root {
-  --bg: #07090d;
-  --bg-soft: #0f131a;
-  --panel: rgba(18, 23, 33, 0.82);
-  --panel-stroke: rgba(255, 255, 255, 0.1);
-  --text: #eef2fb;
-  --muted: #9ca6b8;
-  --gold: #dfc483;
-  --gold-strong: #c8a85f;
-  --ok: #6de19e;
-  --danger: #ff7e7e;
+  --bg: #030508;
+  --bg-soft: #070a13;
+  --panel: rgba(10, 15, 30, 0.42);
+  --panel-stroke: rgba(255, 255, 255, 0.06);
+  --text: #f3f6fc;
+  --muted: #94a3b8;
+  --gold: #ff7a1a;
+  --gold-strong: #e65c00;
+  --ok: #10b981;
+  --danger: #ef4444;
 }
 
 :root[data-theme="light"] {
@@ -47,10 +47,30 @@ body {
   color: var(--text);
   font-family: "Poppins", "Segoe UI", Tahoma, sans-serif;
   background:
-    radial-gradient(1200px circle at 20% -10%, rgba(66, 85, 127, 0.42), transparent 48%),
-    radial-gradient(900px circle at 90% 12%, rgba(133, 104, 44, 0.26), transparent 52%),
+    radial-gradient(1000px circle at 15% -10%, rgba(99, 102, 241, 0.18), transparent 50%),
+    radial-gradient(1200px circle at 85% 15%, rgba(139, 92, 246, 0.18), transparent 50%),
+    radial-gradient(800px circle at 50% 60%, rgba(219, 39, 119, 0.06), transparent 50%),
     linear-gradient(180deg, var(--bg-soft), var(--bg));
   overflow-x: hidden;
+  background-attachment: fixed;
+}
+
+/* Cosmic Custom Scrollbar */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.08);
+  border-radius: 9px;
+  border: 1px solid rgba(255, 255, 255, 0.03);
+}
+::-webkit-scrollbar-thumb:hover {
+  background: var(--gold);
+  box-shadow: 0 0 10px var(--gold);
 }
 
 img,
@@ -81,19 +101,20 @@ textarea {
   display: grid;
   grid-template-columns: 300px minmax(0, 1fr);
   border: 1px solid var(--panel-stroke);
-  background: rgba(7, 10, 15, 0.65);
-  backdrop-filter: blur(22px);
+  background: rgba(5, 7, 12, 0.35);
+  backdrop-filter: blur(35px) saturate(140%);
   box-shadow: none;
 }
 
 .ba-sidebar {
   background:
-    linear-gradient(180deg, rgba(255, 255, 255, 0.02), transparent),
-    rgba(5, 8, 13, 0.68);
+    linear-gradient(180deg, rgba(255, 255, 255, 0.03), transparent),
+    rgba(4, 6, 11, 0.4);
+  backdrop-filter: blur(20px);
   border-right: 1px solid var(--panel-stroke);
-  padding: 18px 14px;
+  padding: 24px 18px;
   display: grid;
-  gap: 16px;
+  gap: 20px;
   align-content: start;
 }
 
@@ -152,9 +173,13 @@ textarea {
 }
 
 .ba-nav-item.is-active {
-  color: #131313;
-  background: linear-gradient(180deg, #eedfb8, #c9ad72);
-  box-shadow: 0 0 0 1px rgba(240, 210, 142, 0.65);
+  color: #ffffff;
+  background: linear-gradient(135deg, rgba(255, 122, 26, 0.9), rgba(230, 92, 0, 0.9));
+  box-shadow: 
+    0 4px 20px rgba(255, 122, 26, 0.35),
+    inset 0 1px 0 rgba(255, 255, 255, 0.25);
+  font-weight: 600;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.4);
 }
 
 .ba-sidebar-footer {
@@ -180,13 +205,27 @@ textarea {
 }
 
 .ba-card {
-  border-radius: 14px;
+  border-radius: 18px;
   border: 1px solid var(--panel-stroke);
   background: var(--panel);
-  backdrop-filter: blur(12px);
-  padding: 12px;
+  backdrop-filter: blur(24px) saturate(130%);
+  box-shadow: 
+    0 6px 30px rgba(0, 0, 0, 0.35), 
+    inset 0 1px 1px rgba(255, 255, 255, 0.05);
+  padding: 16px;
   min-width: 0;
   max-width: 100%;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.ba-card[role="button"]:hover,
+.ba-card.is-clickable:hover {
+  transform: translateY(-2px);
+  border-color: rgba(255, 255, 255, 0.14) !important;
+  box-shadow: 
+    0 12px 40px rgba(0, 0, 0, 0.55), 
+    0 0 20px rgba(255, 122, 26, 0.06),
+    inset 0 1px 1px rgba(255, 255, 255, 0.1);
 }
 
 .ba-topbar {
