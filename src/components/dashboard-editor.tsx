@@ -416,7 +416,16 @@ export function DashboardEditor() {
             <div className="ba-field">
               <span>URL pública</span>
               <a className="ba-public-url-link" href={merged.public_landing_url || "#"} target="_blank" rel="noreferrer" aria-disabled={!merged.public_landing_url}>
-                {publicLandingLabel}
+                {merged.logo_url ? (
+                  <img 
+                    src={merged.logo_url} 
+                    alt={merged.biz_name || "Logo"} 
+                    className="ba-publication-logo" 
+                    style={{ maxHeight: "40px", borderRadius: "8px", objectFit: "contain", display: "inline-block" }} 
+                  />
+                ) : (
+                  publicLandingLabel
+                )}
               </a>
             </div>
             <div className="ba-field ba-publication-qr">
