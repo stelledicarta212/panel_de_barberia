@@ -58,6 +58,17 @@ function money2(value: number): string {
   return `$${Math.round(value).toLocaleString()}`;
 }
 
+function openWhatsAppShare(phone: string, message: string): void {
+  if (typeof window === "undefined") return;
+  const encodedMessage = encodeURIComponent(message);
+  const isMobile = /Android|iPhone|iPad|iPod|Mobile/i.test(window.navigator.userAgent);
+  if (isMobile) {
+    window.location.href = `whatsapp://send?phone=${phone}&text=${encodedMessage}`;
+    return;
+  }
+  window.open(`https://web.whatsapp.com/send?phone=${phone}&text=${encodedMessage}`, "_blank", "noopener,noreferrer");
+}
+
 function todayDateKey(): string {
   const now = new Date();
   const yyyy = now.getFullYear();
@@ -1781,9 +1792,7 @@ export default function InventarioPage() {
                     if (cleanPhone.length === 10) {
                       targetPhone = "57" + cleanPhone;
                     }
-                    
-                    const waUrl = `https://wa.me/${targetPhone}?text=${encodeURIComponent(textMessage)}`;
-                    window.open(waUrl, "_blank");
+                    openWhatsAppShare(targetPhone, textMessage);
                   }}
                   disabled={whatsappPhone.length < 10}
                   className={`px-3 py-1.5 font-bold text-xs rounded-lg transition-all active:scale-95 flex items-center justify-center shrink-0 cursor-pointer ${
@@ -1997,9 +2006,7 @@ export default function InventarioPage() {
                     if (cleanPhone.length === 10) {
                       targetPhone = "57" + cleanPhone;
                     }
-                    
-                    const waUrl = `https://wa.me/${targetPhone}?text=${encodeURIComponent(textMessage)}`;
-                    window.open(waUrl, "_blank");
+                    openWhatsAppShare(targetPhone, textMessage);
                   }}
                   disabled={zReportWhatsappPhone.length < 10}
                   className={`px-3 py-1.5 font-bold text-xs rounded-lg transition-all active:scale-95 flex items-center justify-center shrink-0 cursor-pointer ${
