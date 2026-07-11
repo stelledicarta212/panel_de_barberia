@@ -6024,3 +6024,91 @@ body{background:linear-gradient(var(--ba-photo-veil),var(--ba-photo-veil)),url("
   border-color: rgba(255,255,255,.82) !important;
   box-shadow: 4px 5px 12px rgba(0,0,0,.18), -2px -2px 7px rgba(255,255,255,.28), inset 1px 1px 0 rgba(255,255,255,.88) !important;
 }
+
+
+/* Final theme parity and appointments containment */
+@media (min-width: 901px) {
+  .ba-citas-row {
+    grid-template-columns: minmax(130px,1.15fr) minmax(105px,.85fr) minmax(82px,.7fr) minmax(64px,.55fr) minmax(105px,.8fr) minmax(78px,.65fr) minmax(190px,1.45fr);
+  }
+  .ba-citas-actions {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: flex-start;
+    gap: 5px;
+    width: 100%;
+    min-width: 0;
+  }
+  .ba-citas-actions button {
+    flex: 0 1 auto;
+  }
+}
+:root[data-theme="dark"] {
+  --text: #f7f8fa;
+  --muted: rgba(247,248,250,.72);
+  --ba-dark-glass: rgba(13,17,18,.58);
+  --ba-dark-glass-strong: rgba(8,12,13,.7);
+  --ba-dark-stroke: rgba(255,255,255,.22);
+}
+:root[data-theme="dark"] .ba-card,
+:root[data-theme="dark"] .ba-barber-card,
+:root[data-theme="dark"] .ba-barber-v2-card,
+:root[data-theme="dark"] .ba-citas-live-card,
+:root[data-theme="dark"] .ba-citas-table-wrap,
+:root[data-theme="dark"] .ba-citas-row,
+:root[data-theme="dark"] .ba-client-table,
+:root[data-theme="dark"] .ba-client-row,
+:root[data-theme="dark"] .ba-client-card-popup,
+:root[data-theme="dark"] .ba-overlay-card,
+:root[data-theme="dark"] .ba-client-loyalty-card,
+:root[data-theme="dark"] .ba-service-card,
+:root[data-theme="dark"] .ba-service-list-card,
+:root[data-theme="dark"] .ba-loyalty-points-card,
+:root[data-theme="dark"] .ba-loyalty-reward-card,
+:root[data-theme="dark"] .ba-loyalty-feature-card,
+:root[data-theme="dark"] .ba-stamp-card,
+:root[data-theme="dark"] .ba-pos-widget,
+:root[data-theme="dark"] .ba-pos-kpi,
+:root[data-theme="dark"] .ba-pos-summary,
+:root[data-theme="dark"] .ba-pos-table-head,
+:root[data-theme="dark"] .ba-pos-table-row,
+:root[data-theme="dark"] .ba-cita-reserve-calendar {
+  color: #f7f8fa !important;
+  background: linear-gradient(145deg, rgba(255,255,255,.09), transparent 46%), var(--ba-dark-glass) !important;
+  border-color: var(--ba-dark-stroke) !important;
+  box-shadow: 10px 12px 30px rgba(0,0,0,.38), -4px -4px 15px rgba(255,255,255,.06), inset 1px 1px 0 rgba(255,255,255,.16), inset -1px -1px 0 rgba(0,0,0,.28) !important;
+  -webkit-backdrop-filter: blur(24px) saturate(108%);
+  backdrop-filter: blur(24px) saturate(108%);
+}
+:root[data-theme="dark"] .ba-card :is(h1,h2,h3,h4,p,span,small,label,strong,a,th,td),
+:root[data-theme="dark"] .ba-citas-table-wrap :is(h1,h2,h3,h4,p,span,small,label,strong,a,th,td),
+:root[data-theme="dark"] .ba-client-table :is(h1,h2,h3,h4,p,span,small,label,strong,a,th,td),
+:root[data-theme="dark"] .ba-service-card :is(h1,h2,h3,h4,p,span,small,label,strong,a,th,td),
+:root[data-theme="dark"] .ba-pos-widget :is(h1,h2,h3,h4,p,span,small,label,strong,a,th,td) {
+  color: #f7f8fa;
+}
+:root[data-theme="dark"] .ba-icon-btn,
+:root[data-theme="dark"] .ba-btn-ghost,
+:root[data-theme="dark"] .ba-card-menu,
+:root[data-theme="dark"] .ba-citas-tabs button:not(.is-active),
+:root[data-theme="dark"] .ba-citas-table-head button,
+:root[data-theme="dark"] .ba-cita-form .ba-right-header button,
+:root[data-theme="dark"] .ba-cita-summary .ba-right-header button,
+:root[data-theme="dark"] .ba-citas-actions button:not(.is-gold-action):not(.is-danger),
+:root[data-theme="dark"] .ba-service-actions button,
+:root[data-theme="dark"] .ba-services-filter,
+:root[data-theme="dark"] .ba-pos-num-btn:not(.is-clear),
+:root[data-theme="dark"] .ba-modal-header button,
+:root[data-theme="dark"] .ba-topbar-actions button:not(.ba-btn-gold) {
+  color: #f7f8fa !important;
+  background: linear-gradient(145deg, rgba(255,255,255,.1), rgba(255,255,255,.035)), var(--ba-dark-glass-strong) !important;
+  border-color: var(--ba-dark-stroke) !important;
+  box-shadow: 4px 5px 13px rgba(0,0,0,.32), -2px -2px 6px rgba(255,255,255,.055), inset 1px 1px 0 rgba(255,255,255,.14) !important;
+}
+:root[data-theme="dark"] .ba-citas-actions button.is-gold-action,
+:root[data-theme="dark"] .ba-btn-gold,
+:root[data-theme="dark"] .ba-btn-main,
+:root[data-theme="dark"] .ba-card-gold {
+  color: #18130d !important;
+}
