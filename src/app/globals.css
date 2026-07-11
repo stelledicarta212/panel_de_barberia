@@ -6841,3 +6841,74 @@ body{background:linear-gradient(var(--ba-photo-veil),var(--ba-photo-veil)),url("
     flex: 1 1 130px;
   }
 }
+
+
+/* True floating-card behavior for every viewport */
+body:has(.ba-client-overlay-card),
+body:has(.ba-citas-overlay-card),
+body:has(.ba-pos-receipt-modal) {
+  overflow: hidden !important;
+}
+.ba-client-main:has(.ba-client-overlay-card),
+.ba-citas-left:has(.ba-citas-overlay-card),
+.ba-card:has(>.ba-client-overlay-card),
+.ba-card:has(>.ba-citas-overlay-card) {
+  -webkit-backdrop-filter: none !important;
+  backdrop-filter: none !important;
+  transform: none !important;
+  filter: none !important;
+}
+.ba-client-overlay-card,
+.ba-citas-overlay-card {
+  animation: ba-floating-card-in .28s cubic-bezier(.16,1,.3,1) both;
+  border: 1px solid rgba(255,255,255,.24) !important;
+}
+.ba-pos-receipt-slip {
+  animation: ba-floating-receipt-in .34s cubic-bezier(.16,1,.3,1) both;
+}
+@keyframes ba-floating-card-in {
+  from { opacity: 0; transform: translate(-50%,calc(-50% + 24px)) scale(.96); }
+  to { opacity: 1; transform: translate(-50%,-50%) scale(1); }
+}
+@keyframes ba-floating-receipt-in {
+  from { opacity: 0; transform: translateY(24px) scale(.97); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
+@media(max-width:767px) {
+  .ba-client-overlay-backdrop,
+  .ba-citas-overlay-backdrop {
+    background: rgba(3,7,10,.76) !important;
+  }
+  .ba-client-overlay-card,
+  .ba-citas-overlay-card {
+    top: 50% !important;
+    left: 50% !important;
+    bottom: auto !important;
+    transform: translate(-50%,-50%) !important;
+    width: calc(100vw - 24px) !important;
+    max-height: calc(100dvh - 32px - env(safe-area-inset-top) - env(safe-area-inset-bottom)) !important;
+    border-radius: 22px !important;
+    box-shadow: 0 24px 64px rgba(0,0,0,.68),0 0 0 1px rgba(255,255,255,.08) !important;
+  }
+  .ba-client-overlay-card::before,
+  .ba-citas-overlay-card::before {
+    content: "";
+    position: sticky;
+    display: block;
+    top: 7px;
+    z-index: 5;
+    width: 42px;
+    height: 4px;
+    margin: -2px auto 8px;
+    border-radius: 999px;
+    background: rgba(255,255,255,.38);
+  }
+  .ba-client-overlay-card,
+  .ba-citas-overlay-card {
+    animation: ba-floating-mobile-in .3s cubic-bezier(.16,1,.3,1) both;
+  }
+  @keyframes ba-floating-mobile-in {
+    from { opacity: 0; transform: translate(-50%,calc(-50% + 34px)) scale(.97); }
+    to { opacity: 1; transform: translate(-50%,-50%) scale(1); }
+  }
+}
