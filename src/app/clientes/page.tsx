@@ -146,41 +146,51 @@ export default function ClientesPage() {
 
   const realClients = useMemo(() => mapRealClients(merged.clients, merged.appointments), [merged.clients, merged.appointments]);
 
+  const appointmentClientsForSelectedDay = useMemo(() => {
+    if (!calendarDay) return [];
+    const targetDate = `${String(calendarDay).padStart(2, "0")}/${String(calendarMonth.getMonth() + 1).padStart(2, "0")}/${calendarMonth.getFullYear()}`;
+    const byClient = new Map<string, Client>();
+    merged.appointments.forEach((item, index) => {
+      const appointmentDate = formatDbDate(item.fecha ?? item.date);
+      if (appointmentDate !== targetDate) return;
+      const phone = textValue(item.cliente_tel ?? item.telefono ?? item.phone);
+      const name = textValue(item.cliente_nombre ?? item.client ?? item.nombre_cliente) || "Cliente";
+      const existing = realClients.find((client) => (phone && client.phone === phone) || (!phone && client.name.toLowerCase() === name.toLowerCase()));
+      const client: Client = existing ? { ...existing, lastVisit: appointmentDate } : {
+        id: textValue(item.cliente_id) || `cliente-cita-dia-${index + 1}`, name, email: "", phone, lastVisit: appointmentDate,
+        status: "Confirmada", avatar: "", loyaltyPoints: 0,
+        preferredBarber: textValue(item.barbero_nombre ?? item.barber ?? item.nombre_barbero),
+        preferredService: textValue(item.servicio_nombre ?? item.service ?? item.nombre_servicio),
+        stampCurrent: 0, stampRequired: 8, birthdayBenefit: "Sin beneficio configurado", inactiveDays: 0,
+        reactivationBenefit: "Sin automatizacion", offPeakBenefit: "Sin promocion"
+      };
+      byClient.set(phone || name.toLowerCase(), client);
+    });
+    return Array.from(byClient.values());
+  }, [calendarDay, calendarMonth, merged.appointments, realClients]);
+
   const daysWithVisits = useMemo(() => {
     const days = new Set<number>();
     const month = String(calendarMonth.getMonth() + 1).padStart(2, "0");
     const year = String(calendarMonth.getFullYear());
-    realClients.forEach((client) => {
-      const match = client.lastVisit.match(/^(\d{2})\/(\d{2})\/(\d{4})/);
-      if (match && match[2] === month && match[3] === year) {
-        days.add(Number(match[1]));
-      }
+    merged.appointments.forEach((item) => {
+      const match = formatDbDate(item.fecha ?? item.date).match(/^(\d{2})\/(\d{2})\/(\d{4})/);
+      if (match && match[2] === month && match[3] === year) days.add(Number(match[1]));
     });
     return days;
-  }, [realClients, calendarMonth]);
-  const filtered = useMemo(() => {
-    let list = realClients;
-    if (filterMode === "day" && calendarDay) {
-      const day = String(calendarDay).padStart(2, "0");
-      const month = String(calendarMonth.getMonth() + 1).padStart(2, "0");
-      const year = String(calendarMonth.getFullYear());
-      list = realClients.filter((client) => client.lastVisit.startsWith(`${day}/${month}/${year}`));
-    }
-    const q = query.trim().toLowerCase();
-    if (!q) return list;
-    return list.filter((c) => c.name.toLowerCase().includes(q) || c.email.toLowerCase().includes(q) || c.phone.includes(q));
-  }, [query, realClients, filterMode, calendarDay, calendarMonth]);
+  }, [merged.appointments, calendarMonth]);
 
-  const selected = realClients.find((c) => c.id === selectedId) ?? null;
+  const filtered = useMemo(() => {
+    const list = filterMode === "day" ? appointmentClientsForSelectedDay : realClients;
+    const q = query.trim().toLowerCase();
+    return q ? list.filter((client) => client.name.toLowerCase().includes(q) || client.email.toLowerCase().includes(q) || client.phone.includes(q)) : list;
+  }, [query, realClients, appointmentClientsForSelectedDay, filterMode]);
+
+  const selected = realClients.find((client) => client.id === selectedId) ?? appointmentClientsForSelectedDay.find((client) => client.id === selectedId) ?? null;
   const calendarCells = useMemo(() => buildCalendar(calendarMonth), [calendarMonth]);
   const calendarMonthLabel = `${MONTHS[calendarMonth.getMonth()]} ${calendarMonth.getFullYear()}`;
-  const clientsForSelectedDay = useMemo(() => {
-    if (!calendarDay) return [];
-    const day = String(calendarDay).padStart(2, "0");
-    const month = String(calendarMonth.getMonth() + 1).padStart(2, "0");
-    const year = String(calendarMonth.getFullYear());
-    return realClients.filter((client) => client.lastVisit.startsWith(`${day}/${month}/${year}`));
-  }, [calendarDay, calendarMonth, realClients]);
+  const clientsForSelectedDay = appointmentClientsForSelectedDay;
+
   const maxDailySlots = useMemo(() => {
     let startHour = 9;
     let endHour = 21;

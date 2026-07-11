@@ -79,15 +79,6 @@ export function DashboardEditor() {
   const qrPanelValue = merged.qr_url;
   const publicLandingLabel = String(merged.biz_name || merged.biz_slug || "Landing publica").trim();
 
-  const services = useMemo(
-    () => merged.services.slice(0, 5).map((item, i) => ({
-      id: String(item.id ?? `s-${i}`),
-      name: String(item.nombre ?? item.name ?? `Service ${i + 1}`),
-      price: money(item.precio ?? item.price)
-    })),
-    [merged.services]
-  );
-
   const offDaysByBarber = useMemo(() => {
     const map: Record<string, string[]> = {};
     for (const row of merged.descansos) {
@@ -155,14 +146,21 @@ export function DashboardEditor() {
     return allTodayReservations.slice(0, 6);
   }, [allTodayReservations]);
 
+  const services = useMemo(() => {
+    const grouped = new Map<string, { id: string; name: string; total: number }>();
+    allTodayReservations.forEach((item, index) => {
+      const name = textValue(item.service) || "Servicio";
+      const key = name.toLowerCase();
+      const current = grouped.get(key) ?? { id: textValue(item.id) || `servicio-dia-${index + 1}`, name, total: 0 };
+      current.total += Number(item.total ?? 0);
+      grouped.set(key, current);
+    });
+    return Array.from(grouped.values()).slice(0, 5).map((item) => ({ ...item, price: money(item.total) }));
+  }, [allTodayReservations]);
+
   const dailyIncome = useMemo(() => {
     return allTodayReservations.reduce((acc, item) => acc + Number((item as Record<string, unknown>).total ?? 0), 0);
   }, [allTodayReservations]);
-
-  const monthlyIncome = useMemo(
-    () => reservations.reduce((acc, item) => acc + Number((item as Record<string, unknown>).total ?? 0), 0),
-    [reservations]
-  );
 
   const newClientsTodayCount = useMemo(() => {
     const now = new Date();
@@ -217,24 +215,15 @@ export function DashboardEditor() {
     { label: "Tasa de Ocupacion", value: `${occupancyRate}%`, delta: "Hoy", icon: LayoutDashboard }
   ];
   const clients = useMemo(() => {
-    const fromClients = merged.clients.map((item, index) => ({
-      id: textValue(item.id) || `cliente-${index + 1}`,
-      name: textValue(item.nombre ?? item.nombre_completo ?? item.name) || "Cliente",
-      phone: textValue(item.telefono ?? item.phone)
-    }));
-    if (fromClients.length) return fromClients.slice(0, 5);
-    const byName = new Map<string, { id: string; name: string; phone: string }>();
-    reservations.forEach((item, index) => {
-      const name = textValue(item.client);
-      if (!name || byName.has(name.toLowerCase())) return;
-      byName.set(name.toLowerCase(), {
-        id: textValue(item.id) || `cliente-cita-${index + 1}`,
-        name,
-        phone: textValue(item.phone)
-      });
+    const byClient = new Map<string, { id: string; name: string; phone: string }>();
+    allTodayReservations.forEach((item, index) => {
+      const name = textValue(item.client) || "Cliente";
+      const phone = textValue(item.phone);
+      const key = phone || name.toLowerCase();
+      if (!byClient.has(key)) byClient.set(key, { id: textValue(item.id) || `cliente-dia-${index + 1}`, name, phone });
     });
-    return Array.from(byName.values()).slice(0, 5);
-  }, [merged.clients, reservations]);
+    return Array.from(byClient.values()).slice(0, 5);
+  }, [allTodayReservations]);
 
   const handleCopyPublicUrl = async () => {
     const url = String(merged.public_landing_url || "").trim();
@@ -400,9 +389,9 @@ export function DashboardEditor() {
         >
           <div className="ba-card-title"><h2>Finanzas</h2><CircleDollarSign size={14} /></div>
           <ul className="ba-list">
-            <li><span>Ingresos</span><small>{money(monthlyIncome)}</small></li>
-            <li><span>Citas registradas</span><small>{reservations.length}</small></li>
-            <li><span>Neto</span><small>{money(monthlyIncome)}</small></li>
+            <li><span>Ingresos del dia</span><small>{money(dailyIncome)}</small></li>
+            <li><span>Citas del dia</span><small>{allTodayReservations.length}</small></li>
+            <li><span>Neto del dia</span><small>{money(dailyIncome)}</small></li>
           </ul>
         </article>
       </div>
