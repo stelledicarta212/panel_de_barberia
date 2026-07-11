@@ -415,13 +415,20 @@ export function DashboardEditor() {
           <div className="ba-form-grid ba-publication-form">
             <div className="ba-field">
               <span>URL pública</span>
-              <a className="ba-public-url-link" href={merged.public_landing_url || "#"} target="_blank" rel="noreferrer" aria-disabled={!merged.public_landing_url}>
+              <a 
+                className="ba-public-url-link" 
+                href={merged.public_landing_url || "#"} 
+                target="_blank" 
+                rel="noreferrer" 
+                aria-disabled={!merged.public_landing_url}
+                style={merged.logo_url ? { padding: 0, overflow: "hidden", height: "120px", display: "block" } : undefined}
+              >
                 {merged.logo_url ? (
                   <img 
                     src={merged.logo_url} 
                     alt={merged.biz_name || "Logo"} 
                     className="ba-publication-logo" 
-                    style={{ maxHeight: "40px", borderRadius: "8px", objectFit: "contain", display: "inline-block" }} 
+                    style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }} 
                   />
                 ) : (
                   publicLandingLabel
