@@ -194,6 +194,11 @@
   color: rgba(247, 244, 236, 0.42) !important;
 }
 
+:root[data-theme="classic-dark"] select option {
+  background: #0d1014 !important;
+  color: #f7f4ec !important;
+}
+
 /* Modern fire/orange and solid secondary buttons */
 :root[data-theme="classic-dark"] .ba-card-gold,
 :root[data-theme="classic-dark"] .ba-primary-btn,
