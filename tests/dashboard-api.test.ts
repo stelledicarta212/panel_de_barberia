@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import { describe, expect, it } from "vitest";
 import { normalizeMergedFromState } from "../src/lib/dashboard-api";
 

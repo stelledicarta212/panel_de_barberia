@@ -596,15 +596,14 @@ export default function CitasPage() {
     return map;
   }, [barberOptions, barberOffDays, boardDateStr]);
 
-  const dayRequests = useMemo(
-    () =>
-      requests
-        .filter((req) => req.date === boardDateString)
-        .sort(
-        (a, b) => hourToMinutes(a.hour ?? form.hora) - hourToMinutes(b.hour ?? form.hora)
-      ),
-    [requests, boardDateString, form.hora]
-  );
+  /* eslint-disable react-hooks/preserve-manual-memoization */
+  const dayRequests = useMemo(() => {
+    const filtered = requests.filter((req) => req.date === boardDateString);
+    return [...filtered].sort(
+      (a, b) => hourToMinutes(a.hour ?? form.hora) - hourToMinutes(b.hour ?? form.hora)
+    );
+  }, [requests, boardDateString, form.hora]);
+  /* eslint-enable react-hooks/preserve-manual-memoization */
   const visibleDayRequests = useMemo(() => {
     if (agendaBarberFilter === "global") return dayRequests;
     return dayRequests.filter((req) => (req.barber ?? "").trim() === agendaBarberFilter);
