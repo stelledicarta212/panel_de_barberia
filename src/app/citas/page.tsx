@@ -1034,62 +1034,6 @@ export default function CitasPage() {
             </div>
           </article>
 
-          <article className="ba-citas-table-wrap">
-            <header className="ba-citas-table-head">
-              <h3>Solicitudes de Cita</h3>
-              <button type="button" aria-label="Opciones"><MoreHorizontal size={12} /></button>
-            </header>
-
-            <div className="ba-citas-table">
-              <div className="ba-citas-row ba-citas-row-head">
-                <span>Cliente</span>
-                <span>Servicio</span>
-                <span>Fecha</span>
-                <span>Hora</span>
-                <span>Barbero</span>
-                <span>Estado</span>
-                <span>Acciones</span>
-              </div>
-
-              {filteredRequests.length === 0 ? (
-                <div className="ba-empty-state-message" style={{ padding: "32px 16px", textAlign: "center", color: "#888", width: "100%" }}>
-                  <p style={{ fontWeight: "500", fontSize: "1.1em" }}>No hay citas para esta fecha seleccionada.</p>
-                  {requests.length > 0 && (
-                    <p style={{ fontSize: "0.9em", marginTop: "8px", color: "#ff7a1a" }}>
-                      Tienes citas en otros días. Selecciona otra fecha en el calendario.
-                    </p>
-                  )}
-                </div>
-              ) : (
-                filteredRequests.map((req) => (
-                  <div
-                    className={`ba-citas-row ba-citas-row-selectable ${selected?.id === req.id ? "is-selected" : ""}`}
-                    key={req.id}
-                    onClick={() => handleOpenDetail(req.id)}
-                  >
-                    <span className="ba-citas-client">
-                      <span className="ba-citas-initials" aria-hidden="true">{initialsFromName(req.client)}</span>
-                      <span data-label="Cliente">{req.client}</span>
-                    </span>
-                    <span data-label="Servicio">{req.service}</span>
-                    <span data-label="Fecha">{req.date}</span>
-                    <span data-label="Hora">{(req.hour ?? form.hora) || "Sin hora"}</span>
-                    <span data-label="Barbero">{(req.barber ?? selectedBarber?.name) || "Sin barbero"}</span>
-                    <span data-label="Estado">
-                      <em className={`ba-status-chip ${statusClass(req.status)}`}>{req.status}</em>
-                    </span>
-                    <span className="ba-citas-actions" data-label="Acciones">
-                      <button type="button" className="is-gold-action" onClick={(e) => { e.stopPropagation(); handleOpenDetail(req.id); }}><Eye size={11} />Ver</button>
-                      <button type="button" className="is-gold-action" onClick={(e) => { e.stopPropagation(); handleEditRequest(req); }}><Pencil size={11} />Editar</button>
-                      <button type="button" className="is-gold-action" onClick={(e) => { e.stopPropagation(); handleDeleteRequest(req.id); }}><Trash2 size={11} />Borrar</button>
-                      <button type="button" className="is-gold-action"><Send size={11} />Enviar</button>
-                    </span>
-                  </div>
-                ))
-              )}
-            </div>
-          </article>
-
           {selected && detailOpen ? (
             <>
             <button
@@ -1404,6 +1348,62 @@ export default function CitasPage() {
             </div>
           </article>
         </aside>
+
+          <article className="ba-citas-table-wrap">
+            <header className="ba-citas-table-head">
+              <h3>Solicitudes de Cita</h3>
+              <button type="button" aria-label="Opciones"><MoreHorizontal size={12} /></button>
+            </header>
+
+            <div className="ba-citas-table">
+              <div className="ba-citas-row ba-citas-row-head">
+                <span>Cliente</span>
+                <span>Servicio</span>
+                <span>Fecha</span>
+                <span>Hora</span>
+                <span>Barbero</span>
+                <span>Estado</span>
+                <span>Acciones</span>
+              </div>
+
+              {filteredRequests.length === 0 ? (
+                <div className="ba-empty-state-message" style={{ padding: "32px 16px", textAlign: "center", color: "#888", width: "100%" }}>
+                  <p style={{ fontWeight: "500", fontSize: "1.1em" }}>No hay citas para esta fecha seleccionada.</p>
+                  {requests.length > 0 && (
+                    <p style={{ fontSize: "0.9em", marginTop: "8px", color: "#ff7a1a" }}>
+                      Tienes citas en otros días. Selecciona otra fecha en el calendario.
+                    </p>
+                  )}
+                </div>
+              ) : (
+                filteredRequests.map((req) => (
+                  <div
+                    className={`ba-citas-row ba-citas-row-selectable ${selected?.id === req.id ? "is-selected" : ""}`}
+                    key={req.id}
+                    onClick={() => handleOpenDetail(req.id)}
+                  >
+                    <span className="ba-citas-client">
+                      <span className="ba-citas-initials" aria-hidden="true">{initialsFromName(req.client)}</span>
+                      <span data-label="Cliente">{req.client}</span>
+                    </span>
+                    <span data-label="Servicio">{req.service}</span>
+                    <span data-label="Fecha">{req.date}</span>
+                    <span data-label="Hora">{(req.hour ?? form.hora) || "Sin hora"}</span>
+                    <span data-label="Barbero">{(req.barber ?? selectedBarber?.name) || "Sin barbero"}</span>
+                    <span data-label="Estado">
+                      <em className={`ba-status-chip ${statusClass(req.status)}`}>{req.status}</em>
+                    </span>
+                    <span className="ba-citas-actions" data-label="Acciones">
+                      <button type="button" className="is-gold-action" onClick={(e) => { e.stopPropagation(); handleOpenDetail(req.id); }}><Eye size={11} />Ver</button>
+                      <button type="button" className="is-gold-action" onClick={(e) => { e.stopPropagation(); handleEditRequest(req); }}><Pencil size={11} />Editar</button>
+                      <button type="button" className="is-gold-action" onClick={(e) => { e.stopPropagation(); handleDeleteRequest(req.id); }}><Trash2 size={11} />Borrar</button>
+                      <button type="button" className="is-gold-action"><Send size={11} />Enviar</button>
+                    </span>
+                  </div>
+                ))
+              )}
+            </div>
+          </article>
       </section>
     </DashboardShell>
   );

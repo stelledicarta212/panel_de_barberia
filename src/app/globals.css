@@ -6171,3 +6171,10 @@ body{background:linear-gradient(var(--ba-photo-veil),var(--ba-photo-veil)),url("
     flex: 0 0 auto;
   }
 }
+
+
+/* Preserve upper two-column dashboard; only appointments console spans full width below */
+@media (min-width: 901px) {
+  .ba-citas-layout { grid-template-columns: minmax(0, 1.7fr) minmax(280px, .7fr); }
+  .ba-citas-table-wrap { grid-column: 1 / -1; width: 100%; min-height: 250px; }
+}
