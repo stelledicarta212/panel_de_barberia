@@ -132,7 +132,7 @@ export function DashboardEditor() {
     });
   }, [merged.barbers, offDaysByBarber, reservations]);
 
-  const todayReservations = useMemo(() => {
+  const allTodayReservations = useMemo(() => {
     const now = new Date();
     const todayDay = now.getDate();
     const todayMonth = now.getMonth();
@@ -148,22 +148,72 @@ export function DashboardEditor() {
     };
     return reservations
       .filter((r) => String(r.date || "").trim() === todayDateString)
-      .sort((a, b) => toMinutes(a.hour) - toMinutes(b.hour))
-      .slice(0, 6);
+      .sort((a, b) => toMinutes(a.hour) - toMinutes(b.hour));
   }, [reservations]);
+
+  const todayReservations = useMemo(() => {
+    return allTodayReservations.slice(0, 6);
+  }, [allTodayReservations]);
+
+  const dailyIncome = useMemo(() => {
+    return allTodayReservations.reduce((acc, item) => acc + Number((item as Record<string, unknown>).total ?? 0), 0);
+  }, [allTodayReservations]);
 
   const monthlyIncome = useMemo(
     () => reservations.reduce((acc, item) => acc + Number((item as Record<string, unknown>).total ?? 0), 0),
     [reservations]
   );
+
+  const newClientsTodayCount = useMemo(() => {
+    const now = new Date();
+    const yyyy = now.getFullYear();
+    const mm = String(now.getMonth() + 1).padStart(2, "0");
+    const dd = String(now.getDate()).padStart(2, "0");
+    const todayPrefix = `${yyyy}-${mm}-${dd}`;
+    return merged.clients.filter((c) => {
+      const createdAt = String((c as Record<string, unknown>).created_at || "");
+      return createdAt.startsWith(todayPrefix);
+    }).length;
+  }, [merged.clients]);
+
   const occupancyRate = useMemo(() => {
-    const slots = Math.max(1, merged.barbers.length * 22);
-    return Math.min(100, Math.round((todayReservations.length / slots) * 100));
-  }, [merged.barbers.length, todayReservations.length]);
+    const now = new Date();
+    const dayOfWeekIndex = (now.getDay() + 6) % 7; // 0 = Lunes, 6 = Domingo
+    const DAY_NAMES = ["lunes", "martes", "miercoles", "jueves", "viernes", "sabado", "domingo"];
+    const dayName = DAY_NAMES[dayOfWeekIndex];
+
+    let startHour = 9;
+    let endHour = 21;
+
+    if (merged.hours && merged.hours.length > 0) {
+      const config = merged.hours.find((h: Record<string, unknown>) => {
+        const diaVal = String(h.dia || h.day || "").toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim();
+        return diaVal === dayName || diaVal.startsWith(dayName.slice(0, 3));
+      });
+      if (config && config.activo !== false) {
+        const apStr = String(config.hora_apertura || config.opening_time || "09:00");
+        const ciStr = String(config.hora_cierre || config.closing_time || "21:00");
+        
+        const apMatch = apStr.match(/^(\d{1,2})/);
+        const ciMatch = ciStr.match(/^(\d{1,2})/);
+        
+        if (apMatch) startHour = Math.max(0, Math.min(23, Number(apMatch[1])));
+        if (ciMatch) endHour = Math.max(0, Math.min(23, Number(ciMatch[1])));
+      }
+    }
+
+    const totalHours = Math.max(1, endHour - startHour);
+    const slotsPerBarber = totalHours * 2; // 30-minute slots
+    const totalBarbers = Math.max(1, merged.barbers.length);
+    const totalSlots = slotsPerBarber * totalBarbers;
+
+    return Math.min(100, Math.round((allTodayReservations.length / totalSlots) * 100));
+  }, [merged.barbers, merged.hours, allTodayReservations]);
+
   const topStats = [
-    { label: "Ingresos Mensuales", value: money(monthlyIncome), delta: "Real", icon: CircleDollarSign },
-    { label: "Citas de Hoy", value: String(todayReservations.length), delta: "Hoy", icon: CalendarClock },
-    { label: "Nuevos Clientes", value: String(merged.clients.length), delta: "Real", icon: Users },
+    { label: "Ingresos del Día", value: money(dailyIncome), delta: "Hoy", icon: CircleDollarSign },
+    { label: "Citas de Hoy", value: String(allTodayReservations.length), delta: "Hoy", icon: CalendarClock },
+    { label: "Nuevos Clientes", value: String(newClientsTodayCount), delta: "Hoy", icon: Users },
     { label: "Tasa de Ocupacion", value: `${occupancyRate}%`, delta: "Hoy", icon: LayoutDashboard }
   ];
   const clients = useMemo(() => {

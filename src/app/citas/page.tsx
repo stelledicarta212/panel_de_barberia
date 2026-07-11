@@ -701,10 +701,12 @@ export default function CitasPage() {
   }, [requests, currentMonth]);
   const occupancyRate = useMemo(() => {
     const reserved = visibleDayRequests.length;
-    const totalSlots = selectedAgendaBarberIsUnavailable ? 0 : agendaHours.length;
+    const slotsPerBarber = selectedAgendaBarberIsUnavailable ? 0 : agendaHours.length;
+    const totalBarbers = agendaBarberFilter === "global" ? Math.max(1, barberOptions.length) : 1;
+    const totalSlots = slotsPerBarber * totalBarbers;
     if (!totalSlots) return 0;
     return Math.min(100, Math.round((reserved / totalSlots) * 100));
-  }, [visibleDayRequests, agendaHours, selectedAgendaBarberIsUnavailable]);
+  }, [visibleDayRequests, agendaHours, selectedAgendaBarberIsUnavailable, agendaBarberFilter, barberOptions.length]);
 
   useEffect(() => {
     const timer = window.setInterval(() => {

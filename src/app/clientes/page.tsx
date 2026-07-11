@@ -181,11 +181,41 @@ export default function ClientesPage() {
     const year = String(calendarMonth.getFullYear());
     return realClients.filter((client) => client.lastVisit.startsWith(`${day}/${month}/${year}`));
   }, [calendarDay, calendarMonth, realClients]);
+  const maxDailySlots = useMemo(() => {
+    let startHour = 9;
+    let endHour = 21;
+    if (calendarDay && merged.hours && merged.hours.length > 0) {
+      const selectedDate = new Date(calendarMonth.getFullYear(), calendarMonth.getMonth(), calendarDay);
+      const dayOfWeekIndex = (selectedDate.getDay() + 6) % 7; // 0 = Lunes, 6 = Domingo
+      const DAY_NAMES = ["lunes", "martes", "miercoles", "jueves", "viernes", "sabado", "domingo"];
+      const dayName = DAY_NAMES[dayOfWeekIndex];
+      
+      const config = merged.hours.find((h: Record<string, unknown>) => {
+        const diaVal = String(h.dia || h.day || "").toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim();
+        return diaVal === dayName || diaVal.startsWith(dayName.slice(0, 3));
+      });
+      
+      if (config && config.activo !== false) {
+        const apStr = String(config.hora_apertura || config.opening_time || "09:00");
+        const ciStr = String(config.hora_cierre || config.closing_time || "21:00");
+        
+        const apMatch = apStr.match(/^(\d{1,2})/);
+        const ciMatch = ciStr.match(/^(\d{1,2})/);
+        
+        if (apMatch) startHour = Math.max(0, Math.min(23, Number(apMatch[1])));
+        if (ciMatch) endHour = Math.max(0, Math.min(23, Number(ciMatch[1])));
+      }
+    }
+    const totalHours = Math.max(1, endHour - startHour);
+    const slotsPerBarber = totalHours * 2; // 30-minute slots
+    const totalBarbers = Math.max(1, merged.barbers.length);
+    return slotsPerBarber * totalBarbers;
+  }, [calendarDay, calendarMonth, merged.hours, merged.barbers]);
+
   const occupancyRate = useMemo(() => {
-    const maxDailySlots = 12;
     const usedSlots = clientsForSelectedDay.length;
     return Math.min(100, Math.round((usedSlots / maxDailySlots) * 100));
-  }, [clientsForSelectedDay]);
+  }, [clientsForSelectedDay, maxDailySlots]);
 
   return (
     <DashboardShell>
@@ -489,7 +519,7 @@ export default function ClientesPage() {
               <span style={{ width: `${occupancyRate}%` }} />
             </div>
             <p className="ba-loyal-note">
-              {clientsForSelectedDay.length} clientes del dia / 12 cupos
+              {clientsForSelectedDay.length} clientes del dia / {maxDailySlots} cupos
             </p>
           </article>
 
@@ -556,7 +586,7 @@ export default function ClientesPage() {
                 <span style={{ width: `${occupancyRate}%` }} />
               </div>
               <p className="ba-loyal-note">
-                {clientsForSelectedDay.length} clientes del dia / 12 cupos
+                {clientsForSelectedDay.length} clientes del dia / {maxDailySlots} cupos
               </p>
             </article>
           </div>

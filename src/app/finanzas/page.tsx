@@ -84,9 +84,38 @@ export default function ProgramaLealtadPage() {
   const cashNet = salesDay;
 
   const occupancyRate = useMemo(() => {
-    const slots = Math.max(1, merged.barbers.length * 22);
-    return Math.min(100, Math.round((todayMovements.length / slots) * 100));
-  }, [merged.barbers.length, todayMovements.length]);
+    const now = new Date();
+    const dayOfWeekIndex = (now.getDay() + 6) % 7; // 0 = Lunes, 6 = Domingo
+    const DAY_NAMES = ["lunes", "martes", "miercoles", "jueves", "viernes", "sabado", "domingo"];
+    const dayName = DAY_NAMES[dayOfWeekIndex];
+
+    let startHour = 9;
+    let endHour = 21;
+
+    if (merged.hours && merged.hours.length > 0) {
+      const config = merged.hours.find((h: Record<string, unknown>) => {
+        const diaVal = String(h.dia || h.day || "").toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim();
+        return diaVal === dayName || diaVal.startsWith(dayName.slice(0, 3));
+      });
+      if (config && config.activo !== false) {
+        const apStr = String(config.hora_apertura || config.opening_time || "09:00");
+        const ciStr = String(config.hora_cierre || config.closing_time || "21:00");
+        
+        const apMatch = apStr.match(/^(\d{1,2})/);
+        const ciMatch = ciStr.match(/^(\d{1,2})/);
+        
+        if (apMatch) startHour = Math.max(0, Math.min(23, Number(apMatch[1])));
+        if (ciMatch) endHour = Math.max(0, Math.min(23, Number(ciMatch[1])));
+      }
+    }
+
+    const totalHours = Math.max(1, endHour - startHour);
+    const slotsPerBarber = totalHours * 2; // 30-minute slots
+    const totalBarbers = Math.max(1, merged.barbers.length);
+    const totalSlots = slotsPerBarber * totalBarbers;
+
+    return Math.min(100, Math.round((todayMovements.length / totalSlots) * 100));
+  }, [merged.barbers.length, merged.hours, todayMovements.length]);
 
   const [config, setConfig] = useState({
     planLabel: "Plan PRO",
