@@ -419,10 +419,14 @@ export default function InventarioPage() {
 
   const barbers = useMemo(
     () =>
-      merged.barbers.map((item, index) => ({
-        id: text(item.id) || `barber-${index + 1}`,
-        name: text(item.nombre ?? item.name) || `Barbero ${index + 1}`
-      })),
+      merged.barbers
+        .filter((item) => item.activo !== false && item.active !== false)
+        .map((item, index) => ({
+          id: text(item.id ?? item.barbero_id ?? item.id_barbero) || `barber-${index + 1}`,
+          name: text(item.nombre ?? item.name ?? item.barbero_nombre) || `Barbero ${index + 1}`,
+          image: text(item.foto_url ?? item.foto ?? item.photo_url ?? item.photo ?? item.avatar_url ?? item.image_url ?? item.imagen_url),
+          specialty: text(item.especialidad ?? item.speciality ?? item.rol ?? item.role) || "Profesional"
+        })),
     [merged.barbers]
   );
 
@@ -1118,6 +1122,40 @@ export default function InventarioPage() {
                 </div>
               ) : null}
             </div>
+
+            {/* Catalogo visual de barberos de la barberia activa */}
+            <section className="ba-pos-barber-catalog" aria-label="Seleccionar barbero">
+              <header>
+                <div>
+                  <h3><User size={15} /> Barberos</h3>
+                  <p>Selecciona al profesional que realizo el servicio</p>
+                </div>
+                <span>{barbers.length} disponibles</span>
+              </header>
+              <div className="ba-pos-barber-grid">
+                {barbers.map((barber) => {
+                  const isSelected = posBarber.trim().toLowerCase() === barber.name.trim().toLowerCase();
+                  return (
+                    <button
+                      key={barber.id}
+                      type="button"
+                      className={`ba-pos-barber-card ${isSelected ? "is-selected" : ""}`}
+                      onClick={() => setPosBarber(barber.name)}
+                      aria-pressed={isSelected}
+                    >
+                      <span className="ba-pos-barber-photo">
+                        {barber.image ? <img src={barber.image} alt={barber.name} loading="lazy" /> : <b>{initialsFrom(barber.name)}</b>}
+                      </span>
+                      <span className="ba-pos-barber-info">
+                        <strong>{barber.name}</strong>
+                        <small>{barber.specialty}</small>
+                      </span>
+                      {isSelected ? <i><Sparkles size={11} /> Seleccionado</i> : <i>Seleccionar</i>}
+                    </button>
+                  );
+                })}
+              </div>
+            </section>
           </article>
 
           {/* Checkout Column (Right) */}

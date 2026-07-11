@@ -6912,3 +6912,26 @@ body:has(.ba-pos-receipt-modal) {
     to { opacity: 1; transform: translate(-50%,-50%) scale(1); }
   }
 }
+
+
+/* Dynamic barber catalog in POS */
+.ba-pos-barber-catalog{display:grid;gap:10px;margin-top:4px;padding-top:14px;border-top:1px solid var(--panel-stroke)}
+.ba-pos-barber-catalog>header{display:flex;align-items:center;justify-content:space-between;gap:12px}
+.ba-pos-barber-catalog>header h3{margin:0;display:flex;align-items:center;gap:7px;font-size:13px;color:var(--text)}
+.ba-pos-barber-catalog>header h3 svg{color:#f59e0b}
+.ba-pos-barber-catalog>header p{margin:3px 0 0;font-size:9px;color:var(--muted)}
+.ba-pos-barber-catalog>header>span{padding:4px 8px;border:1px solid rgba(245,158,11,.32);border-radius:999px;color:#f59e0b;background:rgba(245,158,11,.08);font-size:8px;font-weight:800;text-transform:uppercase}
+.ba-pos-barber-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px}
+.ba-pos-barber-card{all:unset;box-sizing:border-box;cursor:pointer;position:relative;display:grid;grid-template-columns:48px minmax(0,1fr);align-items:center;gap:9px;padding:9px;border:1px solid var(--panel-stroke);border-radius:14px;background:linear-gradient(145deg,rgba(255,255,255,.08),rgba(255,255,255,.025));transition:transform .22s ease,border-color .22s ease,box-shadow .22s ease}
+.ba-pos-barber-card:hover{transform:translateY(-2px);border-color:rgba(245,158,11,.5);box-shadow:0 10px 22px rgba(0,0,0,.22)}
+.ba-pos-barber-card.is-selected{border-color:#f59e0b;background:linear-gradient(145deg,rgba(249,115,22,.24),rgba(245,158,11,.08));box-shadow:0 10px 24px rgba(234,88,12,.2),inset 0 0 0 1px rgba(255,190,70,.18)}
+.ba-pos-barber-photo{width:48px;height:48px;border-radius:12px;overflow:hidden;display:grid;place-items:center;background:linear-gradient(145deg,#f6d986,#c98e25);color:#211506;border:1px solid rgba(255,216,126,.62)}
+.ba-pos-barber-photo img{width:100%;height:100%;object-fit:cover}
+.ba-pos-barber-photo b{font-size:13px}
+.ba-pos-barber-info{display:grid;gap:3px;min-width:0}
+.ba-pos-barber-info strong{font-size:10px;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.ba-pos-barber-info small{font-size:8px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.ba-pos-barber-card>i{grid-column:1/-1;display:flex;align-items:center;justify-content:center;gap:4px;padding-top:6px;border-top:1px solid var(--panel-stroke);font-style:normal;font-size:8px;color:var(--muted);text-transform:uppercase;font-weight:800}
+.ba-pos-barber-card.is-selected>i{color:#fbbf24}
+@media(max-width:760px){.ba-pos-barber-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media(max-width:420px){.ba-pos-barber-grid{grid-template-columns:1fr}.ba-pos-barber-card{grid-template-columns:44px minmax(0,1fr)}.ba-pos-barber-photo{width:44px;height:44px}}
