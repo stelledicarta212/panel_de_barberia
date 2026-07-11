@@ -6222,3 +6222,15 @@ body{background:linear-gradient(var(--ba-photo-veil),var(--ba-photo-veil)),url("
 .ba-pos-station .grid.grid-cols-3 > div :is(span,strong){color:#fff!important;text-shadow:0 1px 2px rgba(0,0,0,.3)}
 .ba-pos-layout button:disabled{color:rgba(23,16,6,.76)!important;background:linear-gradient(145deg,rgba(255,190,69,.72),rgba(232,91,14,.62))!important;border-color:rgba(255,190,76,.58)!important;box-shadow:inset 0 1px 0 rgba(255,245,207,.42)!important;opacity:.76!important}
 .ba-pos-load-confirmation{display:flex;align-items:center;gap:8px;margin:0;padding:10px 12px;border:1px solid rgba(74,222,128,.72);border-radius:12px;color:#052e16!important;background:linear-gradient(145deg,rgba(134,239,172,.95),rgba(34,197,94,.82));box-shadow:0 8px 20px rgba(22,163,74,.24),inset 0 1px 0 rgba(255,255,255,.65);font-size:12px;font-weight:800}
+
+
+/* POS checkout station: explicit high-contrast action colors */
+.ba-pos-qty-minus{color:#fff!important;background:linear-gradient(145deg,#3b82f6,#1d4ed8)!important;border-color:#60a5fa!important;box-shadow:0 4px 10px rgba(37,99,235,.35)!important}
+.ba-pos-qty-plus{color:#fff!important;background:linear-gradient(145deg,#22c55e,#15803d)!important;border-color:#4ade80!important;box-shadow:0 4px 10px rgba(22,163,74,.35)!important}
+.ba-pos-item-delete,.ba-pos-clear{color:#fff!important;background:linear-gradient(145deg,#ef4444,#b91c1c)!important;border-color:#f87171!important;box-shadow:0 5px 12px rgba(220,38,38,.34)!important}
+.ba-pos-quick-bill{color:#211305!important;background:linear-gradient(145deg,#ffd166,#f59e0b 55%,#ea580c)!important;border-color:#fde68a!important;box-shadow:0 6px 14px rgba(234,88,12,.3),inset 0 1px 0 rgba(255,255,255,.62)!important}
+.ba-pos-calculator-action{color:#fff!important;background:linear-gradient(145deg,#8b5cf6,#6d28d9)!important;border-color:#a78bfa!important;box-shadow:0 7px 17px rgba(109,40,217,.34)!important}
+.ba-pos-calculator-action svg{color:#fff!important}
+.ba-pos-station .mt-4.pt-4 .flex.gap-3>button:last-child{color:#1c1004!important;background:linear-gradient(145deg,#ffbd45,#ff861c 52%,#e9510d)!important;border:1px solid #ffd166!important;box-shadow:0 8px 20px rgba(226,78,8,.38),inset 0 1px 0 rgba(255,255,255,.68)!important}
+.ba-pos-station .mt-4.pt-4 .flex.gap-3>button:last-child:disabled{color:#3b250e!important;background:linear-gradient(145deg,rgba(255,193,82,.82),rgba(234,88,12,.7))!important;border-color:rgba(255,209,102,.78)!important;opacity:.82!important}
+.ba-pos-station :is(.ba-pos-qty-minus,.ba-pos-qty-plus,.ba-pos-item-delete,.ba-pos-clear,.ba-pos-quick-bill,.ba-pos-calculator-action):hover{filter:brightness(1.12) saturate(1.08);transform:translateY(-1px)}

@@ -1145,7 +1145,7 @@ export default function InventarioPage() {
                       <div className="flex items-center gap-1.5 shrink-0">
                         <button
                           type="button"
-                          className="w-5 h-5 border border-[var(--panel-stroke)] rounded-lg flex items-center justify-center font-bold text-xs text-[var(--muted)] hover:text-[var(--text)] hover:border-gray-500 hover:bg-[var(--bg)] transition-all active:scale-90 cursor-pointer"
+                          className="ba-pos-qty-minus w-5 h-5 rounded-lg flex items-center justify-center font-bold text-xs transition-all active:scale-90 cursor-pointer"
                           onClick={() => setSelectedServiceIds(prev => {
                             const idx = prev.indexOf(item.id!);
                             if (idx > -1) {
@@ -1160,14 +1160,14 @@ export default function InventarioPage() {
                         </button>
                         <button
                           type="button"
-                          className="w-5 h-5 border border-[var(--panel-stroke)] rounded-lg flex items-center justify-center font-bold text-xs text-[var(--muted)] hover:text-[var(--text)] hover:border-gray-500 hover:bg-[var(--bg)] transition-all active:scale-90 cursor-pointer"
+                          className="ba-pos-qty-plus w-5 h-5 rounded-lg flex items-center justify-center font-bold text-xs transition-all active:scale-90 cursor-pointer"
                           onClick={() => setSelectedServiceIds(prev => [...prev, item.id!])}
                         >
                           <Plus size={10} />
                         </button>
                         <button
                           type="button"
-                          className="w-5 h-5 border border-red-950 bg-red-950/20 text-red-400 hover:bg-red-900/40 hover:text-red-200 rounded-lg flex items-center justify-center transition-all active:scale-90 ml-1 cursor-pointer"
+                          className="ba-pos-item-delete w-5 h-5 rounded-lg flex items-center justify-center transition-all active:scale-90 ml-1 cursor-pointer"
                           onClick={() => setSelectedServiceIds(prev => prev.filter(id => id !== item.id))}
                           aria-label="Eliminar"
                         >
@@ -1259,7 +1259,7 @@ export default function InventarioPage() {
                         <button
                           key={bill}
                           type="button"
-                          className="flex-1 py-1.5 px-2 text-[10px] border border-amber-500/10 rounded-xl bg-amber-500/5 text-amber-400 hover:text-white hover:bg-amber-500/20 font-bold transition-all active:scale-95 cursor-pointer shadow-sm"
+                          className="ba-pos-quick-bill flex-1 py-1.5 px-2 text-[10px] rounded-xl font-bold transition-all active:scale-95 cursor-pointer"
                           onClick={() => setPosReceived(String(bill))}
                         >
                           ${bill / 1000}k
@@ -1267,7 +1267,7 @@ export default function InventarioPage() {
                       ))}
                       <button
                         type="button"
-                        className="py-1.5 px-3.5 text-[10px] border border-red-950 bg-red-950/20 text-red-400 hover:bg-red-900/40 hover:text-red-200 rounded-xl font-bold transition-all active:scale-95 cursor-pointer"
+                        className="ba-pos-clear py-1.5 px-3.5 text-[10px] rounded-xl font-bold transition-all active:scale-95 cursor-pointer"
                         onClick={() => setPosReceived("")}
                       >
                         Limpiar
@@ -1314,7 +1314,7 @@ export default function InventarioPage() {
               <div className="flex gap-3">
                 <button
                   type="button"
-                  className="flex items-center gap-1.5 px-4 py-3 border border-[var(--panel-stroke)] hover:border-gray-500 bg-[var(--bg-soft)] hover:bg-[var(--panel)] text-[var(--text)] rounded-xl text-xs font-bold transition-all active:scale-[0.96] cursor-pointer"
+                  className="ba-pos-calculator-action flex items-center gap-1.5 px-4 py-3 rounded-xl text-xs font-bold transition-all active:scale-[0.96] cursor-pointer"
                   onClick={() => setShowCalculator(true)}
                 >
                   <Calculator size={14} className="text-amber-500" />
