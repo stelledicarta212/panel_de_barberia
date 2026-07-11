@@ -6730,3 +6730,33 @@ body{background:linear-gradient(var(--ba-photo-veil),var(--ba-photo-veil)),url("
   color: #064e3b !important;
   background: #fff !important;
 }
+
+
+/* Premium editorial service cards */
+.ba-services-grid{gap:16px;align-items:stretch}
+.ba-service-list-card{position:relative;display:grid;grid-template-columns:1fr;grid-template-rows:210px minmax(0,1fr);gap:0;padding:0!important;overflow:hidden;border-radius:20px!important;border:1px solid rgba(214,177,91,.34)!important;background:linear-gradient(160deg,rgba(255,255,255,.13),rgba(255,255,255,.035))!important;box-shadow:0 16px 38px rgba(0,0,0,.22),inset 0 1px 0 rgba(255,255,255,.14)!important;transition:transform .28s ease,border-color .28s ease,box-shadow .28s ease}
+.ba-service-list-card:hover{transform:translateY(-5px);border-color:rgba(243,196,88,.72)!important;box-shadow:0 22px 48px rgba(0,0,0,.3),0 0 0 1px rgba(243,196,88,.12),inset 0 1px 0 rgba(255,255,255,.18)!important}
+.ba-service-list-card.is-selected{border-color:#e2b958!important;box-shadow:0 18px 44px rgba(0,0,0,.28),0 0 0 2px rgba(226,185,88,.2)!important}
+.ba-service-list-thumb{grid-column:1;grid-row:1;width:100%;height:210px;min-height:0;border:0;border-radius:0;position:relative;overflow:hidden}
+.ba-service-list-thumb::after{content:"";position:absolute;inset:0;background:linear-gradient(180deg,transparent 42%,rgba(7,10,12,.24) 68%,rgba(7,10,12,.86) 100%);pointer-events:none}
+.ba-service-list-thumb img{width:100%;height:100%;object-fit:cover;transition:transform .55s cubic-bezier(.2,.75,.25,1),filter .35s ease}
+.ba-service-list-card:hover .ba-service-list-thumb img{transform:scale(1.06);filter:saturate(1.08) contrast(1.04)}
+.ba-service-list-head{position:absolute;z-index:3;inset:14px 14px auto 14px;display:flex;align-items:center;justify-content:space-between;pointer-events:none}
+.ba-service-list-head :is(.ba-service-icon-badge,.ba-card-menu){pointer-events:auto;box-shadow:0 7px 18px rgba(0,0,0,.28);-webkit-backdrop-filter:blur(12px);backdrop-filter:blur(12px)}
+.ba-service-list-head .ba-card-menu{width:30px;height:30px;background:rgba(8,11,13,.62)!important;border:1px solid rgba(255,255,255,.24);color:#fff!important}
+.ba-service-icon-badge{width:34px;height:34px;border-radius:11px!important}
+.ba-service-list-body{grid-column:1;grid-row:2;padding:15px 17px 16px;display:grid;grid-template-rows:auto minmax(42px,auto) auto;gap:10px;position:relative;background:linear-gradient(155deg,rgba(255,255,255,.11),rgba(255,255,255,.025))}
+.ba-service-list-title{display:flex;align-items:flex-start;justify-content:space-between;gap:12px}
+.ba-service-list-body h3{font-size:18px;line-height:1.15;letter-spacing:-.02em}
+.ba-service-meta{display:grid;justify-items:end;gap:5px;flex:0 0 auto}
+.ba-service-meta span{font-size:10px;padding:4px 7px;border-radius:999px;background:rgba(255,255,255,.09);border:1px solid var(--panel-stroke)}
+.ba-service-meta strong{font-size:15px;padding:5px 9px;border-radius:999px;color:#211506!important;background:linear-gradient(145deg,#f6d986,#d5a940);box-shadow:0 5px 12px rgba(181,132,35,.24)}
+.ba-service-list-body p{font-size:11px;line-height:1.5;min-height:0;max-width:92%}
+.ba-service-actions{align-self:end;padding-top:9px;border-top:1px solid rgba(255,255,255,.1)}
+.ba-service-actions button{width:30px;height:30px;border-radius:10px!important;background:rgba(255,255,255,.1)!important;border:1px solid var(--panel-stroke)!important;box-shadow:inset 0 1px 0 rgba(255,255,255,.12)}
+.ba-service-actions button:hover{background:linear-gradient(145deg,#f6d986,#d5a940)!important;color:#211506!important;border-color:#f1d37a!important;transform:translateY(-1px)}
+:root[data-theme="light"] .ba-service-list-card{background:linear-gradient(155deg,rgba(255,255,255,.42),rgba(255,255,255,.14))!important}
+:root[data-theme="light"] .ba-service-list-body{background:linear-gradient(155deg,rgba(255,255,255,.4),rgba(255,255,255,.12))}
+:root[data-theme="classic-dark"] .ba-service-list-card{background:linear-gradient(155deg,#191d23,#101318)!important;border-color:rgba(222,180,79,.32)!important}
+:root[data-theme="classic-dark"] .ba-service-list-body{background:linear-gradient(155deg,#1b2027,#12161c)}
+@media(max-width:720px){.ba-services-grid{grid-template-columns:1fr}.ba-service-list-card{grid-template-rows:190px auto}.ba-service-list-thumb{height:190px}}
