@@ -6178,3 +6178,38 @@ body{background:linear-gradient(var(--ba-photo-veil),var(--ba-photo-veil)),url("
   .ba-citas-layout { grid-template-columns: minmax(0, 1.7fr) minmax(280px, .7fr); }
   .ba-citas-table-wrap { grid-column: 1 / -1; width: 100%; min-height: 250px; }
 }
+
+
+/* POS high-visibility fire controls */
+.ba-pos-layout button:not(:disabled):not(.ba-pos-receipt-slip button) {
+  color: #171006 !important;
+  background: linear-gradient(145deg, #ffbd45 0%, #ff861c 52%, #e9510d 100%) !important;
+  border-color: rgba(255,190,76,.88) !important;
+  box-shadow: 0 7px 18px rgba(226,78,8,.3), inset 0 1px 0 rgba(255,245,207,.72) !important;
+  text-shadow: none !important;
+}
+.ba-pos-layout button:not(:disabled):not(.ba-pos-receipt-slip button):hover {
+  background: linear-gradient(145deg, #ffd166 0%, #ff9d25 48%, #f26310 100%) !important;
+  border-color: #ffd67b !important;
+  box-shadow: 0 9px 24px rgba(226,78,8,.42), 0 0 0 2px rgba(255,145,31,.14), inset 0 1px 0 rgba(255,255,255,.78) !important;
+  transform: translateY(-1px);
+}
+.ba-pos-layout button:disabled {
+  opacity: .5;
+  filter: saturate(.45);
+}
+.ba-pos-appointments-card label:has(input[type="date"]) {
+  color: #171006 !important;
+  background: linear-gradient(145deg, #ffca54 0%, #ff8d1f 54%, #e8560e 100%) !important;
+  border-color: rgba(255,205,101,.95) !important;
+  box-shadow: 0 7px 18px rgba(226,78,8,.32), inset 0 1px 0 rgba(255,250,220,.78) !important;
+}
+.ba-pos-appointments-card label:has(input[type="date"]) svg,
+.ba-pos-appointments-card input[type="date"] {
+  color: #171006 !important;
+}
+.ba-pos-appointments-card input[type="date"]::-webkit-calendar-picker-indicator {
+  opacity: 1;
+  cursor: pointer;
+  filter: brightness(.25) sepia(1) saturate(2);
+}
