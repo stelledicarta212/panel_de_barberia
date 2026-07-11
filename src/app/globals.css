@@ -3,8 +3,10 @@
 :root {
   --bg: #030508;
   --bg-soft: #070a13;
-  --panel: rgba(10, 15, 30, 0.42);
-  --panel-stroke: rgba(255, 255, 255, 0.06);
+  --bg-overlay: rgba(3, 5, 8, 0.58);
+  --panel: rgba(13, 20, 35, 0.42);
+  --panel-stroke: rgba(255, 255, 255, 0.09);
+  --glare: rgba(255, 255, 255, 0.08);
   --text: #f3f6fc;
   --muted: #94a3b8;
   --gold: #ff7a1a;
@@ -14,16 +16,18 @@
 }
 
 :root[data-theme="light"] {
-  --bg: #eef2f8;
-  --bg-soft: #dde4ef;
-  --panel: rgba(255, 255, 255, 0.87);
-  --panel-stroke: rgba(30, 50, 90, 0.14);
-  --text: #101828;
-  --muted: #5b687f;
-  --gold: #a97f28;
-  --gold-strong: #8c6718;
-  --ok: #0f9d58;
-  --danger: #cc3c3c;
+  --bg: #f8fafc;
+  --bg-soft: #f1f5f9;
+  --bg-overlay: rgba(248, 250, 252, 0.65);
+  --panel: rgba(255, 255, 255, 0.48);
+  --panel-stroke: rgba(15, 23, 42, 0.08);
+  --glare: rgba(255, 255, 255, 0.4);
+  --text: #0f172a;
+  --muted: #475569;
+  --gold: #ff7a1a;
+  --gold-strong: #e65c00;
+  --ok: #10b981;
+  --danger: #ef4444;
 }
 
 * {
@@ -47,7 +51,7 @@ body {
   color: var(--text);
   font-family: "Poppins", "Segoe UI", Tahoma, sans-serif;
   background: 
-    linear-gradient(rgba(3, 5, 8, 0.52), rgba(3, 5, 8, 0.52)),
+    linear-gradient(var(--bg-overlay), var(--bg-overlay)),
     url('https://barberagency-barberagency.gymh5g.easypanel.host/wp-content/uploads/2026/02/img1.jpg');
   background-size: cover;
   background-position: center;
@@ -109,8 +113,8 @@ textarea {
 
 .ba-sidebar {
   background:
-    linear-gradient(180deg, rgba(255, 255, 255, 0.04), transparent),
-    rgba(6, 9, 17, 0.55);
+    linear-gradient(180deg, var(--glare), transparent),
+    var(--panel);
   backdrop-filter: blur(30px) saturate(140%);
   border-right: 1px solid var(--panel-stroke);
   padding: 24px 18px;
@@ -207,12 +211,12 @@ textarea {
 
 .ba-card {
   border-radius: 18px;
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  background: rgba(13, 20, 35, 0.48);
+  border: 1px solid var(--panel-stroke);
+  background: var(--panel);
   backdrop-filter: blur(28px) saturate(160%);
   box-shadow: 
-    0 8px 32px 0 rgba(0, 0, 0, 0.37),
-    inset 0 1px 1px rgba(255, 255, 255, 0.08);
+    0 8px 32px 0 rgba(0, 0, 0, 0.18),
+    inset 0 1px 1px var(--glare);
   padding: 16px;
   min-width: 0;
   max-width: 100%;
