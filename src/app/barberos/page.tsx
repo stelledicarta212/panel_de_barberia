@@ -175,6 +175,39 @@ export default function BarberosPage() {
     [cards, merged.appointments, offDaysByBarber, selectedCalendarDate, todayDay, todayMonth, todayYear]
   );
 
+  const barberRevenueStats = useMemo(() => {
+    const dayKey = `${todayYear}-${String(todayMonth + 1).padStart(2, "0")}-${String(todayDay).padStart(2, "0")}`;
+    const monthKey = dayKey.slice(0, 7);
+    return cards.map((card) => {
+      let daily = 0;
+      let monthly = 0;
+      let monthlyCount = 0;
+      (merged.appointments || []).forEach((appointment) => {
+        const matchesBarber =
+          String(appointment.barbero_id ?? appointment.id_barbero ?? "") === String(card.id) ||
+          text(appointment.barbero_nombre ?? appointment.barber ?? appointment.nombre_barbero).toLowerCase() === card.name.toLowerCase();
+        if (!matchesBarber) return;
+        const dateKey = text(appointment.fecha ?? appointment.date).match(/^(\d{4}-\d{2}-\d{2})/)?.[1] ?? "";
+        const amount = num(appointment.total_pagado ?? appointment.total ?? appointment.precio, 0);
+        if (dateKey.startsWith(monthKey)) { monthly += amount; monthlyCount += 1; }
+        if (dateKey === dayKey) daily += amount;
+      });
+      return { id: card.id, name: card.name, daily, monthly, monthlyCount };
+    }).filter((row) => row.monthlyCount > 0).sort((a, z) => z.monthly - a.monthly);
+  }, [cards, merged.appointments, todayDay, todayMonth, todayYear]);
+  const barberMonthlyRevenue = barberRevenueStats.reduce((sum, row) => sum + row.monthly, 0);
+  const barberDailyRevenue = barberRevenueStats.reduce((sum, row) => sum + row.daily, 0);
+  const barberChartColors = ["#f97316", "#8b5cf6", "#3b82f6", "#22c55e", "#eab308", "#ec4899"];
+  const barberPieBackground = useMemo(() => {
+    if (barberMonthlyRevenue <= 0) return "conic-gradient(rgba(255,255,255,.12) 0 100%)";
+    let cursor = 0;
+    return `conic-gradient(${barberRevenueStats.map((row, index) => {
+      const start = cursor;
+      cursor += (row.monthly / barberMonthlyRevenue) * 100;
+      return `${barberChartColors[index % barberChartColors.length]} ${start}% ${cursor}%`;
+    }).join(", ")})`;
+  }, [barberRevenueStats, barberMonthlyRevenue]);
+
   const listWithAvailability = useMemo(() => {
     const q = query.trim().toLowerCase();
     if (!q) return cardsWithAvailability;
@@ -368,6 +401,31 @@ export default function BarberosPage() {
         </div>
 
         <aside className="ba-barbers-right">
+          <article className="ba-card ba-right-widget">
+            <header className="ba-right-header">
+              <h3>Ingresos por barbero</h3>
+              <Star size={12} />
+            </header>
+            <div className="ba-revenue-pie-wrap">
+              <div className="ba-revenue-pie" style={{ background: barberPieBackground }}>
+                <span><small>Total mes</small><strong>$ {Math.round(barberMonthlyRevenue).toLocaleString()}</strong></span>
+              </div>
+              <div className="ba-revenue-pie-legend">
+                {barberRevenueStats.slice(0, 6).map((row, index) => (
+                  <p key={`legend-barber-${row.id}`}>
+                    <i style={{ background: barberChartColors[index % barberChartColors.length] }} />
+                    <span>{row.name}</span>
+                    <b>{barberMonthlyRevenue > 0 ? Math.round((row.monthly / barberMonthlyRevenue) * 100) : 0}%</b>
+                  </p>
+                ))}
+              </div>
+            </div>
+            <div className="ba-service-revenue-totals">
+              <p><span>Ingreso diario</span><strong>$ {Math.round(barberDailyRevenue).toLocaleString()}</strong></p>
+              <p><span>Ingreso mensual</span><strong>$ {Math.round(barberMonthlyRevenue).toLocaleString()}</strong></p>
+            </div>
+          </article>
+
           <article className="ba-card ba-right-widget">
             <header className="ba-right-header">
               <h3>Disponibilidad de Barberos</h3>

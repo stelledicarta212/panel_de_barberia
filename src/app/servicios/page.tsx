@@ -132,6 +132,17 @@ export default function ServiciosPage() {
   const dailyRevenue = serviceStats.reduce((sum, row) => sum + row.daily, 0);
   const monthlyRevenue = serviceStats.reduce((sum, row) => sum + row.monthly, 0);
   const maxServiceRevenue = Math.max(1, ...serviceStats.map((row) => row.monthly));
+  const serviceChartColors = ["#f97316", "#8b5cf6", "#3b82f6", "#22c55e", "#eab308", "#ec4899"];
+  const servicePieBackground = useMemo(() => {
+    if (monthlyRevenue <= 0) return "conic-gradient(rgba(255,255,255,.12) 0 100%)";
+    let cursor = 0;
+    const segments = serviceStats.map((row, index) => {
+      const start = cursor;
+      cursor += (row.monthly / monthlyRevenue) * 100;
+      return `${serviceChartColors[index % serviceChartColors.length]} ${start}% ${cursor}%`;
+    });
+    return `conic-gradient(${segments.join(", ")})`;
+  }, [serviceStats, monthlyRevenue]);
 
   const handleOpenAdd = () => {
     setModalMode("add");
@@ -391,6 +402,20 @@ export default function ServiciosPage() {
               <h3>Rendimiento diario y mensual</h3>
               <MoreHorizontal size={12} />
             </header>
+            <div className="ba-revenue-pie-wrap">
+              <div className="ba-revenue-pie" style={{ background: servicePieBackground }}>
+                <span><small>Total mes</small><strong>$ {Math.round(monthlyRevenue).toLocaleString()}</strong></span>
+              </div>
+              <div className="ba-revenue-pie-legend">
+                {serviceStats.slice(0, 6).map((row, index) => (
+                  <p key={`legend-service-${row.id}`}>
+                    <i style={{ background: serviceChartColors[index % serviceChartColors.length] }} />
+                    <span>{row.name}</span>
+                    <b>{monthlyRevenue > 0 ? Math.round((row.monthly / monthlyRevenue) * 100) : 0}%</b>
+                  </p>
+                ))}
+              </div>
+            </div>
             <div className="ba-service-stat-list">
               {serviceStats.length ? serviceStats.map((row) => (
                 <div className="ba-service-stat-row" key={row.id}>
