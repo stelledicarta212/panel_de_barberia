@@ -6234,3 +6234,23 @@ body{background:linear-gradient(var(--ba-photo-veil),var(--ba-photo-veil)),url("
 .ba-pos-station .mt-4.pt-4 .flex.gap-3>button:last-child{color:#1c1004!important;background:linear-gradient(145deg,#ffbd45,#ff861c 52%,#e9510d)!important;border:1px solid #ffd166!important;box-shadow:0 8px 20px rgba(226,78,8,.38),inset 0 1px 0 rgba(255,255,255,.68)!important}
 .ba-pos-station .mt-4.pt-4 .flex.gap-3>button:last-child:disabled{color:#3b250e!important;background:linear-gradient(145deg,rgba(255,193,82,.82),rgba(234,88,12,.7))!important;border-color:rgba(255,209,102,.78)!important;opacity:.82!important}
 .ba-pos-station :is(.ba-pos-qty-minus,.ba-pos-qty-plus,.ba-pos-item-delete,.ba-pos-clear,.ba-pos-quick-bill,.ba-pos-calculator-action):hover{filter:brightness(1.12) saturate(1.08);transform:translateY(-1px)}
+
+
+/* Service revenue analytics */
+.ba-service-revenue-summary{background:linear-gradient(145deg,rgba(255,174,38,.18),rgba(255,255,255,.06)),var(--panel)!important}
+.ba-service-revenue-totals{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.ba-service-revenue-totals p{margin:0;padding:10px;border:1px solid var(--panel-stroke);border-radius:12px;background:rgba(255,255,255,.08);display:grid;gap:4px}
+.ba-service-revenue-totals span{font-size:10px;color:var(--muted)}
+.ba-service-revenue-totals strong{font-size:15px;color:var(--text)}
+.ba-service-stat-list{display:grid;gap:10px;max-height:560px;overflow:auto;padding-right:2px}
+.ba-service-stat-row{padding:10px;border:1px solid var(--panel-stroke);border-radius:13px;background:rgba(255,255,255,.07);display:grid;gap:8px}
+.ba-service-stat-head{display:flex;align-items:center;justify-content:space-between;gap:8px}
+.ba-service-stat-head strong{font-size:12px;color:var(--text)}
+.ba-service-stat-head small{font-size:9px;color:var(--muted)}
+.ba-service-stat-line{display:grid;grid-template-columns:30px minmax(70px,1fr) 72px;align-items:center;gap:7px;font-size:9px;color:var(--muted)}
+.ba-service-stat-line>div{height:8px;border-radius:999px;background:rgba(255,255,255,.1);overflow:hidden;border:1px solid var(--panel-stroke)}
+.ba-service-stat-line i{display:block;height:100%;border-radius:inherit;background:linear-gradient(90deg,#ffbd45,#f97316);box-shadow:0 0 9px rgba(249,115,22,.4)}
+.ba-service-stat-line.is-month i{background:linear-gradient(90deg,#8b5cf6,#3b82f6);box-shadow:0 0 9px rgba(59,130,246,.38)}
+.ba-service-stat-line b{text-align:right;font-size:9px;color:var(--text)}
+.ba-service-stat-empty{margin:0;padding:20px 10px;text-align:center;color:var(--muted);font-size:11px}
+:root[data-theme="light"] .ba-service-stat-row,:root[data-theme="light"] .ba-service-revenue-totals p{background:rgba(255,255,255,.24)}

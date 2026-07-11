@@ -109,8 +109,29 @@ export default function ServiciosPage() {
   }, [services, query]);
 
   const selected = filtered.find((service) => service.id === selectedId) ?? null;
-  const topServices = useMemo(() => [...services].sort((a, b) => b.price - a.price).slice(0, 4), [services]);
-  const totalRevenue = useMemo(() => services.reduce((acc, item) => acc + item.price, 0), [services]);
+  const serviceStats = useMemo(() => {
+    const now = new Date();
+    const dayKey = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
+    const monthKey = dayKey.slice(0, 7);
+    const byName = new Map<string, { id: string; name: string; daily: number; monthly: number; dailyCount: number; monthlyCount: number }>();
+    services.forEach((service) => byName.set(service.name.toLowerCase(), { id: service.id, name: service.name, daily: 0, monthly: 0, dailyCount: 0, monthlyCount: 0 }));
+    merged.appointments.forEach((appointment, index) => {
+      const name = text(appointment.servicio_nombre ?? appointment.service ?? appointment.nombre_servicio) || "Servicio";
+      const key = name.toLowerCase();
+      const catalogService = services.find((service) => service.name.toLowerCase() === key);
+      const amount = numberValue(appointment.total_pagado ?? appointment.total ?? appointment.precio, catalogService?.price ?? 0);
+      const rawDate = text(appointment.fecha ?? appointment.date);
+      const dateKey = rawDate.match(/^(\d{4}-\d{2}-\d{2})/)?.[1] ?? "";
+      const row = byName.get(key) ?? { id: text(appointment.servicio_id) || `stat-${index + 1}`, name, daily: 0, monthly: 0, dailyCount: 0, monthlyCount: 0 };
+      if (dateKey.startsWith(monthKey)) { row.monthly += amount; row.monthlyCount += 1; }
+      if (dateKey === dayKey) { row.daily += amount; row.dailyCount += 1; }
+      byName.set(key, row);
+    });
+    return Array.from(byName.values()).filter((row) => row.monthlyCount > 0 || row.dailyCount > 0).sort((a, b) => b.monthly - a.monthly);
+  }, [merged.appointments, services]);
+  const dailyRevenue = serviceStats.reduce((sum, row) => sum + row.daily, 0);
+  const monthlyRevenue = serviceStats.reduce((sum, row) => sum + row.monthly, 0);
+  const maxServiceRevenue = Math.max(1, ...serviceStats.map((row) => row.monthly));
 
   const handleOpenAdd = () => {
     setModalMode("add");
@@ -354,66 +375,44 @@ export default function ServiciosPage() {
         </div>
 
         <aside className="ba-services-right">
-          <article className="ba-card ba-right-widget">
-            <header className="ba-right-header">
-              <h3>Top servicios</h3>
-              <MoreHorizontal size={12} />
-            </header>
-            <ul className="ba-services-top-list">
-              {topServices.map((service) => (
-                <li key={`top-${service.id}`}>
-                  <span><Scissors size={11} /> {service.name}</span>
-                  <strong>${service.price}</strong>
-                </li>
-              ))}
-            </ul>
-          </article>
-
-          <article className="ba-card ba-right-widget">
+          <article className="ba-card ba-right-widget ba-service-revenue-summary">
             <header className="ba-right-header">
               <h3>Ingresos por servicio</h3>
-              <MoreHorizontal size={12} />
-            </header>
-            <div className="ba-services-income-chart">
-              <div className="ba-services-income-lines">
-                <span />
-                <span />
-                <span />
-                <span />
-              </div>
-              <div className="ba-services-income-wave" />
-            </div>
-            <div className="ba-services-income-stats">
-              <p><span>Ganancia total</span><strong>${totalRevenue}</strong></p>
-              <p><span>Ingreso activo</span><strong>${Math.round(totalRevenue * 0.42)}</strong></p>
-            </div>
-          </article>
-
-          <article className="ba-card ba-right-widget">
-            <header className="ba-right-header">
-              <h3>Promociones activas</h3>
-              <MoreHorizontal size={12} />
-            </header>
-            <ul className="ba-services-promo-list">
-              {filtered.slice(0, 3).map((service, index) => (
-                <li key={`promo-${service.id}`}>
-                  <span className="ba-services-promo-index">#{index + 1}</span>
-                  <div>
-                    <strong>{service.name}</strong>
-                    <small>Promo destacada de temporada</small>
-                  </div>
-                </li>
-              ))}
-            </ul>
-          </article>
-
-          <article className="ba-card ba-right-widget ba-services-insight">
-            <header className="ba-right-header">
-              <h3>Resumen</h3>
               <TrendingUp size={12} />
             </header>
-            <p>{services.length} servicios configurados</p>
-            <small>Click en cada servicio para ver detalle, editar o eliminar.</small>
+            <div className="ba-service-revenue-totals">
+              <p><span>Ingreso diario</span><strong>$ {Math.round(dailyRevenue).toLocaleString()}</strong></p>
+              <p><span>Ingreso mensual</span><strong>$ {Math.round(monthlyRevenue).toLocaleString()}</strong></p>
+            </div>
+          </article>
+
+          <article className="ba-card ba-right-widget ba-service-revenue-chart">
+            <header className="ba-right-header">
+              <h3>Rendimiento diario y mensual</h3>
+              <MoreHorizontal size={12} />
+            </header>
+            <div className="ba-service-stat-list">
+              {serviceStats.length ? serviceStats.map((row) => (
+                <div className="ba-service-stat-row" key={row.id}>
+                  <div className="ba-service-stat-head">
+                    <strong>{row.name}</strong>
+                    <small>{row.monthlyCount} citas este mes</small>
+                  </div>
+                  <div className="ba-service-stat-line">
+                    <span>Hoy</span>
+                    <div><i style={{ width: `${Math.max(row.daily > 0 ? 4 : 0, (row.daily / maxServiceRevenue) * 100)}%` }} /></div>
+                    <b>$ {Math.round(row.daily).toLocaleString()}</b>
+                  </div>
+                  <div className="ba-service-stat-line is-month">
+                    <span>Mes</span>
+                    <div><i style={{ width: `${(row.monthly / maxServiceRevenue) * 100}%` }} /></div>
+                    <b>$ {Math.round(row.monthly).toLocaleString()}</b>
+                  </div>
+                </div>
+              )) : (
+                <p className="ba-service-stat-empty">No hay citas registradas hoy ni en el mes actual.</p>
+              )}
+            </div>
           </article>
         </aside>
 
