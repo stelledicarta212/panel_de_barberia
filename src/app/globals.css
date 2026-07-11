@@ -93,17 +93,63 @@
 }
 
 /* Sidebar styling */
-:root[data-theme="classic-dark"] .ba-sidebar {
-  background: #0b0d10 !important;
-  border-right: 1px solid rgba(216, 181, 109, 0.22) !important;
+:root[data-theme="classic-dark"] .ba-sidebar,
+:root[data-theme="classic-dark"] .ba-sidebar * {
   color: #f7f4ec !important;
 }
 
-:root[data-theme="classic-dark"] .ba-nav-item.is-active,
-:root[data-theme="classic-dark"] .ba-nav-item[aria-current="page"] {
+:root[data-theme="classic-dark"] .ba-sidebar {
+  background: #0b0d10 !important;
+  border-right: 1px solid rgba(216, 181, 109, 0.22) !important;
+}
+
+:root[data-theme="classic-dark"] .ba-sidebar .ba-brand strong {
+  color: #ffffff !important;
+}
+
+:root[data-theme="classic-dark"] .ba-sidebar .ba-nav-item {
+  color: rgba(247, 244, 236, 0.75) !important;
+  opacity: 0.85;
+}
+
+:root[data-theme="classic-dark"] .ba-sidebar .ba-nav-item:hover {
+  color: #ffffff !important;
+  background: rgba(255, 255, 255, 0.05) !important;
+  opacity: 1;
+}
+
+:root[data-theme="classic-dark"] .ba-sidebar .ba-nav-item.is-active,
+:root[data-theme="classic-dark"] .ba-sidebar .ba-nav-item[aria-current="page"] {
   background: linear-gradient(135deg, #f5d284, #b47e2a) !important;
   color: #14110a !important;
-  box-shadow: 0 12px 28px rgba(216, 181, 109, 0.24) !important;
+  font-weight: 700 !important;
+  opacity: 1 !important;
+  box-shadow: 0 8px 20px rgba(216, 181, 109, 0.24) !important;
+}
+
+:root[data-theme="classic-dark"] .ba-sidebar .ba-nav-item:not(.is-active) svg {
+  color: rgba(247, 244, 236, 0.65) !important;
+}
+
+:root[data-theme="classic-dark"] .ba-sidebar .ba-nav-item.is-active svg {
+  color: #14110a !important;
+}
+
+:root[data-theme="classic-dark"] .ba-sidebar .ba-sidebar-footer p,
+:root[data-theme="classic-dark"] .ba-sidebar .ba-sidebar-footer small {
+  color: rgba(247, 244, 236, 0.65) !important;
+}
+
+:root[data-theme="classic-dark"] .ba-sidebar .ba-logout-btn {
+  color: rgba(247, 244, 236, 0.75) !important;
+  border-color: rgba(216, 181, 109, 0.15) !important;
+  background: rgba(255, 255, 255, 0.02) !important;
+}
+
+:root[data-theme="classic-dark"] .ba-sidebar .ba-logout-btn:hover {
+  color: #ff7e7e !important;
+  border-color: rgba(255, 126, 126, 0.3) !important;
+  background: rgba(255, 126, 126, 0.05) !important;
 }
 
 /* Solid card styling */
@@ -208,6 +254,59 @@
   background: #101419 !important;
   border: 1px solid rgba(216, 181, 109, 0.18) !important;
   color: #f7f4ec !important;
+}
+
+/* POS Quick bills and Calculator / charge buttons in classic-dark */
+:root[data-theme="classic-dark"] .ba-pos-quick-bill,
+:root[data-theme="classic-dark"] .ba-pos-clear {
+  background: #12161b !important;
+  color: #f7f4ec !important;
+  border: 1px solid rgba(216, 181, 109, 0.20) !important;
+  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.22) !important;
+}
+
+:root[data-theme="classic-dark"] .ba-pos-quick-bill:hover,
+:root[data-theme="classic-dark"] .ba-pos-clear:hover {
+  border-color: rgba(245, 210, 132, 0.55) !important;
+  color: #ffffff !important;
+  background: #171b21 !important;
+}
+
+:root[data-theme="classic-dark"] .ba-pos-calculator-action {
+  background: #12161b !important;
+  color: #f7f4ec !important;
+  border: 1px solid rgba(216, 181, 109, 0.20) !important;
+  box-shadow: 0 6px 14px rgba(0, 0, 0, 0.26) !important;
+}
+
+:root[data-theme="classic-dark"] .ba-pos-calculator-action:hover {
+  border-color: rgba(245, 210, 132, 0.55) !important;
+  color: #ffffff !important;
+  background: #171b21 !important;
+}
+
+:root[data-theme="classic-dark"] .ba-pos-calculator-action + button {
+  box-shadow: 0 6px 14px rgba(0, 0, 0, 0.26) !important;
+}
+
+:root[data-theme="classic-dark"] .ba-pos-calculator-action + button:disabled {
+  background: #0d1014 !important;
+  color: rgba(247, 244, 236, 0.38) !important;
+  border: 1px solid rgba(216, 181, 109, 0.1) !important;
+  box-shadow: none !important;
+  cursor: not-allowed !important;
+}
+
+:root[data-theme="classic-dark"] .ba-pos-calculator-action + button:not(:disabled) {
+  background: linear-gradient(135deg, #f5d284, #b47e2a) !important;
+  color: #14110a !important;
+  border: 1px solid rgba(245, 210, 132, 0.68) !important;
+  font-weight: 800 !important;
+}
+
+:root[data-theme="classic-dark"] .ba-pos-calculator-action + button:not(:disabled):hover {
+  background: linear-gradient(135deg, #f7d998, #c68e37) !important;
+  box-shadow: 0 8px 20px rgba(216, 181, 109, 0.35) !important;
 }
 
 * {
