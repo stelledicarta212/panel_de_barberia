@@ -1,11 +1,12 @@
 import { NextResponse } from "next/server";
+import { getCorsHeaders } from "../../editor/auth";
 import { normalizeSessionSetCookies } from "../cookies";
 
 const SESSION_ME_ENDPOINT =
   process.env.SESSION_ME_ENDPOINT;
 
-function jsonResponse(body: unknown, status: number, upstreamSetCookie?: string | null) {
-  const response = NextResponse.json(body, { status });
+function jsonResponse(body: unknown, status: number, request: Request, upstreamSetCookie?: string | null) {
+  const response = NextResponse.json(body, { status, headers: getCorsHeaders(request, "GET, OPTIONS") });
   for (const cookie of normalizeSessionSetCookies(upstreamSetCookie)) {
     response.headers.append("Set-Cookie", cookie);
   }
@@ -26,7 +27,8 @@ export async function GET(request: Request) {
         message: "El servidor no esta configurado correctamente.",
         next_action: "login"
       },
-      500
+      500,
+      request
     );
   }
 
@@ -51,7 +53,8 @@ export async function GET(request: Request) {
           message: "session/me devolvio respuesta no JSON",
           next_action: "login"
         },
-        502
+        502,
+        request
       );
     }
     let setCookieHeader = upstream.headers.get("set-cookie");
@@ -62,7 +65,7 @@ export async function GET(request: Request) {
       }
     }
 
-    return jsonResponse(body, upstream.status, setCookieHeader);
+    return jsonResponse(body, upstream.status, request, setCookieHeader);
   } catch (error) {
     return jsonResponse(
       {
@@ -70,7 +73,15 @@ export async function GET(request: Request) {
         message: error instanceof Error ? error.message : "Error conectando con session/me",
         next_action: "login"
       },
-      502
+      502,
+      request
     );
   }
+}
+
+export async function OPTIONS(request: Request) {
+  return new NextResponse(null, {
+    status: 204,
+    headers: getCorsHeaders(request, "GET, OPTIONS")
+  });
 }

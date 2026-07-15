@@ -31,7 +31,7 @@ export function isRecord(value: unknown): value is Record<string, unknown> {
   return Boolean(value) && typeof value === "object" && !Array.isArray(value);
 }
 
-export function getCorsHeaders(request: Request) {
+export function getCorsHeaders(request: Request, methods = "POST, OPTIONS") {
   const origin = request.headers.get("origin") || "";
   const allowedOrigins = [
     "https://barberagency-barberagency.gymh5g.easypanel.host",
@@ -46,7 +46,7 @@ export function getCorsHeaders(request: Request) {
 
   return {
     "Access-Control-Allow-Origin": allowedOrigin,
-    "Access-Control-Allow-Methods": "POST, OPTIONS",
+    "Access-Control-Allow-Methods": methods,
     "Access-Control-Allow-Headers": "Content-Type, Authorization, X-Requested-With",
     "Access-Control-Allow-Credentials": "true"
   };

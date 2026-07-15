@@ -138,4 +138,11 @@ describe("security guardrails", () => {
     expect(requestRoute).not.toContain("NEXT_PUBLIC");
     expect(resetRoute).not.toContain("NEXT_PUBLIC");
   });
+
+  it("allows the canonical session/me proxy to be read from the WordPress origin", () => {
+    const sessionRoute = readRelativeFile("src/app/api/session/me/route.ts");
+
+    expect(sessionRoute).toContain('getCorsHeaders(request, "GET, OPTIONS")');
+    expect(sessionRoute).toContain("export async function OPTIONS");
+  });
 });
