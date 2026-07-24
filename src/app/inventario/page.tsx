@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState, useRef } from "react";
+import { Suspense, useEffect, useMemo, useState, useRef } from "react";
 import { useSearchParams } from "next/navigation";
 import {
   Calculator,
@@ -295,7 +295,7 @@ function safeEvaluate(expr: string): number {
   return finalResult;
 }
 
-export default function InventarioPage() {
+function InventarioContent() {
   const { identity, merged, refresh } = useDashboard();
   const [posClient, setPosClient] = useState("");
   const [posBarber, setPosBarber] = useState("");
@@ -446,6 +446,7 @@ export default function InventarioPage() {
 
   const movements = sourceMovements;
 
+  /* eslint-disable react-hooks/set-state-in-effect -- hydrate the POS form from the explicit cita URL parameter */
   useEffect(() => {
     if (!paramCitaId || movements.length === 0) return;
     const target = movements.find((m) => String(m.id) === String(paramCitaId));
@@ -471,6 +472,7 @@ export default function InventarioPage() {
       setAppointmentLoadMessage(null);
     }
   }, [paramCitaId, movements, services]);
+  /* eslint-enable react-hooks/set-state-in-effect */
 
   const selectedServicesGrouped = useMemo(() => {
     const counts = new Map<string, number>();
@@ -2165,5 +2167,13 @@ export default function InventarioPage() {
         </div>
       )}
     </DashboardShell>
+  );
+}
+
+export default function InventarioPage() {
+  return (
+    <Suspense fallback={null}>
+      <InventarioContent />
+    </Suspense>
   );
 }

@@ -37,6 +37,11 @@ declare module "next/link" {
 
 declare module "next/navigation" {
   export function usePathname(): string;
+  export function useSearchParams(): Readonly<{
+    get(name: string): string | null;
+    has(name: string): boolean;
+    toString(): string;
+  }>;
   export function redirect(path: string): never;
   export function useRouter(): {
     push: (href: string) => void;
