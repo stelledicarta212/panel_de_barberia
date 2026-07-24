@@ -587,12 +587,12 @@ export async function addCitaDashboard(payload: {
 export async function updateCitaDashboard(payload: {
   barberia_id: number;
   id: number;
-  cliente_nombre: string;
-  cliente_tel: string;
-  barbero_id: number;
-  servicio_id: number;
-  fecha: string;
-  hora_inicio: string;
+  cliente_nombre?: string;
+  cliente_tel?: string;
+  barbero_id?: number;
+  servicio_id?: number;
+  fecha?: string;
+  hora_inicio?: string;
   estado?: string;
   notas?: string;
 }): Promise<{ ok: boolean; message?: string; data?: unknown }> {

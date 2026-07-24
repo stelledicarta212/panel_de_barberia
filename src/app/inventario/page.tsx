@@ -323,31 +323,7 @@ export default function InventarioPage() {
   const paramCitaId = searchParams.get("cita_id");
   const [appointmentLoadMessage, setAppointmentLoadMessage] = useState<string | null>(null);
 
-  useEffect(() => {
-    if (!paramCitaId || movements.length === 0) return;
-    const target = movements.find((m) => String(m.id) === String(paramCitaId));
-    if (target) {
-      if (target.status !== "Pendiente" || target.rawEstado === "pagada") {
-        setAppointmentLoadMessage("La cita seleccionada ya fue pagada.");
-        return;
-      }
-      if (target.rawEstado !== "realizada") {
-        setAppointmentLoadMessage(`La cita está en estado "${target.rawEstado}". Debe estar "realizada" para cobrarse.`);
-        return;
-      }
-      setPosClient(target.client);
-      setPosBarber(target.barber);
-      setLoadedAppointmentId(target.id);
-      let matchedService = services.find((s) => s.id === target.serviceId);
-      if (!matchedService) {
-        matchedService = services.find((s) => s.name.toLowerCase() === target.service.toLowerCase());
-      }
-      if (matchedService) {
-        setSelectedServiceIds([matchedService.id]);
-      }
-      setAppointmentLoadMessage(null);
-    }
-  }, [paramCitaId, movements, services]);
+
 
   // Control de Reporte Z
   const [showZReport, setShowZReport] = useState(false);
@@ -469,6 +445,32 @@ export default function InventarioPage() {
   }, [merged.appointments]);
 
   const movements = sourceMovements;
+
+  useEffect(() => {
+    if (!paramCitaId || movements.length === 0) return;
+    const target = movements.find((m) => String(m.id) === String(paramCitaId));
+    if (target) {
+      if (target.status !== "Pendiente" || target.rawEstado === "pagada") {
+        setAppointmentLoadMessage("La cita seleccionada ya fue pagada.");
+        return;
+      }
+      if (target.rawEstado !== "realizada") {
+        setAppointmentLoadMessage(`La cita está en estado "${target.rawEstado}". Debe estar "realizada" para cobrarse.`);
+        return;
+      }
+      setPosClient(target.client);
+      setPosBarber(target.barber);
+      setLoadedAppointmentId(target.id);
+      let matchedService = services.find((s) => s.id === target.serviceId);
+      if (!matchedService) {
+        matchedService = services.find((s) => s.name.toLowerCase() === target.service.toLowerCase());
+      }
+      if (matchedService) {
+        setSelectedServiceIds([matchedService.id]);
+      }
+      setAppointmentLoadMessage(null);
+    }
+  }, [paramCitaId, movements, services]);
 
   const selectedServicesGrouped = useMemo(() => {
     const counts = new Map<string, number>();
