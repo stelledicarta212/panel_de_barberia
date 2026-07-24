@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Cake, CalendarDays, ChevronLeft, ChevronRight, Clock3, Eye, Gift, MoreHorizontal, Pencil, Plus, RefreshCcw, Scissors, Send, Trash2, X } from "lucide-react";
+import { useRouter } from "next/navigation";
 import { DashboardShell } from "@/components/dashboard-shell";
 import { useDashboard } from "@/store/dashboard-context";
 import {
@@ -25,6 +26,8 @@ type RequestItem = {
   description?: string;
   total?: number;
   status: RequestStatus;
+  rawEstado: string;
+  hasPayment: boolean;
   avatar: string;
   stampCurrent: number;
   stampRequired: number;
@@ -129,9 +132,11 @@ function formatDbDate(value: unknown): string {
 function mapAppointmentRequests(appointments: Array<Record<string, unknown>>): RequestItem[] {
   return appointments.map((item, index) => {
     const client = textValue(item.cliente_nombre ?? item.client ?? item.nombre_cliente) || "Cliente";
-    const statusText = textValue(item.estado ?? item.status).toLowerCase();
+    const rawEstado = textValue(item.estado ?? item.status).toLowerCase() || "confirmada";
+    const rawMethod = item.metodo_pago || item.pago_metodo || item.metodo || item.method;
+    const hasPayment = Boolean(item.pago_id || item.pagado_en || item.total_pagado || rawEstado === "pagada" || (typeof rawMethod === "string" && rawMethod.trim().length > 0));
     const status: RequestStatus =
-      statusText.includes("pend") ? "Pendiente" : statusText.includes("acept") || statusText.includes("confirm") ? "Aceptada" : "Enviada";
+      rawEstado.includes("pend") ? "Pendiente" : rawEstado.includes("acept") || rawEstado.includes("confirm") ? "Aceptada" : "Enviada";
     return {
       id: textValue(item.id) || `cita-${index + 1}`,
       client,
@@ -144,6 +149,8 @@ function mapAppointmentRequests(appointments: Array<Record<string, unknown>>): R
       description: textValue(item.notas ?? item.description),
       total: numberValue(item.total),
       status,
+      rawEstado,
+      hasPayment,
       avatar: "",
       stampCurrent: 0,
       stampRequired: 8,
@@ -196,7 +203,67 @@ function phoneToWhatsappUrl(phone: string, clientName: string): string | null {
   return `https://wa.me/${normalized}?text=${message}`;
 }
 
+function renderEstadoBadge(rawEstado: string, hasPayment: boolean) {
+  const e = (rawEstado || "").toLowerCase();
+  if (hasPayment || e === "pagada") {
+    return <em className="ba-status-chip is-accepted" style={{ background: "rgba(16,185,129,0.15)", color: "#10b981", border: "1px solid rgba(16,185,129,0.3)" }}>Pagada</em>;
+  }
+  switch (e) {
+    case "pendiente":
+      return <em className="ba-status-chip is-pending" style={{ background: "rgba(245,158,11,0.15)", color: "#f59e0b", border: "1px solid rgba(245,158,11,0.3)" }}>Pendiente</em>;
+    case "confirmada":
+      return <em className="ba-status-chip is-accepted" style={{ background: "rgba(59,130,246,0.15)", color: "#3b82f6", border: "1px solid rgba(59,130,246,0.3)" }}>Confirmada</em>;
+    case "en_servicio":
+      return <em className="ba-status-chip is-accepted" style={{ background: "rgba(168,85,247,0.15)", color: "#a855f7", border: "1px solid rgba(168,85,247,0.3)" }}>En servicio</em>;
+    case "realizada":
+      return <em className="ba-status-chip is-accepted" style={{ background: "rgba(34,197,94,0.15)", color: "#22c55e", border: "1px solid rgba(34,197,94,0.3)" }}>Realizada</em>;
+    case "cancelada":
+      return <em className="ba-status-chip is-sent" style={{ background: "rgba(239,68,68,0.15)", color: "#ef4444", border: "1px solid rgba(239,68,68,0.3)" }}>Cancelada</em>;
+    case "no_asistio":
+      return <em className="ba-status-chip is-sent" style={{ background: "rgba(100,116,139,0.15)", color: "#94a3b8", border: "1px solid rgba(100,116,139,0.3)" }}>No asistió</em>;
+    default:
+      return <em className="ba-status-chip is-accepted">{rawEstado}</em>;
+  }
+}
+
+function renderEstadoActions(req: RequestItem, onUpdateEstado: (id: string, state: string) => void, onCobrar: (id: string) => void) {
+  const e = (req.rawEstado || "").toLowerCase();
+  if (req.hasPayment || e === "pagada") {
+    return <span style={{ fontSize: "11px", color: "#10b981", fontWeight: "bold" }}>✓ Pagada</span>;
+  }
+  switch (e) {
+    case "pendiente":
+      return (
+        <>
+          <button type="button" className="is-gold-action" style={{ color: "#3b82f6" }} onClick={(event) => { event.stopPropagation(); onUpdateEstado(req.id, "confirmada"); }}>Confirmar</button>
+          <button type="button" className="is-gold-action" style={{ color: "#ef4444" }} onClick={(event) => { event.stopPropagation(); onUpdateEstado(req.id, "cancelada"); }}>Cancelar</button>
+        </>
+      );
+    case "confirmada":
+      return (
+        <>
+          <button type="button" className="is-gold-action" style={{ color: "#a855f7" }} onClick={(event) => { event.stopPropagation(); onUpdateEstado(req.id, "en_servicio"); }}>Iniciar servicio</button>
+          <button type="button" className="is-gold-action" style={{ color: "#94a3b8" }} onClick={(event) => { event.stopPropagation(); onUpdateEstado(req.id, "no_asistio"); }}>No asistió</button>
+        </>
+      );
+    case "en_servicio":
+      return (
+        <button type="button" className="is-gold-action" style={{ color: "#22c55e", fontWeight: "bold" }} onClick={(event) => { event.stopPropagation(); onUpdateEstado(req.id, "realizada"); }}>Finalizar servicio</button>
+      );
+    case "realizada":
+      return (
+        <button type="button" className="is-gold-action" style={{ background: "#f59e0b", color: "#000", fontWeight: "bold", padding: "3px 8px", borderRadius: "6px" }} onClick={(event) => { event.stopPropagation(); onCobrar(req.id); }}>Cobrar ⚡</button>
+      );
+    case "cancelada":
+    case "no_asistio":
+      return <span style={{ fontSize: "11px", color: "#94a3b8" }}>Sin cobro</span>;
+    default:
+      return null;
+  }
+}
+
 export default function CitasPage() {
+  const router = useRouter();
   const { merged, identity, refresh, loading } = useDashboard();
   const barberiaId = identity?.barberia_id;
   const requests = useMemo(() => mapAppointmentRequests(merged.appointments), [merged.appointments]);
@@ -542,6 +609,28 @@ export default function CitasPage() {
     setTimeout(() => {
       formRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
     }, 50);
+  };
+
+  const handleUpdateCitaEstado = async (id: string, nextEstado: string) => {
+    if (!barberiaId) return;
+    try {
+      const res = await updateCitaDashboard({
+        barberia_id: barberiaId,
+        id: Number(id),
+        estado: nextEstado
+      });
+      if (res.ok) {
+        if (refresh) await refresh();
+      } else {
+        alert(res.message || "Error al actualizar estado de la cita.");
+      }
+    } catch (err) {
+      alert(err instanceof Error ? err.message : "Error de red al actualizar estado de la cita.");
+    }
+  };
+
+  const handleCobrarCita = (id: string) => {
+    router.push(`/inventario?cita_id=${encodeURIComponent(id)}`);
   };
 
   const handleDeleteRequest = async (id: string) => {
@@ -1098,7 +1187,7 @@ export default function CitasPage() {
                 <p><span>Fecha</span><strong>{selected.date}</strong></p>
                 <p><span>Hora</span><strong>{selected.hour ?? "Sin hora"}</strong></p>
                 <p><span>Barbero</span><strong>{selected.barber ?? "Sin barbero"}</strong></p>
-                <p><span>Estado</span><strong>{selected.status}</strong></p>
+                <p><span>Estado</span><strong>{renderEstadoBadge(selected.rawEstado, selected.hasPayment)}</strong></p>
                 <p><span>Servicio</span><strong>{selected.service}</strong></p>
                 <p><span>Descripcion</span><strong>{selected.description || "Sin descripcion"}</strong></p>
                 <p><span>Total</span><strong>{toCurrency(selected.total ?? 0)}</strong></p>
@@ -1125,8 +1214,8 @@ export default function CitasPage() {
               </section>
               <footer className="ba-overlay-actions">
                 <button type="button" className="ba-btn-ghost" onClick={() => handleDeleteRequest(selected.id)}>Borrar</button>
-                <button type="button" className="ba-btn-ghost">Ver</button>
-                <button type="button" className="ba-card-gold">Enviar</button>
+                {renderEstadoActions(selected, handleUpdateCitaEstado, handleCobrarCita)}
+                <button type="button" className="ba-card-gold" onClick={() => setDetailOpen(false)}>Cerrar</button>
               </footer>
             </article>
             </>
@@ -1397,13 +1486,13 @@ export default function CitasPage() {
                     <span data-label="Hora">{(req.hour ?? form.hora) || "Sin hora"}</span>
                     <span data-label="Barbero">{(req.barber ?? selectedBarber?.name) || "Sin barbero"}</span>
                     <span data-label="Estado">
-                      <em className={`ba-status-chip ${statusClass(req.status)}`}>{req.status}</em>
+                      {renderEstadoBadge(req.rawEstado, req.hasPayment)}
                     </span>
                     <span className="ba-citas-actions" data-label="Acciones">
                       <button type="button" className="is-gold-action" onClick={(e) => { e.stopPropagation(); handleOpenDetail(req.id); }}><Eye size={11} />Ver</button>
                       <button type="button" className="is-gold-action" onClick={(e) => { e.stopPropagation(); handleEditRequest(req); }}><Pencil size={11} />Editar</button>
+                      {renderEstadoActions(req, handleUpdateCitaEstado, handleCobrarCita)}
                       <button type="button" className="is-gold-action" onClick={(e) => { e.stopPropagation(); handleDeleteRequest(req.id); }}><Trash2 size={11} />Borrar</button>
-                      <button type="button" className="is-gold-action"><Send size={11} />Enviar</button>
                     </span>
                   </div>
                 ))

@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState, useRef } from "react";
+import { useSearchParams } from "next/navigation";
 import {
   Calculator,
   CreditCard,
@@ -32,6 +33,7 @@ type Movement = {
   method: string;
   amount: number;
   status: "Pendiente" | "Aceptada";
+  rawEstado: string;
   date: string;
   hour: string;
   barber: string;
@@ -189,7 +191,8 @@ function mapAppointment(item: Record<string, unknown>, index: number): Movement 
   const rawMethod = item.metodo_pago || item.pago_metodo || item.metodo || item.method;
   const pagoId = item.pago_id;
   const paidAt = item.pagado_en;
-  const hasPayment = Boolean(pagoId || paidAt || (typeof rawMethod === "string" && rawMethod.trim().length > 0));
+  const rawEstado = text(item.estado ?? item.status).toLowerCase();
+  const hasPayment = Boolean(pagoId || paidAt || rawEstado === "pagada" || (typeof rawMethod === "string" && rawMethod.trim().length > 0));
   const rawDate = item.fecha ?? item.date;
   return {
     id: text(item.id) || `cita-${index + 1}`,
@@ -198,6 +201,7 @@ function mapAppointment(item: Record<string, unknown>, index: number): Movement 
     method: text(rawMethod) || "Pendiente",
     amount: num(item.total_pagado ?? item.total),
     status: hasPayment ? "Aceptada" : "Pendiente",
+    rawEstado,
     date: formatDate(rawDate),
     dateKey: normalizeDateKey(rawDate),
     hour: formatHour(item.hora_inicio ?? item.hora ?? item.hour),
@@ -315,7 +319,35 @@ export default function InventarioPage() {
   const [loadedAppointmentId, setLoadedAppointmentId] = useState<string | null>(null);
   const [syncingAppointmentIds, setSyncingAppointmentIds] = useState<Record<string, boolean>>({});
   const [selectedPendingDate, setSelectedPendingDate] = useState(() => todayDateKey());
+  const searchParams = useSearchParams();
+  const paramCitaId = searchParams.get("cita_id");
   const [appointmentLoadMessage, setAppointmentLoadMessage] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!paramCitaId || movements.length === 0) return;
+    const target = movements.find((m) => String(m.id) === String(paramCitaId));
+    if (target) {
+      if (target.status !== "Pendiente" || target.rawEstado === "pagada") {
+        setAppointmentLoadMessage("La cita seleccionada ya fue pagada.");
+        return;
+      }
+      if (target.rawEstado !== "realizada") {
+        setAppointmentLoadMessage(`La cita está en estado "${target.rawEstado}". Debe estar "realizada" para cobrarse.`);
+        return;
+      }
+      setPosClient(target.client);
+      setPosBarber(target.barber);
+      setLoadedAppointmentId(target.id);
+      let matchedService = services.find((s) => s.id === target.serviceId);
+      if (!matchedService) {
+        matchedService = services.find((s) => s.name.toLowerCase() === target.service.toLowerCase());
+      }
+      if (matchedService) {
+        setSelectedServiceIds([matchedService.id]);
+      }
+      setAppointmentLoadMessage(null);
+    }
+  }, [paramCitaId, movements, services]);
 
   // Control de Reporte Z
   const [showZReport, setShowZReport] = useState(false);
@@ -515,11 +547,12 @@ export default function InventarioPage() {
     // 8. Total pendiente de cobro hoy
     const totalPendienteHoy = todayMovements.filter((item) => item.status === "Pendiente").reduce((acc, item) => acc + item.amount, 0);
 
-    // 9. Citas agendadas de hoy pendientes por cobrar (citas originales de hoy)
+    // 9. Citas agendadas de hoy pendientes por cobrar (citas realizadas sin pago)
     const pendingAppointments = todayMovements.filter((m) => {
       const isPending = m.status === "Pendiente";
+      const isRealizada = m.rawEstado === "realizada";
       const isSourceAppointment = m.id.startsWith("cita-") || !isNaN(Number(m.id));
-      return isPending && isSourceAppointment;
+      return isPending && isRealizada && isSourceAppointment;
     });
 
     // 10. Citas agendadas de hoy cobradas / finalizadas (citas originales de hoy)
@@ -594,8 +627,9 @@ export default function InventarioPage() {
     const selectedMovements = movements.filter((m) => m.dateKey === selectedPendingDate);
     const pendingForDate = selectedMovements.filter((m) => {
       const isPending = m.status === "Pendiente";
+      const isRealizada = m.rawEstado === "realizada";
       const isSourceAppointment = m.id.startsWith("cita-") || !isNaN(Number(m.id));
-      return isPending && isSourceAppointment;
+      return isPending && isRealizada && isSourceAppointment;
     });
 
     return {
@@ -1354,10 +1388,10 @@ export default function InventarioPage() {
             </div>
 
             <div className="mt-4 pt-4 border-t border-[var(--panel-stroke)]">
-              {chargeError && (
+              {(chargeError || appointmentLoadMessage) && (
                 <div className="text-red-500 text-xs px-2 text-center font-bold mb-3 flex items-center justify-center gap-1">
                   <AlertCircle size={12} />
-                  {chargeError}
+                  {chargeError || appointmentLoadMessage}
                 </div>
               )}
 
