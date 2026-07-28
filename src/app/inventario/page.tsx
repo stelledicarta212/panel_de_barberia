@@ -24,7 +24,8 @@ import {
 } from "lucide-react";
 import { DashboardShell } from "@/components/dashboard-shell";
 import { useDashboard } from "@/store/dashboard-context";
-import { savePosSale } from "@/lib/dashboard-api";
+import { savePosSale, updateCitaDashboard } from "@/lib/dashboard-api";
+import { getPosAppointmentAction } from "@/lib/pos-appointment-flow";
 
 type Movement = {
   id: string;
@@ -318,6 +319,7 @@ function InventarioContent() {
   // Control de vinculación de cita agendada en checkout y estados de sincronización en caliente
   const [loadedAppointmentId, setLoadedAppointmentId] = useState<string | null>(null);
   const [syncingAppointmentIds, setSyncingAppointmentIds] = useState<Record<string, boolean>>({});
+  const [transitioningAppointmentIds, setTransitioningAppointmentIds] = useState<Record<string, boolean>>({});
   const [selectedPendingDate, setSelectedPendingDate] = useState(() => todayDateKey());
   const searchParams = useSearchParams();
   const paramCitaId = searchParams.get("cita_id");
@@ -551,12 +553,12 @@ function InventarioContent() {
     // 8. Total pendiente de cobro hoy
     const totalPendienteHoy = todayMovements.filter((item) => item.status === "Pendiente").reduce((acc, item) => acc + item.amount, 0);
 
-    // 9. Citas agendadas de hoy pendientes por cobrar (citas realizadas sin pago)
+    // 9. Citas agendadas de hoy dentro del flujo POS y todavía sin pago
     const pendingAppointments = todayMovements.filter((m) => {
       const isPending = m.status === "Pendiente";
-      const isRealizada = m.rawEstado === "realizada";
+      const hasPosAction = getPosAppointmentAction(m.rawEstado) !== null;
       const isSourceAppointment = m.id.startsWith("cita-") || !isNaN(Number(m.id));
-      return isPending && isRealizada && isSourceAppointment;
+      return isPending && hasPosAction && isSourceAppointment;
     });
 
     // 10. Citas agendadas de hoy cobradas / finalizadas (citas originales de hoy)
@@ -631,9 +633,9 @@ function InventarioContent() {
     const selectedMovements = movements.filter((m) => m.dateKey === selectedPendingDate);
     const pendingForDate = selectedMovements.filter((m) => {
       const isPending = m.status === "Pendiente";
-      const isRealizada = m.rawEstado === "realizada";
+      const hasPosAction = getPosAppointmentAction(m.rawEstado) !== null;
       const isSourceAppointment = m.id.startsWith("cita-") || !isNaN(Number(m.id));
-      return isPending && isRealizada && isSourceAppointment;
+      return isPending && hasPosAction && isSourceAppointment;
     });
 
     return {
@@ -644,6 +646,68 @@ function InventarioContent() {
   }, [movements, selectedPendingDate]);
 
   const selectedPendingAppointments = selectedPendingSummary.pendingAppointments;
+
+  const loadAppointmentIntoPos = (appt: Movement) => {
+    setPosClient(appt.client);
+    setPosBarber(appt.barber);
+    setLoadedAppointmentId(appt.id);
+    setAppointmentLoadMessage(`Cita de ${appt.client} cargada y lista para pago.`);
+
+    let matchedService = services.find((service) => service.id === appt.serviceId);
+    if (!matchedService) {
+      matchedService = services.find(
+        (service) => service.name.toLowerCase() === appt.service.toLowerCase()
+      );
+    }
+    if (matchedService) setSelectedServiceIds([matchedService.id]);
+  };
+
+  const handlePosAppointmentAction = async (appt: Movement) => {
+    const action = getPosAppointmentAction(appt.rawEstado);
+    if (!action || transitioningAppointmentIds[appt.id] || syncingAppointmentIds[appt.id]) return;
+
+    if (!action.nextState) {
+      loadAppointmentIntoPos(appt);
+      return;
+    }
+
+    const barberiaId = Number(identity?.barberia_id ?? 0);
+    const citaId = Number(appt.id.replace(/^cita-/, ""));
+    if (!barberiaId || !Number.isFinite(citaId)) {
+      setAppointmentLoadMessage("No fue posible identificar la cita o la barbería activa.");
+      return;
+    }
+
+    setTransitioningAppointmentIds((current) => ({ ...current, [appt.id]: true }));
+    setAppointmentLoadMessage(
+      action.nextState === "en_servicio" ? "Iniciando servicio..." : "Finalizando servicio..."
+    );
+    try {
+      const result = await updateCitaDashboard({
+        barberia_id: barberiaId,
+        id: citaId,
+        estado: action.nextState,
+        transition_only: true
+      });
+      if (!result.ok) throw new Error(result.message || "No fue posible actualizar la cita.");
+      setAppointmentLoadMessage(
+        action.nextState === "en_servicio"
+          ? "Servicio iniciado correctamente."
+          : "Servicio finalizado. La cita ya puede cargarse al POS."
+      );
+      await refresh();
+    } catch (error) {
+      setAppointmentLoadMessage(
+        error instanceof Error ? error.message : "No fue posible actualizar la cita."
+      );
+    } finally {
+      setTransitioningAppointmentIds((current) => {
+        const next = { ...current };
+        delete next[appt.id];
+        return next;
+      });
+    }
+  };
 
   const handleChargeNow = async () => {
     if (!canCharge || charging) return;
@@ -864,10 +928,10 @@ function InventarioContent() {
               <div>
                 <h3 className="text-sm font-bold text-[var(--text)] flex items-center gap-2">
                   <Sparkles size={16} className="text-amber-500 animate-pulse" />
-                  Citas pendientes de cobro — {selectedPendingSummary.dateLabel}
+                  Citas en flujo de atención y cobro — {selectedPendingSummary.dateLabel}
                 </h3>
                 <p className="text-[11px] text-[var(--muted)] mt-0.5">
-                  Haz clic en cualquier fila para cargar automáticamente los datos y servicios al POS.
+                  Inicia o finaliza el servicio según su estado. Solo las citas realizadas pueden cargarse al POS.
                 </p>
               </div>
               <span className="text-[10px] text-amber-500 font-bold uppercase tracking-wider bg-amber-500/10 border border-amber-500/25 px-2.5 py-1 rounded-full">
@@ -933,25 +997,16 @@ function InventarioContent() {
                 <tbody className="divide-y divide-[var(--panel-stroke)]/40">
                   {selectedPendingAppointments.map((appt) => {
                     const isSyncing = syncingAppointmentIds[appt.id];
+                    const isTransitioning = transitioningAppointmentIds[appt.id];
+                    const action = getPosAppointmentAction(appt.rawEstado);
+                    const isProcessing = isSyncing || isTransitioning;
                     return (
                       <tr
                         key={appt.id}
-                        className={`transition-colors cursor-pointer group ${isSyncing ? "bg-amber-500/[0.02] cursor-not-allowed opacity-80" : "hover:bg-amber-500/5"}`}
+                        className={`transition-colors group ${isProcessing ? "bg-amber-500/[0.02] cursor-not-allowed opacity-80" : action?.nextState === null ? "cursor-pointer hover:bg-amber-500/5" : ""}`}
                         onClick={() => {
-                          if (isSyncing) return;
-                          setPosClient(appt.client);
-                          setPosBarber(appt.barber);
-                          setLoadedAppointmentId(appt.id); // Guardar vinculación de la cita agendada
-                          setAppointmentLoadMessage("Cita de " + appt.client + " cargada y lista para pago.");
-                          
-                          let matchedService = services.find(s => s.id === appt.serviceId);
-                          if (!matchedService) {
-                            matchedService = services.find(s => s.name.toLowerCase() === appt.service.toLowerCase());
-                          }
-
-                          if (matchedService) {
-                            setSelectedServiceIds([matchedService.id]);
-                          }
+                          if (isProcessing || action?.nextState !== null) return;
+                          loadAppointmentIntoPos(appt);
                         }}
                       >
                         <td className="p-3 font-semibold text-[var(--text)] flex items-center gap-2" data-label="Cliente">
@@ -975,23 +1030,32 @@ function InventarioContent() {
                           {appt.barber}
                         </td>
                         <td className="p-3 text-right" data-label="Accion">
-                          {isSyncing ? (
+                          {isProcessing ? (
                             <button
                               type="button"
                               disabled
                               className="px-3 py-1.5 bg-slate-500/20 text-slate-500 border border-slate-500/30 font-extrabold text-[10px] rounded-lg uppercase tracking-wider cursor-not-allowed flex items-center gap-1.5 ml-auto"
                             >
                               <span className="w-1.5 h-1.5 rounded-full bg-amber-500 animate-ping" />
-                              Sincronizando...
+                              {isTransitioning ? "Procesando..." : "Sincronizando..."}
                             </button>
-                          ) : (
-                            <button
-                              type="button"
-                              className="px-3 py-1.5 bg-amber-500 hover:bg-amber-400 text-black font-extrabold text-[10px] rounded-lg uppercase tracking-wider transition-all active:scale-95 shadow-sm shadow-amber-500/10 cursor-pointer"
-                            >
-                              Cargar Cita ⚡
-                            </button>
-                          )}
+                          ) : action ? (
+                            <span className="flex items-center justify-end gap-2">
+                              <span className="px-2 py-1 rounded-full border border-amber-500/25 bg-amber-500/10 text-amber-500 text-[9px] font-bold">
+                                {action.badge}
+                              </span>
+                              <button
+                                type="button"
+                                onClick={(event) => {
+                                  event.stopPropagation();
+                                  void handlePosAppointmentAction(appt);
+                                }}
+                                className="px-3 py-1.5 bg-amber-500 hover:bg-amber-400 text-black font-extrabold text-[10px] rounded-lg uppercase tracking-wider transition-all active:scale-95 shadow-sm shadow-amber-500/10 cursor-pointer"
+                              >
+                                {action.button}
+                              </button>
+                            </span>
+                          ) : null}
                         </td>
                       </tr>
                     );
