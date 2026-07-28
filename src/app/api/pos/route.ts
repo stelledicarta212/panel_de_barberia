@@ -103,16 +103,37 @@ export async function POST(request: Request) {
     const hasCitaId = citaId !== undefined && citaId !== null && String(citaId).trim() !== "" && String(citaId) !== "undefined" && String(citaId) !== "null" && !String(citaId).startsWith("cita-");
 
     if (hasCitaId) {
-      const appointments = stateData.reservas || stateData.merged?.appointments || stateData.seed?.appointments || [];
-      const hasCita = appointments.some((c: Record<string, unknown>) => {
+      const appointments = (stateData.reservas || stateData.merged?.appointments || stateData.seed?.appointments || []) as Array<Record<string, unknown>>;
+      const targetCita = appointments.find((c) => {
         const cid = c.id ?? c.cita_id;
         return cid !== undefined && String(cid) === String(citaId);
       });
 
-      if (!hasCita) {
+      if (!targetCita) {
         return NextResponse.json(
           { ok: false, code: "cita_ajena", message: "La cita no pertenece a esta barbería." },
           { status: 403 }
+        );
+      }
+
+      // Validar si la cita ya fue pagada
+      const rawMethod = targetCita.metodo_pago || targetCita.pago_metodo || targetCita.metodo || targetCita.method;
+      const hasPayment = Boolean(targetCita.pago_id || targetCita.pagado_en || targetCita.total_pagado || (typeof rawMethod === "string" && rawMethod.trim().length > 0));
+      const isPagadaState = String(targetCita.estado || "").toLowerCase() === "pagada";
+
+      if (hasPayment || isPagadaState) {
+        return NextResponse.json(
+          { ok: false, code: "cita_ya_pagada", message: "La cita ya fue pagada." },
+          { status: 409 }
+        );
+      }
+
+      // Validar que la cita esté realizada para poder ser cobrada
+      const citaEstado = String(targetCita.estado || "").toLowerCase();
+      if (citaEstado !== "realizada") {
+        return NextResponse.json(
+          { ok: false, code: "cita_no_realizada", message: "La cita debe estar en estado realizada para poder ser cobrada." },
+          { status: 409 }
         );
       }
     }
@@ -134,10 +155,10 @@ export async function POST(request: Request) {
       data = { message: text };
     }
     
-    if (!response.ok) {
+    if (!response.ok || data.ok === false) {
       return NextResponse.json(
-        { ok: false, message: data.message || "Error en el servidor de facturación." },
-        { status: response.status }
+        { ok: false, code: data.code || "error_cobro", message: data.message || "Error en el servidor de facturación." },
+        { status: response.status >= 400 ? response.status : 409 }
       );
     }
     
