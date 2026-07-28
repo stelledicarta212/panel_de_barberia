@@ -333,6 +333,10 @@ export default function CitasPage() {
     type: "idle" | "loading" | "success" | "error";
     message: string;
   }>({ type: "idle", message: "" });
+  const [inlineFeedback, setInlineFeedback] = useState<{
+    type: "idle" | "loading" | "success" | "error";
+    message: string;
+  }>({ type: "idle", message: "" });
   const [created] = useState<CreatedAppointment | null>(null);
   const [editingRequestId, setEditingRequestId] = useState<string | null>(null);
   const displayHours = useMemo(() => {
@@ -613,19 +617,28 @@ export default function CitasPage() {
 
   const handleUpdateCitaEstado = async (id: string, nextEstado: string) => {
     if (!barberiaId) return;
+    setInlineFeedback({ type: "loading", message: "Actualizando estado..." });
     try {
       const res = await updateCitaDashboard({
         barberia_id: barberiaId,
         id: Number(id),
-        estado: nextEstado
+        estado: nextEstado,
+        transition_only: true
       });
       if (res.ok) {
+        setInlineFeedback({ type: "success", message: "Estado actualizado correctamente." });
         if (refresh) await refresh();
+        setTimeout(() => {
+          setInlineFeedback({ type: "idle", message: "" });
+        }, 3000);
       } else {
-        alert(res.message || "Error al actualizar estado de la cita.");
+        setInlineFeedback({ type: "error", message: res.message || "Error al actualizar estado de la cita." });
       }
     } catch (err) {
-      alert(err instanceof Error ? err.message : "Error de red al actualizar estado de la cita.");
+      setInlineFeedback({
+        type: "error",
+        message: err instanceof Error ? err.message : "Error de red al actualizar estado de la cita."
+      });
     }
   };
 
@@ -635,9 +648,7 @@ export default function CitasPage() {
 
   const handleDeleteRequest = async (id: string) => {
     if (!barberiaId) return;
-    const confirmCancel = window.confirm("¿Estás seguro de que deseas cancelar esta cita?");
-    if (!confirmCancel) return;
-
+    setInlineFeedback({ type: "loading", message: "Cancelando cita..." });
     try {
       const res = await cancelCitaDashboard({
         barberia_id: barberiaId,
@@ -645,16 +656,22 @@ export default function CitasPage() {
       });
 
       if (res.ok) {
-        alert("Cita cancelada con éxito.");
+        setInlineFeedback({ type: "success", message: "Cita cancelada con éxito." });
         setSelectedId(null);
         setEditingRequestId(null);
         setDetailOpen(false);
         if (refresh) await refresh();
+        setTimeout(() => {
+          setInlineFeedback({ type: "idle", message: "" });
+        }, 3000);
       } else {
-        alert(res.message || "Error al cancelar la cita.");
+        setInlineFeedback({ type: "error", message: res.message || "Error al cancelar la cita." });
       }
     } catch (err) {
-      alert(err instanceof Error ? err.message : "Error de red al cancelar la cita.");
+      setInlineFeedback({
+        type: "error",
+        message: err instanceof Error ? err.message : "Error de red al cancelar la cita."
+      });
     }
   };
 
@@ -1192,6 +1209,52 @@ export default function CitasPage() {
                 <p><span>Descripcion</span><strong>{selected.description || "Sin descripcion"}</strong></p>
                 <p><span>Total</span><strong>{toCurrency(selected.total ?? 0)}</strong></p>
               </div>
+
+              {/* Transition Stepper Progress Tracker */}
+              <div className="ba-transition-stepper">
+                {(() => {
+                  const currentEst = (selected.rawEstado || "").toLowerCase();
+                  const steps = [
+                    { key: "confirmada", label: "Confirmada" },
+                    { key: "en_servicio", label: "En servicio" },
+                    { key: "realizada", label: "Realizada" },
+                    { key: "pagada", label: "Pagada" }
+                  ];
+                  let activeIndex = 0;
+                  if (selected.hasPayment || currentEst === "pagada") {
+                    activeIndex = 3;
+                  } else if (currentEst === "realizada") {
+                    activeIndex = 2;
+                  } else if (currentEst === "en_servicio") {
+                    activeIndex = 1;
+                  }
+                  
+                  return steps.map((step, idx) => {
+                    const isActive = idx === activeIndex;
+                    const isCompleted = idx < activeIndex;
+                    let className = "ba-transition-step";
+                    if (isActive) className += " is-active";
+                    if (isCompleted) className += " is-completed";
+                    
+                    return (
+                      <div key={step.key} className={className}>
+                        <div className="ba-transition-step-circle">
+                          {isCompleted ? "✓" : idx + 1}
+                        </div>
+                        <span>{step.label}</span>
+                      </div>
+                    );
+                  });
+                })()}
+              </div>
+
+              {/* Inline Feedback Container */}
+              {inlineFeedback.message ? (
+                <div className={`ba-overlay-feedback is-${inlineFeedback.type}`}>
+                  {inlineFeedback.message}
+                </div>
+              ) : null}
+
               <section className="ba-client-loyalty-card">
                 <header>
                   <h4><Gift size={12} />Beneficios de Lealtad</h4>

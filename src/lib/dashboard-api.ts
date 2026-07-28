@@ -595,6 +595,7 @@ export async function updateCitaDashboard(payload: {
   hora_inicio?: string;
   estado?: string;
   notas?: string;
+  transition_only?: boolean;
 }): Promise<{ ok: boolean; message?: string; data?: unknown }> {
   return callCitasAdminGateway({
     action: "update_cita",

@@ -1,10 +1,10 @@
 import { NextResponse } from "next/server";
 
-const CITAS_ADMIN_WEBHOOK =
-  process.env.DASHBOARD_CITAS_ENDPOINT ??
-  process.env.CITAS_ADMIN_WEBHOOK;
-
 export async function POST(request: Request) {
+  const CITAS_ADMIN_WEBHOOK =
+    process.env.DASHBOARD_CITAS_ENDPOINT ??
+    process.env.CITAS_ADMIN_WEBHOOK;
+
   if (!CITAS_ADMIN_WEBHOOK) {
     return NextResponse.json(
       {
