@@ -6553,6 +6553,112 @@ body{background:linear-gradient(var(--ba-photo-veil),var(--ba-photo-veil)),url("
 }
 
 
+/* Light theme: solid, clean surfaces without glassmorphism */
+:root[data-theme="light"] {
+  --bg: #ffffff;
+  --bg-soft: #f5f6f8;
+  --bg-overlay: #ffffff;
+  --panel: #ffffff;
+  --panel-stroke: #e3e5e8;
+  --glare: #ffffff;
+  --text: #111318;
+  --muted: #5d626b;
+  --gold: #c09e53;
+  --gold-strong: #9f7b35;
+  --card-bg-strong: #f7f8fa;
+  --accent-soft: #f7efd9;
+  --dark-soft: #e8eaed;
+  --ba-glass: #ffffff;
+  --ba-glass-strong: #f7f8fa;
+  --ba-glass-stroke: #e3e5e8;
+  --ba-glass-shine: #ffffff;
+  --ba-glass-shadow: #dfe2e6;
+  --ba-photo-veil: #ffffff;
+  --ba-card-raised: #ffffff;
+  --ba-card-pressed: #eceef1;
+}
+
+:root[data-theme="light"] body,
+:root[data-theme="light"] .ba-dashboard-shell {
+  background: #ffffff !important;
+  background-image: none !important;
+}
+
+:root[data-theme="light"] .ba-dashboard-shell *,
+:root[data-theme="light"] .ba-dashboard-shell *::before,
+:root[data-theme="light"] .ba-dashboard-shell *::after {
+  -webkit-backdrop-filter: none !important;
+  backdrop-filter: none !important;
+}
+
+:root[data-theme="light"] .ba-dashboard-frame {
+  background: #ffffff !important;
+  border-color: #e3e5e8 !important;
+  box-shadow: 0 18px 48px #e1e4e8 !important;
+}
+
+:root[data-theme="light"] .ba-sidebar,
+:root[data-theme="light"] .ba-topbar,
+:root[data-theme="light"] .ba-card,
+:root[data-theme="light"] .ba-barber-card,
+:root[data-theme="light"] .ba-barber-v2-card,
+:root[data-theme="light"] .ba-citas-live-card,
+:root[data-theme="light"] .ba-citas-tabs,
+:root[data-theme="light"] .ba-citas-table-wrap,
+:root[data-theme="light"] .ba-client-table,
+:root[data-theme="light"] .ba-service-card,
+:root[data-theme="light"] .ba-service-list-card,
+:root[data-theme="light"] .ba-loyalty-points-card,
+:root[data-theme="light"] .ba-loyalty-reward-card,
+:root[data-theme="light"] .ba-loyalty-feature-card,
+:root[data-theme="light"] .ba-pos-widget,
+:root[data-theme="light"] .ba-pos-kpi,
+:root[data-theme="light"] .ba-pos-summary,
+:root[data-theme="light"] .ba-cita-reserve-calendar,
+:root[data-theme="light"] .ba-overlay-card,
+:root[data-theme="light"] .ba-client-card-popup {
+  background: #ffffff !important;
+  background-image: none !important;
+  border-color: #e3e5e8 !important;
+  box-shadow: 0 8px 24px #e5e7eb !important;
+}
+
+:root[data-theme="light"] .ba-citas-row,
+:root[data-theme="light"] .ba-client-row,
+:root[data-theme="light"] .ba-pos-table-head,
+:root[data-theme="light"] .ba-pos-table-row,
+:root[data-theme="light"] .ba-pos-lines div,
+:root[data-theme="light"] .ba-pos-close-grid p,
+:root[data-theme="light"] .ba-pos-widget-kpis p,
+:root[data-theme="light"] .ba-pos-widget-list li,
+:root[data-theme="light"] .ba-mini-field,
+:root[data-theme="light"] .ba-mini-tags,
+:root[data-theme="light"] .ba-mini-textarea,
+:root[data-theme="light"] .ba-search,
+:root[data-theme="light"] .ba-input,
+:root[data-theme="light"] .ba-textarea,
+:root[data-theme="light"] .ba-list li,
+:root[data-theme="light"] .ba-calendar-slot {
+  background: #f7f8fa !important;
+  background-image: none !important;
+  border-color: #e3e5e8 !important;
+  box-shadow: none !important;
+}
+
+:root[data-theme="light"] .ba-card::before {
+  background: none !important;
+}
+
+:root[data-theme="light"] .ba-card[role="button"]:hover,
+:root[data-theme="light"] .ba-card.is-clickable:hover,
+:root[data-theme="light"] .ba-citas-row.ba-citas-row-selectable:hover,
+:root[data-theme="light"] .ba-client-row:not(.ba-client-row-head):hover {
+  background: #f7f8fa !important;
+  border-color: #d5b66f !important;
+  box-shadow: 0 10px 26px #dfe2e6 !important;
+}
+
+
 /* POS high-visibility fire controls */
 .ba-pos-layout button:not(:disabled):not(.ba-pos-receipt-slip button) {
   color: #171006 !important;
