@@ -26,6 +26,7 @@ import { DashboardShell } from "@/components/dashboard-shell";
 import { useDashboard } from "@/store/dashboard-context";
 import { savePosSale, updateCitaDashboard } from "@/lib/dashboard-api";
 import { getPosAppointmentAction } from "@/lib/pos-appointment-flow";
+import { summarizePosDay } from "@/lib/pos-daily-summary";
 
 type Movement = {
   id: string;
@@ -525,20 +526,17 @@ function InventarioContent() {
     });
 
     // 2. Movimientos cobrados del día
-    const paidMovements = todayMovements.filter((item) => item.status !== "Pendiente");
+    const dailySummary = summarizePosDay(todayMovements);
+    const paidMovements = dailySummary.paid;
 
     // 3. Monto total cobrado (Ventas del día)
-    const salesDay = paidMovements.reduce((acc, item) => acc + item.amount, 0);
+    const salesDay = dailySummary.sales;
 
     // 4. Efectivo en caja
-    const cashDay = paidMovements
-      .filter((item) => item.method?.toLowerCase() === "efectivo")
-      .reduce((acc, item) => acc + item.amount, 0);
+    const cashDay = dailySummary.cash;
 
     // 5. Pagos digitales (monto total cobrado digital)
-    const digitalPaymentsAmount = paidMovements
-      .filter((item) => item.method?.toLowerCase() !== "efectivo")
-      .reduce((acc, item) => acc + item.amount, 0);
+    const digitalPaymentsAmount = dailySummary.digital;
 
     // 6. Conteo de pagos digitales y porcentaje
     const digitalPaymentsCount = paidMovements.filter((item) => item.method?.toLowerCase() !== "efectivo").length;
@@ -548,25 +546,18 @@ function InventarioContent() {
       : 0;
 
     // 7. Total agendado hoy
-    const totalAgendadoHoy = todayMovements.reduce((acc, item) => acc + item.amount, 0);
+    const totalAgendadoHoy = dailySummary.scheduledAmount;
 
     // 8. Total pendiente de cobro hoy
-    const totalPendienteHoy = todayMovements.filter((item) => item.status === "Pendiente").reduce((acc, item) => acc + item.amount, 0);
+    const totalPendienteHoy = dailySummary.pendingAmount;
 
     // 9. Citas agendadas de hoy dentro del flujo POS y todavía sin pago
-    const pendingAppointments = todayMovements.filter((m) => {
-      const isPending = m.status === "Pendiente";
-      const hasPosAction = getPosAppointmentAction(m.rawEstado) !== null;
-      const isSourceAppointment = m.id.startsWith("cita-") || !isNaN(Number(m.id));
-      return isPending && hasPosAction && isSourceAppointment;
-    });
+    const pendingAppointments = dailySummary.pending;
 
     // 10. Citas agendadas de hoy cobradas / finalizadas (citas originales de hoy)
-    const finishedAppointments = todayMovements.filter((m) => {
-      const isFinished = m.status !== "Pendiente";
-      const isSourceAppointment = m.id.startsWith("cita-") || !isNaN(Number(m.id));
-      return isFinished && isSourceAppointment;
-    });
+    const finishedAppointments = dailySummary.paid;
+    const noShowAppointments = dailySummary.noShows;
+    const cancelledAppointments = dailySummary.cancelled;
 
     // 11. Cierre por barbero
     const groupedBarbers = new Map<string, { cuts: number; total: number; pending: number }>();
@@ -580,10 +571,10 @@ function InventarioContent() {
       const barberName = item.barber || "Sin barbero";
       const current = groupedBarbers.get(barberName) ?? { cuts: 0, total: 0, pending: 0 };
       
-      if (item.status !== "Pendiente") {
+      if (paidMovements.some((movement) => movement.id === item.id)) {
         current.cuts += 1;
         current.total += item.amount;
-      } else {
+      } else if (pendingAppointments.some((movement) => movement.id === item.id)) {
         current.pending += item.amount;
       }
       groupedBarbers.set(barberName, current);
@@ -609,6 +600,8 @@ function InventarioContent() {
       totalPendienteHoy,
       pendingAppointments,
       finishedAppointments,
+      noShowAppointments,
+      cancelledAppointments,
       closeRows,
       formattedToday
     };
@@ -625,9 +618,12 @@ function InventarioContent() {
     totalPendienteHoy,
     pendingAppointments,
     finishedAppointments,
+    noShowAppointments,
+    cancelledAppointments,
     closeRows,
     formattedToday
   } = posSummary;
+  const historicalAppointments = [...noShowAppointments, ...cancelledAppointments];
 
   const selectedPendingSummary = useMemo(() => {
     const selectedMovements = movements.filter((m) => m.dateKey === selectedPendingDate);
@@ -1070,6 +1066,63 @@ function InventarioContent() {
               </div>
             )}
           </div>
+
+        {/* Citas que no generan cobro */}
+        {historicalAppointments.length > 0 && (
+          <div className="ba-card p-5 relative overflow-hidden flex flex-col gap-3 ba-pos-appointments-card">
+            <header className="flex justify-between items-center">
+              <div>
+                <h3 className="text-sm font-bold text-[var(--text)]">
+                  No asistieron / Canceladas
+                </h3>
+                <p className="text-[11px] text-[var(--muted)] mt-0.5">
+                  Histórico del día. Estas citas no están disponibles para cobro.
+                </p>
+              </div>
+              <span className="text-[10px] text-[var(--muted)] font-bold uppercase tracking-wider border border-[var(--panel-stroke)] px-2.5 py-1 rounded-full">
+                {historicalAppointments.length} CITAS
+              </span>
+            </header>
+
+            <div className="overflow-x-auto w-full border border-[var(--panel-stroke)] rounded-2xl ba-mobile-card-table">
+              <table className="w-full text-left text-xs border-collapse ba-pos-appointments-table">
+                <thead>
+                  <tr className="border-b border-[var(--panel-stroke)] bg-[var(--bg-soft)] text-[var(--muted)] font-bold uppercase tracking-wider text-[10px]">
+                    <th className="p-3">Cliente</th>
+                    <th className="p-3">Hora</th>
+                    <th className="p-3">Servicio</th>
+                    <th className="p-3">Barbero</th>
+                    <th className="p-3 text-right">Estado</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-[var(--panel-stroke)]">
+                  {historicalAppointments.map((appt) => {
+                    const isNoShow = appt.rawEstado === "no_asistio";
+                    return (
+                      <tr key={appt.id} className={isNoShow ? "bg-red-500/5" : "bg-slate-500/5"}>
+                        <td className="p-3 font-semibold text-[var(--text)]" data-label="Cliente">
+                          {appt.client}
+                        </td>
+                        <td className="p-3 text-[var(--text)]" data-label="Hora">{appt.hour}</td>
+                        <td className="p-3 text-[var(--muted)]" data-label="Servicio">{appt.service}</td>
+                        <td className="p-3 text-[var(--muted)]" data-label="Barbero">{appt.barber}</td>
+                        <td className="p-3 text-right" data-label="Estado">
+                          <span className={`inline-flex px-3 py-1.5 rounded-lg border text-[10px] font-extrabold uppercase tracking-wider ${
+                            isNoShow
+                              ? "bg-red-500/10 border-red-500/25 text-red-500"
+                              : "bg-slate-500/10 border-slate-500/25 text-slate-500"
+                          }`}>
+                            {isNoShow ? "No asistió" : "Cancelada"}
+                          </span>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        )}
 
         {/* Citas Agendadas Hoy Cobradas / Finalizadas */}
         {finishedAppointments.length > 0 && (
@@ -1535,9 +1588,17 @@ function InventarioContent() {
                <p className="flex justify-between">
                  <span>Servicios pendientes</span>
                  <strong className="text-rose-500 font-bold">
-                   <span className="text-[var(--muted)] font-normal mr-1.5">{todayMovements.filter((m) => m.status === "Pendiente").length} =</span>
+                   <span className="text-[var(--muted)] font-normal mr-1.5">{pendingAppointments.length} =</span>
                    {money2(totalPendienteHoy)}
                  </strong>
+               </p>
+               <p className="flex justify-between">
+                 <span>No asistieron</span>
+                 <strong className="text-red-500 font-bold">{noShowAppointments.length}</strong>
+               </p>
+               <p className="flex justify-between">
+                 <span>Canceladas</span>
+                 <strong className="text-slate-500 font-bold">{cancelledAppointments.length}</strong>
                </p>
                <p className="flex justify-between"><span>Descuentos aplicados</span><strong className="text-[var(--text)]">$0</strong></p>
                <p className="flex justify-between"><span>Propinas</span><strong className="text-[var(--text)]">$0</strong></p>
