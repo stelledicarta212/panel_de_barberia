@@ -169,6 +169,17 @@ export function DashboardProvider({ children }: { children: React.ReactNode }) {
   // Mount effect to check session and resolve/validate identity
   useEffect(() => {
     async function initSession() {
+      if (typeof window !== "undefined") {
+        const hostname = window.location.hostname;
+        if (hostname === "barberagency-app.gymh5g.easypanel.host") {
+          window.location.href = window.location.href.replace(
+            "barberagency-app.gymh5g.easypanel.host",
+            "barberagency-barberagency.gymh5g.easypanel.host"
+          );
+          return;
+        }
+      }
+
       if (env.disableRemoteFetch) {
         setIdentity({
           barberia_id: Number(env.testBarberiaId) || 101,
