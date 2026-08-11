@@ -3,7 +3,6 @@ import { normalizeSessionSetCookies } from "../cookies";
 
 function jsonResponse(body: unknown, status: number, upstreamSetCookie?: string | null) {
   const response = NextResponse.json(body, { status });
-  response.headers.set("X-Remediation-Version", "2.0");
   for (const cookie of normalizeSessionSetCookies(upstreamSetCookie)) {
     response.headers.append("Set-Cookie", cookie);
   }
