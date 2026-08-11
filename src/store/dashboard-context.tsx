@@ -160,6 +160,7 @@ export function DashboardProvider({ children }: { children: React.ReactNode }) {
   const [error, setError] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
   const [session, setSession] = useState<DashboardLoginSession | null>(null);
+  const [sessionCheckFailed, setSessionCheckFailed] = useState<boolean>(false);
   
   const fallbackAccess = useMemo(() => resolveDashboardAccess(rawState), [rawState]);
   const access = session?.access ?? (session ? fallbackAccess : LOCKED_ACCESS);
@@ -185,6 +186,8 @@ export function DashboardProvider({ children }: { children: React.ReactNode }) {
 
         if (!sessionMe.ok) {
           setSession(null);
+          setSessionCheckFailed(true);
+          clearLoginSession(fromUrl);
           if (fromUrl.barberia_id || fromUrl.slug) {
             setIdentity(fromUrl);
             setError(null);
@@ -222,6 +225,8 @@ export function DashboardProvider({ children }: { children: React.ReactNode }) {
           } else {
             // Mismatch or unauthorized! Return 403 visual error and stop.
             setSession(null);
+            setSessionCheckFailed(true);
+            clearLoginSession(fromUrl);
             // Preservar la identidad candidata de la URL para permitir re-autenticación
             setIdentity(fromUrl);
             setError("403 - No tienes permisos para acceder a esta barbería.");
@@ -290,6 +295,7 @@ export function DashboardProvider({ children }: { children: React.ReactNode }) {
         console.error("Error initializing session:", err);
         setError("Error al conectar con el servidor de autenticación.");
         setSession(null);
+        setSessionCheckFailed(true);
         setIdentity(null);
       } finally {
         setLoading(false);
@@ -342,7 +348,9 @@ export function DashboardProvider({ children }: { children: React.ReactNode }) {
       }
 
       setIdentity(effectiveIdentity);
-      setSession((prev) => prev ?? readLoginSession(effectiveIdentity));
+      if (!sessionCheckFailed) {
+        setSession((prev) => prev ?? readLoginSession(effectiveIdentity));
+      }
       setRawState(response);
       setMerged(normalized);
       const nextMessage = String(response.message ?? "").trim();
@@ -355,7 +363,7 @@ export function DashboardProvider({ children }: { children: React.ReactNode }) {
     } finally {
       setLoading(false);
     }
-  }, [session]);
+  }, [session, sessionCheckFailed]);
 
   useEffect(() => {
     if (!identity || !session) return;
@@ -413,6 +421,7 @@ export function DashboardProvider({ children }: { children: React.ReactNode }) {
       const nextUserId = (sessionMe.user_id as string | number | undefined) ?? (sessionMe.user?.id as string | number | undefined) ?? (response.user?.id as string | number | undefined);
       setBarbershopContext(nextUserId, String(nextIdentity.barberia_id), String(nextIdentity.slug));
       writeLoginSession(nextSession);
+      setSessionCheckFailed(false);
       setSession(nextSession);
       setIdentity(nextIdentity);
       setError(null);
@@ -430,6 +439,7 @@ export function DashboardProvider({ children }: { children: React.ReactNode }) {
     const userId = session?.access?.user_id ?? (session?.user?.id as string | number | undefined);
     clearBarbershopContext(userId);
     clearLoginSession(identity);
+    setSessionCheckFailed(false);
     setSession(null);
     setMessage(null);
   }, [identity, session]);
