@@ -1,9 +1,6 @@
 import { NextResponse } from "next/server";
 import { normalizeSessionSetCookies } from "../cookies";
 
-const DASHBOARD_LOGIN_ENDPOINT =
-  process.env.DASHBOARD_LOGIN_ENDPOINT;
-
 function jsonResponse(body: unknown, status: number, upstreamSetCookie?: string | null) {
   const response = NextResponse.json(body, { status });
   for (const cookie of normalizeSessionSetCookies(upstreamSetCookie)) {
@@ -13,7 +10,8 @@ function jsonResponse(body: unknown, status: number, upstreamSetCookie?: string 
 }
 
 export async function POST(request: Request) {
-  if (!DASHBOARD_LOGIN_ENDPOINT) {
+  const loginEndpoint = process.env.DASHBOARD_LOGIN_ENDPOINT;
+  if (!loginEndpoint) {
     return jsonResponse(
       {
         ok: false,
@@ -32,7 +30,7 @@ export async function POST(request: Request) {
   }
 
   try {
-    const upstream = await fetch(DASHBOARD_LOGIN_ENDPOINT, {
+    const upstream = await fetch(loginEndpoint, {
       method: "POST",
       headers: {
         "Content-Type": "application/json"
@@ -55,7 +53,15 @@ export async function POST(request: Request) {
       );
     }
 
-    return jsonResponse(body, upstream.status, upstream.headers.get("set-cookie"));
+    let setCookieHeader = upstream.headers.get("set-cookie");
+    if (!setCookieHeader && body && typeof body === "object") {
+      const bodyRecord = body as Record<string, unknown>;
+      if (typeof bodyRecord["set_cookie"] === "string" && bodyRecord["set_cookie"]) {
+        setCookieHeader = bodyRecord["set_cookie"];
+      }
+    }
+
+    return jsonResponse(body, upstream.status, setCookieHeader);
   } catch (error) {
     return jsonResponse(
       {

@@ -1,5 +1,3 @@
-const SESSION_COOKIE_DOMAIN = process.env.SESSION_COOKIE_DOMAIN || ".gymh5g.easypanel.host";
-
 function splitSetCookieHeader(value: string): string[] {
   return value
     .split(/,(?=\s*[\w!#$%&'*+\-.^`|~]+=)/)
@@ -12,9 +10,7 @@ function normalizeBaSessionCookie(cookie: string): string {
 
   let next = cookie;
   if (/;\s*domain=/i.test(next)) {
-    next = next.replace(/;\s*domain=[^;]*/i, `; Domain=${SESSION_COOKIE_DOMAIN}`);
-  } else {
-    next += `; Domain=${SESSION_COOKIE_DOMAIN}`;
+    next = next.replace(/;\s*domain=[^;]*/i, "");
   }
 
   if (!/;\s*path=/i.test(next)) next += "; Path=/";

@@ -6,6 +6,7 @@ function isAbsoluteUrl(value: string): boolean {
 
 function buildUrl(path: string): string {
   if (isAbsoluteUrl(path)) return path;
+  if (path.startsWith("/api/")) return path;
   const base = String(env.apiBaseUrl || "").trim().replace(/\/+$/, "");
   const normalizedPath = path.startsWith("/") ? path : `/${path}`;
   return `${base}${normalizedPath}`;
