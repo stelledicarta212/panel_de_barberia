@@ -10,9 +10,12 @@ import {
   Scissors,
   Send,
   Sparkles,
-  Users
+  Users,
+  ChevronLeft,
+  ChevronRight,
+  CalendarDays
 } from "lucide-react";
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useDashboard } from "@/store/dashboard-context";
 
@@ -26,6 +29,7 @@ type ReservationRecord = {
   hour?: string;
   status?: string;
   total?: number;
+  isPaid?: boolean;
 };
 
 function money(value: unknown): string {
@@ -53,7 +57,11 @@ function normalizeAppointmentRecord(
 ): ReservationRecord {
   const id = textValue(item.id) || `cita-${index + 1}`;
   const rawMethod = item.metodo_pago || item.pago_metodo || item.metodo || item.method;
-  const hasPayment = (typeof rawMethod === "string" && rawMethod.trim().length > 0) || (locallyPaidIds && locallyPaidIds[id]);
+  const pagoId = item.pago_id;
+  const paidAt = item.pagado_en;
+  const rawEstado = textValue(item.estado ?? item.status).toLowerCase();
+  const isPaid = Boolean(pagoId || paidAt || rawEstado === "pagada" || (typeof rawMethod === "string" && rawMethod.trim().length > 0) || (locallyPaidIds && locallyPaidIds[id]));
+  const hasPayment = isPaid;
 
   return {
     id,
@@ -64,13 +72,45 @@ function normalizeAppointmentRecord(
     date: formatDbDate(item.fecha ?? item.date),
     hour: textValue(item.hora_inicio ?? item.hora ?? item.hour).slice(0, 5),
     status: hasPayment ? "Aceptada" : (textValue(item.estado ?? item.status) || "confirmada"),
-    total: Number(item.total ?? 0)
+    total: Number(item.total ?? 0),
+    isPaid
   };
+}
+
+function todayDateKey(): string {
+  const now = new Date();
+  const yyyy = now.getFullYear();
+  const mm = String(now.getMonth() + 1).padStart(2, "0");
+  const dd = String(now.getDate()).padStart(2, "0");
+  return `${yyyy}-${mm}-${dd}`;
+}
+
+function shiftDateKey(dateKey: string, days: number): string {
+  const [yyyy, mm, dd] = dateKey.split("-").map(Number);
+  const date = new Date(yyyy, (mm || 1) - 1, dd || 1);
+  date.setDate(date.getDate() + days);
+  const nextYear = date.getFullYear();
+  const nextMonth = String(date.getMonth() + 1).padStart(2, "0");
+  const nextDay = String(date.getDate()).padStart(2, "0");
+  return `${nextYear}-${nextMonth}-${nextDay}`;
+}
+
+function formatLongDate(dateKey: string): string {
+  const [yyyy, mm, dd] = dateKey.split("-").map(Number);
+  const date = new Date(yyyy, (mm || 1) - 1, dd || 1);
+  if (Number.isNaN(date.getTime())) return dateKey;
+  const formatted = date.toLocaleDateString("es-CO", {
+    day: "numeric",
+    month: "long",
+    year: "numeric"
+  });
+  return formatted.charAt(0).toUpperCase() + formatted.slice(1);
 }
 
 export function DashboardEditor() {
   const router = useRouter();
   const { merged, loading, saving, publishing, refresh, saveDraft, publish } = useDashboard();
+  const [selectedDateKey, setSelectedDateKey] = useState(() => todayDateKey());
   const reservations = useMemo<ReservationRecord[]>(() => {
     return (merged.appointments || []).map((item, idx) =>
       normalizeAppointmentRecord(item, idx)
@@ -91,12 +131,9 @@ export function DashboardEditor() {
   }, [merged.descansos]);
 
   const barbers = useMemo(() => {
-    const now = new Date();
-    const todayDay = now.getDate();
-    const todayMonth = now.getMonth();
-    const todayYear = now.getFullYear();
-    const todayDateString = `${String(todayDay).padStart(2, "0")}/${String(todayMonth + 1).padStart(2, "0")}/${todayYear}`;
-    const todayDbDateString = `${todayYear}-${String(todayMonth + 1).padStart(2, "0")}-${String(todayDay).padStart(2, "0")}`;
+    const [yyyy, mm, dd] = selectedDateKey.split("-");
+    const targetDateString = `${dd}/${mm}/${yyyy}`;
+    const targetDbDateString = `${yyyy}-${mm}-${dd}`;
 
     return merged.barbers.slice(0, 5).map((item, i) => {
       const id = textValue(item.id ?? item.barbero_id ?? item.id_barbero) || `barber-${i + 1}`;
@@ -106,12 +143,12 @@ export function DashboardEditor() {
           ? item.activo
           : String(item.activo ?? "").toLowerCase() !== "false";
       const restDays = offDaysByBarber[id] ?? [];
-      const hasRestToday = restDays.includes(todayDbDateString);
+      const hasRestToday = restDays.includes(targetDbDateString);
       const effectiveActive = baseActive && !hasRestToday;
       const servicesToday = reservations.filter(
         (r) =>
           String(r.barber || "").trim().toLowerCase() === name.trim().toLowerCase() &&
-          r.date === todayDateString
+          r.date === targetDateString
       ).length;
       return {
         id,
@@ -121,14 +158,11 @@ export function DashboardEditor() {
         hasRestToday
       };
     });
-  }, [merged.barbers, offDaysByBarber, reservations]);
+  }, [merged.barbers, offDaysByBarber, reservations, selectedDateKey]);
 
   const allTodayReservations = useMemo(() => {
-    const now = new Date();
-    const todayDay = now.getDate();
-    const todayMonth = now.getMonth();
-    const todayYear = now.getFullYear();
-    const todayDateString = `${String(todayDay).padStart(2, "0")}/${String(todayMonth + 1).padStart(2, "0")}/${todayYear}`;
+    const [yyyy, mm, dd] = selectedDateKey.split("-");
+    const targetDateString = `${dd}/${mm}/${yyyy}`;
     const toMinutes = (value?: string) => {
       const raw = String(value || "").trim();
       const [h, m] = raw.split(":");
@@ -138,9 +172,9 @@ export function DashboardEditor() {
       return hh * 60 + mm;
     };
     return reservations
-      .filter((r) => String(r.date || "").trim() === todayDateString)
+      .filter((r) => String(r.date || "").trim() === targetDateString)
       .sort((a, b) => toMinutes(a.hour) - toMinutes(b.hour));
-  }, [reservations]);
+  }, [reservations, selectedDateKey]);
 
   const todayReservations = useMemo(() => {
     return allTodayReservations.slice(0, 6);
@@ -159,24 +193,54 @@ export function DashboardEditor() {
   }, [allTodayReservations]);
 
   const dailyIncome = useMemo(() => {
-    return allTodayReservations.reduce((acc, item) => acc + Number((item as Record<string, unknown>).total ?? 0), 0);
+    return allTodayReservations
+      .filter((r) => r.isPaid)
+      .reduce((acc, item) => acc + Number((item as Record<string, unknown>).total ?? 0), 0);
   }, [allTodayReservations]);
 
   const newClientsTodayCount = useMemo(() => {
-    const now = new Date();
-    const yyyy = now.getFullYear();
-    const mm = String(now.getMonth() + 1).padStart(2, "0");
-    const dd = String(now.getDate()).padStart(2, "0");
-    const todayPrefix = `${yyyy}-${mm}-${dd}`;
     return merged.clients.filter((c) => {
-      const createdAt = String((c as Record<string, unknown>).created_at || "");
-      return createdAt.startsWith(todayPrefix);
+      const rawCreated = (c as Record<string, unknown>).created_at ?? (c as Record<string, unknown>).created ?? (c as Record<string, unknown>).fecha_registro ?? (c as Record<string, unknown>).created_date;
+      if (!rawCreated) return false;
+
+      const rawStr = String(rawCreated).trim();
+      let clientDateKey = "";
+
+      // Si es una fecha pura YYYY-MM-DD sin hora/T/offset, la comparamos directamente
+      if (/^\d{4}-\d{2}-\d{2}$/.test(rawStr)) {
+        clientDateKey = rawStr;
+      } else {
+        const parsed = new Date(rawStr);
+        if (!Number.isNaN(parsed.getTime())) {
+          try {
+            // Conversión determinista a zona horaria America/Bogota (operativa de BarberAgency)
+            const formatter = new Intl.DateTimeFormat("en-US", {
+              timeZone: "America/Bogota",
+              year: "numeric",
+              month: "2-digit",
+              day: "2-digit"
+            });
+            const parts = formatter.formatToParts(parsed);
+            const yyyy = parts.find((p) => p.type === "year")?.value || "";
+            const mm = parts.find((p) => p.type === "month")?.value || "";
+            const dd = parts.find((p) => p.type === "day")?.value || "";
+            clientDateKey = `${yyyy}-${mm}-${dd}`;
+          } catch {
+            const yyyy = parsed.getFullYear();
+            const mm = String(parsed.getMonth() + 1).padStart(2, "0");
+            const dd = String(parsed.getDate()).padStart(2, "0");
+            clientDateKey = `${yyyy}-${mm}-${dd}`;
+          }
+        }
+      }
+      return clientDateKey === selectedDateKey;
     }).length;
-  }, [merged.clients]);
+  }, [merged.clients, selectedDateKey]);
 
   const occupancyRate = useMemo(() => {
-    const now = new Date();
-    const dayOfWeekIndex = (now.getDay() + 6) % 7; // 0 = Lunes, 6 = Domingo
+    const [yyyy, mm, dd] = selectedDateKey.split("-");
+    const targetDate = new Date(Number(yyyy), Number(mm) - 1, Number(dd));
+    const dayOfWeekIndex = (targetDate.getDay() + 6) % 7; // 0 = Lunes, 6 = Domingo
     const DAY_NAMES = ["lunes", "martes", "miercoles", "jueves", "viernes", "sabado", "domingo"];
     const dayName = DAY_NAMES[dayOfWeekIndex];
 
@@ -278,7 +342,7 @@ export function DashboardEditor() {
             ))}
           </div>
         );
-      case "Citas de Hoy":
+      case "Citas del Día":
         return (
           <div style={{ display: "flex", alignItems: "center", height: "26px", paddingRight: "4px" }}>
             <svg width="60" height="20" style={{ overflow: "visible" }}>
@@ -372,11 +436,14 @@ export function DashboardEditor() {
     }
   };
 
+  const isTodaySelected = selectedDateKey === todayDateKey();
+  const dateDelta = isTodaySelected ? "Hoy" : formatLongDate(selectedDateKey);
+
   const topStats = [
-    { label: "Ingresos del Día", value: money(dailyIncome), delta: "Hoy", icon: CircleDollarSign },
-    { label: "Citas de Hoy", value: String(allTodayReservations.length), delta: "Hoy", icon: CalendarClock },
-    { label: "Nuevos Clientes", value: String(newClientsTodayCount), delta: "Hoy", icon: Users },
-    { label: "Tasa de Ocupacion", value: `${occupancyRate}%`, delta: "Hoy", icon: LayoutDashboard }
+    { label: "Ingresos del Día", value: money(dailyIncome), delta: dateDelta, icon: CircleDollarSign },
+    { label: "Citas del Día", value: String(allTodayReservations.length), delta: dateDelta, icon: CalendarClock },
+    { label: "Nuevos Clientes", value: String(newClientsTodayCount), delta: dateDelta, icon: Users },
+    { label: "Tasa de Ocupacion", value: `${occupancyRate}%`, delta: dateDelta, icon: LayoutDashboard }
   ];
   const clients = useMemo(() => {
     const byClient = new Map<string, { id: string; name: string; phone: string }>();
@@ -431,9 +498,51 @@ export function DashboardEditor() {
           onClick={() => router.push("/citas")}
           onKeyDown={(e) => (e.key === "Enter" || e.key === " ") && router.push("/citas")}
         >
-          <div className="ba-card-title">
-            <h2>Reservas de Citas</h2>
-            <Bell size={14} />
+          <div className="ba-card-title flex flex-col md:flex-row md:items-center justify-between gap-4 w-full">
+            <div className="flex items-center gap-2">
+              <h2>Reservas de Citas — {formatLongDate(selectedDateKey)}</h2>
+              <Bell size={14} />
+            </div>
+            <div
+              className="flex items-center gap-1.5 rounded-2xl border border-[var(--panel-stroke)] bg-[var(--bg-soft)]/30 p-1"
+              onClick={(e) => e.stopPropagation()}
+              onKeyDown={(e) => e.stopPropagation()}
+            >
+              <button
+                type="button"
+                aria-label="Dia anterior"
+                onClick={() => setSelectedDateKey((current) => shiftDateKey(current, -1))}
+                className="h-8 w-8 rounded-xl border border-[var(--panel-stroke)] bg-[var(--panel)] text-[var(--text)] grid place-items-center hover:border-amber-500/40 hover:text-amber-500 transition-colors cursor-pointer"
+              >
+                <ChevronLeft size={15} />
+              </button>
+              <button
+                type="button"
+                onClick={() => setSelectedDateKey(todayDateKey())}
+                className="h-8 px-3 rounded-xl border border-amber-500/30 bg-amber-500/10 text-amber-500 text-[10px] font-extrabold uppercase tracking-wider hover:bg-amber-500/15 transition-colors cursor-pointer"
+              >
+                Hoy
+              </button>
+              <label className="h-8 px-2 rounded-xl border border-[var(--panel-stroke)] bg-[var(--panel)] text-[var(--muted)] flex items-center gap-1.5 cursor-pointer">
+                <CalendarDays size={14} className="text-amber-500" />
+                <input
+                  type="date"
+                  value={selectedDateKey}
+                  onChange={(event) => {
+                    if (event.target.value) setSelectedDateKey(event.target.value);
+                  }}
+                  className="bg-transparent text-[var(--text)] text-xs font-bold outline-none w-[120px] cursor-pointer"
+                />
+              </label>
+              <button
+                type="button"
+                aria-label="Dia siguiente"
+                onClick={() => setSelectedDateKey((current) => shiftDateKey(current, 1))}
+                className="h-8 w-8 rounded-xl border border-[var(--panel-stroke)] bg-[var(--panel)] text-[var(--text)] grid place-items-center hover:border-amber-500/40 hover:text-amber-500 transition-colors cursor-pointer"
+              >
+                <ChevronRight size={15} />
+              </button>
+            </div>
           </div>
           <div className="ba-overview-slots">
             {todayReservations.length ? (
@@ -449,8 +558,8 @@ export function DashboardEditor() {
               ))
             ) : (
               <div className="ba-overview-slot is-empty">
-                <small>Hoy</small>
-                <strong>Sin reservas registradas</strong>
+                <small>{selectedDateKey === todayDateKey() ? "Hoy" : formatLongDate(selectedDateKey)}</small>
+                <strong>Sin reservas registradas para esta fecha</strong>
                 <span>Crea una cita en el módulo de Citas</span>
               </div>
             )}
