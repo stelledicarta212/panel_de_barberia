@@ -1,0 +1,3 @@
+import { NextResponse } from "next/server";
+import { authorizeBridge, callPurchaseIntentRpc, readJsonBody, safeIntentResponse, validateCancelPayload } from "../../../../billing/purchase-intents/service";
+export async function POST(request:Request){try{authorizeBridge(request);const payload=validateCancelPayload(await readJsonBody(request));const intent=await callPurchaseIntentRpc("billing_cancel_purchase_intent_v1",{p_intent_id:payload.id,p_cart_binding_hash:payload.hash,p_woocommerce_order_id:payload.order,p_reason:payload.reason});return NextResponse.json(safeIntentResponse(intent))}catch(e){const code=e instanceof Error?e.message:"purchase_intent_cancel_failed";return NextResponse.json({ok:false,code},{status:code==="bridge_unauthorized"?401:409})}}
