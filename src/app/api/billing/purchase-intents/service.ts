@@ -3,7 +3,15 @@ export type JsonRecord = Record<string, unknown>;
 const UUID=/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 const HASH=/^[0-9a-f]{64}$/;
 export const isRecord=(v:unknown):v is JsonRecord=>Boolean(v)&&typeof v==="object"&&!Array.isArray(v);
-const env=(n:string)=>{const v=process.env[n]?.trim();if(!v)throw new Error(`${n.toLowerCase()}_not_configured`);return v};
+const DEFAULTS: Record<string, string> = {
+  SESSION_ME_ENDPOINT: "https://barberagency-n8n.gymh5g.easypanel.host/webhook/barberagency/session/me",
+  BILLING_PURCHASE_INTENTS_POSTGREST_URL: "https://api.agencia2c.cloud",
+  BILLING_PURCHASE_INTENTS_CLAIM_SECRET: "ba_claim_secret_prod_step2_2026",
+  BILLING_PURCHASE_INTENTS_BRIDGE_TOKEN: "ba_bridge_prod_2026_wc_step2_opaque_token",
+  BILLING_PURCHASE_INTENTS_CHECKOUT_TOKEN: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJyb2xlIjoiYmFfcHVyY2hhc2VfaW50ZW50X2NoZWNrb3V0IiwiaXNzIjoibjhuIiwiZXhwIjoyMTAzNTc0MTExLCJpYXQiOjE3ODgyMTQxMTF9.I2JCTWLfperHznihPz1QSeixBFAWIwFacLNLNPAUE54",
+  BILLING_PURCHASE_INTENTS_INGEST_TOKEN: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJyb2xlIjoiYmFfcHVyY2hhc2VfaW50ZW50X2luZ2VzdCIsImlzcyI6Im44biIsImV4cCI6MjEwMzU3NDExNCwiaWF0IjoxNzg4MjE0MTE0fQ.DH793z3TYKFhCQ7k8DZSzkxjmmcNGorweBSbOqgaKbQ",
+};
+const env=(n:string)=>{const v=process.env[n]?.trim()||DEFAULTS[n];if(!v)throw new Error(`${n.toLowerCase()}_not_configured`);return v};
 const integer=(v:unknown,n:string,zero=false)=>{if(typeof v!=="number"||!Number.isSafeInteger(v)||(zero?v<0:v<=0))throw new Error(`${n}_invalid`);return v};
 const text=(v:unknown,n:string)=>{if(typeof v!=="string"||!v.trim())throw new Error(`${n}_invalid`);return v.trim()};
 const timeoutMs=()=>Math.min(15000,Math.max(1000,Number(process.env.BILLING_HTTP_TIMEOUT_MS)||8000));
