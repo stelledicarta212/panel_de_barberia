@@ -887,6 +887,44 @@ textarea {
   box-shadow: 0 4px 12px rgba(207, 176, 115, 0.25);
 }
 
+.ba-btn-plan-active {
+  all: unset;
+  cursor: pointer;
+  border-radius: 10px;
+  padding: 8px 12px;
+  font-size: 12px;
+  font-weight: 700;
+  color: #062a14;
+  background: linear-gradient(180deg, #86efac, #4ade80);
+  border: 1px solid rgba(134, 239, 172, 0.7);
+  box-shadow: 0 2px 8px rgba(74, 222, 128, 0.18);
+  transition: transform 0.15s ease, opacity 0.15s ease, box-shadow 0.15s ease;
+  box-sizing: border-box;
+}
+
+.ba-btn-plan-active:focus-visible {
+  outline: 2px solid #4ade80;
+  outline-offset: 2px;
+}
+
+.ba-btn-plan-active:hover {
+  opacity: 0.95;
+  box-shadow: 0 4px 14px rgba(74, 222, 128, 0.35);
+}
+
+:root[data-theme="light"] .ba-btn-plan-active {
+  color: #ffffff;
+  background: linear-gradient(180deg, #22c55e, #16a34a);
+  border-color: rgba(22, 163, 74, 0.8);
+  box-shadow: 0 2px 8px rgba(22, 163, 74, 0.2);
+}
+
+:root[data-theme="classic-dark"] .ba-btn-plan-active {
+  color: #05140b;
+  background: linear-gradient(180deg, #86efac, #4ade80);
+  border-color: rgba(134, 239, 172, 0.6);
+}
+
 .ba-btn-large {
   padding: 10px 22px !important;
   font-size: 13px !important;
@@ -1043,6 +1081,216 @@ textarea {
   .ba-subscription-banner-cta .ba-btn-gold {
     display: block;
     text-align: center;
+    width: 100%;
+  }
+}
+
+/* ==================================================
+   PLAN DETAILS DRAWER
+   ================================================== */
+.ba-plan-drawer-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.65);
+  backdrop-filter: blur(6px);
+  z-index: 1000;
+  display: flex;
+  justify-content: flex-end;
+  animation: ba-fade-in 0.2s ease-out;
+}
+
+.ba-plan-drawer {
+  width: min(420px, 100%);
+  height: 100%;
+  background: var(--bg);
+  border-left: 1px solid var(--panel-stroke);
+  box-shadow: -10px 0 30px rgba(0, 0, 0, 0.5);
+  display: flex;
+  flex-direction: column;
+  animation: ba-drawer-slide-in 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+  overflow-y: auto;
+  z-index: 1001;
+  box-sizing: border-box;
+}
+
+@keyframes ba-drawer-slide-in {
+  from {
+    transform: translateX(100%);
+  }
+  to {
+    transform: translateX(0);
+  }
+}
+
+.ba-plan-drawer-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 24px 24px 20px;
+  border-bottom: 1px solid var(--panel-stroke);
+}
+
+.ba-plan-drawer-eyebrow {
+  display: block;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--ok);
+  margin-bottom: 4px;
+}
+
+.ba-plan-drawer-title {
+  margin: 0;
+  font-size: 20px;
+  font-weight: 800;
+  color: var(--text);
+  line-height: 1.2;
+}
+
+.ba-plan-drawer-close {
+  all: unset;
+  cursor: pointer;
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
+  border: 1px solid var(--panel-stroke);
+  display: grid;
+  place-items: center;
+  color: var(--muted);
+  transition: all 0.15s ease;
+}
+
+.ba-plan-drawer-close:hover {
+  color: var(--text);
+  background: var(--panel);
+  border-color: var(--text);
+}
+
+.ba-plan-drawer-close:focus-visible {
+  outline: 2px solid var(--ok);
+  outline-offset: 2px;
+}
+
+.ba-plan-drawer-body {
+  padding: 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  flex: 1;
+}
+
+.ba-plan-drawer-badge-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.ba-plan-drawer-term-badge {
+  display: inline-flex;
+  align-items: center;
+  font-size: 11px;
+  font-weight: 600;
+  padding: 4px 10px;
+  border-radius: 9999px;
+  background: var(--panel);
+  border: 1px solid var(--panel-stroke);
+  color: var(--text);
+}
+
+.ba-plan-drawer-card {
+  background: var(--panel);
+  border: 1px solid var(--panel-stroke);
+  border-radius: 14px;
+  padding: 16px 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.ba-plan-drawer-field {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.ba-plan-drawer-field:last-child {
+  padding-bottom: 0;
+  border-bottom: none;
+}
+
+.ba-plan-drawer-label {
+  font-size: 12px;
+  color: var(--muted);
+  font-weight: 500;
+}
+
+.ba-plan-drawer-value {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--text);
+  text-align: right;
+  word-break: break-word;
+}
+
+.ba-plan-drawer-status-text {
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--ok);
+}
+
+.ba-plan-drawer-footer {
+  padding: 20px 24px 24px;
+  border-top: 1px solid var(--panel-stroke);
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  background: var(--bg);
+}
+
+.ba-plan-drawer-primary-btn {
+  display: block;
+  width: 100%;
+  text-align: center;
+  text-decoration: none;
+  padding: 11px 16px;
+  font-size: 13px;
+  box-sizing: border-box;
+}
+
+.ba-plan-drawer-secondary-btn {
+  all: unset;
+  cursor: pointer;
+  display: block;
+  width: 100%;
+  text-align: center;
+  border-radius: 10px;
+  padding: 10px 16px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--muted);
+  background: var(--panel);
+  border: 1px solid var(--panel-stroke);
+  transition: all 0.15s ease;
+  box-sizing: border-box;
+}
+
+.ba-plan-drawer-secondary-btn:hover {
+  color: var(--text);
+  background: var(--panel-stroke);
+}
+
+.ba-plan-drawer-secondary-btn:focus-visible {
+  outline: 2px solid var(--muted);
+  outline-offset: 2px;
+}
+
+@media (max-width: 640px) {
+  .ba-plan-drawer {
     width: 100%;
   }
 }
@@ -5471,7 +5719,8 @@ textarea {
     height: 36px;
   }
 
-  .ba-mobile-topbar-actions .ba-btn-gold {
+  .ba-mobile-topbar-actions .ba-btn-gold,
+  .ba-mobile-topbar-actions .ba-btn-plan-active {
     padding: 8px 12px;
     font-size: 13px;
   }
@@ -5916,6 +6165,7 @@ textarea {
 
   .ba-btn-main,
   .ba-btn-gold,
+  .ba-btn-plan-active,
   .ba-card-gold,
   .ba-pos-close-btn,
   .ba-pos-calc-launch,

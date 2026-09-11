@@ -296,3 +296,25 @@ export function getSubscriptionDisplayInfo(productState?: CanonicalProductState 
     }
   }
 }
+
+export function formatSpanishDate(value: string | null | undefined): string {
+  if (!value) return "-";
+  try {
+    const raw = String(value).trim();
+    if (!raw) return "-";
+    const d = new Date(raw);
+    if (isNaN(d.getTime())) {
+      const match = raw.match(/^(\d{4})-(\d{2})-(\d{2})/);
+      if (match) return `${match[3]}/${match[2]}/${match[1]}`;
+      return raw;
+    }
+    return d.toLocaleDateString("es-ES", {
+      day: "numeric",
+      month: "long",
+      year: "numeric",
+      timeZone: "UTC"
+    });
+  } catch {
+    return String(value);
+  }
+}

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
@@ -17,12 +17,13 @@ import {
   RefreshCw,
   Sparkles,
   UserRound,
-  Users
+  Users,
+  X
 } from "lucide-react";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { useDashboard } from "@/store/dashboard-context";
 import { canAccessPath } from "@/lib/dashboard-access";
-import { getSubscriptionDisplayInfo } from "@/lib/product-state";
+import { getSubscriptionDisplayInfo, BILLING_TERMS_MAP, formatSpanishDate } from "@/lib/product-state";
 import type { DashboardIdentity, DashboardPermissions } from "@/types/dashboard-state";
 
 const NAV_ITEMS = [
@@ -73,6 +74,23 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
   const [recoverEmail, setRecoverEmail] = useState("");
   const [recoverStatus, setRecoverStatus] = useState<{ type: "success" | "error" | null; text: string | null }>({ type: null, text: null });
   const [sendingRecover, setSendingRecover] = useState(false);
+  const [isPlanDrawerOpen, setIsPlanDrawerOpen] = useState(false);
+
+  useEffect(() => {
+    if (!isPlanDrawerOpen) return;
+    function handleKeyDown(event: KeyboardEvent) {
+      if (event.key === "Escape") {
+        setIsPlanDrawerOpen(false);
+      }
+    }
+    window.addEventListener("keydown", handleKeyDown);
+    const prevOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => {
+      window.removeEventListener("keydown", handleKeyDown);
+      document.body.style.overflow = prevOverflow;
+    };
+  }, [isPlanDrawerOpen]);
 
   const permissions = access.permissions;
   const canViewCurrentPath = canAccessPath(pathname, permissions);
@@ -318,7 +336,18 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
                 >
                   {planDisplay.dashboardBadge}
                 </span>
-                {planDisplay.isDashboardCtaAction ? (
+                {planDisplay.state === "PAID_ACTIVE" ? (
+                  <button
+                    type="button"
+                    className="ba-btn-plan-active"
+                    onClick={() => setIsPlanDrawerOpen(true)}
+                    title={planDisplay.dashboardCtaLabel}
+                    aria-label={planDisplay.dashboardCtaLabel}
+                    style={{ display: "inline-flex", alignItems: "center", gap: "6px" }}
+                  >
+                    <span>{planDisplay.dashboardCtaLabel}</span>
+                  </button>
+                ) : planDisplay.isDashboardCtaAction ? (
                   <button
                     type="button"
                     className="ba-btn-gold"
@@ -419,7 +448,18 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
               >
                 {planDisplay.dashboardBadge}
               </span>
-              {planDisplay.isDashboardCtaAction ? (
+              {planDisplay.state === "PAID_ACTIVE" ? (
+                <button
+                  type="button"
+                  className="ba-btn-plan-active"
+                  onClick={() => setIsPlanDrawerOpen(true)}
+                  title={planDisplay.dashboardCtaLabel}
+                  aria-label={planDisplay.dashboardCtaLabel}
+                  style={{ display: "inline-flex", alignItems: "center", gap: "6px" }}
+                >
+                  <span>{planDisplay.dashboardCtaLabel}</span>
+                </button>
+              ) : planDisplay.isDashboardCtaAction ? (
                 <button
                   type="button"
                   className="ba-btn-gold"
@@ -507,6 +547,116 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
           )}
         </section>
       </div>
+
+      {isPlanDrawerOpen && (
+        <div
+          className="ba-plan-drawer-overlay"
+          onClick={() => setIsPlanDrawerOpen(false)}
+          role="presentation"
+        >
+          <aside
+            className="ba-plan-drawer"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="ba-plan-drawer-title"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="ba-plan-drawer-header">
+              <div>
+                <span className="ba-plan-drawer-eyebrow">MI PLAN</span>
+                <h2 id="ba-plan-drawer-title" className="ba-plan-drawer-title">
+                  {productState?.plan_name || "BarberAgency"}
+                </h2>
+              </div>
+              <button
+                type="button"
+                className="ba-plan-drawer-close"
+                onClick={() => setIsPlanDrawerOpen(false)}
+                aria-label="Cerrar"
+              >
+                <X size={18} />
+              </button>
+            </div>
+
+            <div className="ba-plan-drawer-body">
+              <div className="ba-plan-drawer-badge-row">
+                <span className="ba-plan-tag is-active">Activo</span>
+                {productState?.billing_term && BILLING_TERMS_MAP[productState.billing_term] ? (
+                  <span className="ba-plan-drawer-term-badge">
+                    {BILLING_TERMS_MAP[productState.billing_term]}
+                  </span>
+                ) : null}
+              </div>
+
+              <div className="ba-plan-drawer-card">
+                <div className="ba-plan-drawer-field">
+                  <span className="ba-plan-drawer-label">Barbería</span>
+                  <strong className="ba-plan-drawer-value">{brandName}</strong>
+                </div>
+
+                <div className="ba-plan-drawer-field">
+                  <span className="ba-plan-drawer-label">Plan contratado</span>
+                  <strong className="ba-plan-drawer-value">
+                    {productState?.plan_name || "BarberAgency"}
+                    {productState?.billing_term && BILLING_TERMS_MAP[productState.billing_term]
+                      ? ` · ${BILLING_TERMS_MAP[productState.billing_term]}`
+                      : ""}
+                  </strong>
+                </div>
+
+                <div className="ba-plan-drawer-field">
+                  <span className="ba-plan-drawer-label">Estado</span>
+                  <span className="ba-plan-drawer-status-text">Activo</span>
+                </div>
+
+                {productState?.period_start && (
+                  <div className="ba-plan-drawer-field">
+                    <span className="ba-plan-drawer-label">Fecha de inicio</span>
+                    <strong className="ba-plan-drawer-value">
+                      {formatSpanishDate(productState.period_start)}
+                    </strong>
+                  </div>
+                )}
+
+                {productState?.period_end && (
+                  <div className="ba-plan-drawer-field">
+                    <span className="ba-plan-drawer-label">Válido hasta</span>
+                    <strong className="ba-plan-drawer-value">
+                      {formatSpanishDate(productState.period_end)}
+                    </strong>
+                  </div>
+                )}
+
+                {typeof productState?.days_remaining === "number" && (
+                  <div className="ba-plan-drawer-field">
+                    <span className="ba-plan-drawer-label">Tiempo restante</span>
+                    <strong className="ba-plan-drawer-value">
+                      {productState.days_remaining}{" "}
+                      {productState.days_remaining === 1 ? "día restante" : "días restantes"}
+                    </strong>
+                  </div>
+                )}
+              </div>
+            </div>
+
+            <div className="ba-plan-drawer-footer">
+              <a
+                href={planDisplay.dashboardCtaHref}
+                className="ba-btn-gold ba-plan-drawer-primary-btn"
+              >
+                <span>Gestionar plan</span>
+              </a>
+              <button
+                type="button"
+                className="ba-plan-drawer-secondary-btn"
+                onClick={() => setIsPlanDrawerOpen(false)}
+              >
+                Cerrar
+              </button>
+            </div>
+          </aside>
+        </div>
+      )}
     </main>
   );
 }
