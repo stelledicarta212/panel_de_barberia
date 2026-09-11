@@ -874,6 +874,177 @@ textarea {
   color: #131313;
   background: linear-gradient(180deg, #f0dfb5, #cfb073);
   border: 1px solid rgba(247, 221, 167, 0.7);
+  transition: transform 0.15s ease, opacity 0.15s ease, box-shadow 0.15s ease;
+}
+
+.ba-btn-gold:focus-visible {
+  outline: 2px solid #d8b56d;
+  outline-offset: 2px;
+}
+
+.ba-btn-gold:hover {
+  opacity: 0.95;
+  box-shadow: 0 4px 12px rgba(207, 176, 115, 0.25);
+}
+
+.ba-btn-large {
+  padding: 10px 22px !important;
+  font-size: 13px !important;
+  font-weight: 700 !important;
+}
+
+/* Phase E — Subscription Plan Tag & Status Badges */
+.ba-plan-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11px;
+  font-weight: 600;
+  padding: 4px 10px;
+  border-radius: 9999px;
+  line-height: 1;
+  letter-spacing: 0.02em;
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid var(--panel-stroke, rgba(255, 255, 255, 0.1));
+  color: var(--text-main, #f7f4ec);
+}
+
+.ba-plan-tag.is-active {
+  background: rgba(109, 225, 158, 0.12);
+  border-color: rgba(109, 225, 158, 0.35);
+  color: #6de19e;
+}
+
+.ba-plan-tag.is-warning {
+  background: rgba(245, 180, 60, 0.12);
+  border-color: rgba(245, 180, 60, 0.35);
+  color: #f5b43c;
+}
+
+.ba-plan-tag.is-pending {
+  background: rgba(180, 180, 180, 0.1);
+  border-color: rgba(180, 180, 180, 0.25);
+  color: #b0b0b0;
+}
+
+/* Phase E — Contextual Subscription Banner */
+.ba-subscription-banner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 14px 18px;
+  margin-bottom: 18px;
+  border-radius: 12px;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.ba-subscription-banner-body {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.ba-subscription-banner-title {
+  margin: 0;
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--text-main, #f7f4ec);
+}
+
+.ba-subscription-banner-text {
+  margin: 0;
+  font-size: 12px;
+  color: var(--text-muted, rgba(247, 244, 236, 0.7));
+  line-height: 1.4;
+}
+
+.ba-subscription-banner.is-warning {
+  border-color: rgba(245, 180, 60, 0.45) !important;
+  background: linear-gradient(135deg, rgba(245, 180, 60, 0.08), rgba(245, 180, 60, 0.02)) !important;
+}
+
+.ba-subscription-banner.is-warning .ba-subscription-banner-title {
+  color: #f5b43c;
+}
+
+.ba-subscription-banner.is-destructive {
+  border-color: rgba(255, 90, 90, 0.45) !important;
+  background: linear-gradient(135deg, rgba(255, 90, 90, 0.08), rgba(255, 90, 90, 0.02)) !important;
+}
+
+.ba-subscription-banner.is-destructive .ba-subscription-banner-title {
+  color: #ff6b6b;
+}
+
+.ba-subscription-banner.is-pending {
+  border-color: rgba(216, 181, 109, 0.45) !important;
+  background: linear-gradient(135deg, rgba(216, 181, 109, 0.08), rgba(216, 181, 109, 0.02)) !important;
+}
+
+.ba-subscription-banner.is-pending .ba-subscription-banner-title {
+  color: #d8b56d;
+}
+
+.ba-subscription-banner-cta {
+  flex-shrink: 0;
+}
+
+/* Phase E — Onboarding Zero-Barberia Empty State */
+.ba-onboarding-empty-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  padding: 50px 24px;
+  margin: 20px auto;
+  max-width: 520px;
+  border-radius: 16px;
+}
+
+.ba-onboarding-empty-icon {
+  width: 56px;
+  height: 56px;
+  border-radius: 50%;
+  background: rgba(216, 181, 109, 0.15);
+  border: 1px solid rgba(216, 181, 109, 0.35);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #d8b56d;
+  margin-bottom: 18px;
+}
+
+.ba-onboarding-empty-state h2 {
+  font-size: 19px;
+  font-weight: 700;
+  margin: 0 0 8px;
+  color: var(--text-main, #f7f4ec);
+}
+
+.ba-onboarding-empty-state p {
+  font-size: 13px;
+  color: var(--text-muted, rgba(247, 244, 236, 0.7));
+  margin: 0 0 20px;
+  max-width: 380px;
+  line-height: 1.5;
+}
+
+@media (max-width: 768px) {
+  .ba-subscription-banner {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 12px;
+  }
+  .ba-subscription-banner-cta {
+    width: 100%;
+  }
+  .ba-subscription-banner-cta .ba-btn-gold {
+    display: block;
+    text-align: center;
+    width: 100%;
+  }
 }
 
 .ba-alert-stack {

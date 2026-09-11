@@ -1,3 +1,17 @@
+import type {
+  CanonicalBarberiaState,
+  CanonicalBillingTerm,
+  CanonicalProductState,
+  CanonicalSubscriptionState
+} from "../lib/product-state";
+
+export type {
+  CanonicalBarberiaState,
+  CanonicalBillingTerm,
+  CanonicalProductState,
+  CanonicalSubscriptionState
+};
+
 export type IdentityInput = {
   barberia_id?: number | null;
   slug?: string | null;
@@ -74,12 +88,27 @@ export type DashboardStateResponse = {
   rol?: string;
   permissions?: Partial<DashboardPermissions>;
   permisos?: Partial<DashboardPermissions>;
+  user_id?: number;
+  current_barberia?: { id: number; slug?: string | null; nombre?: string | null; role?: string | null } | null;
+  barberias?: Array<{ id: number; slug?: string | null; nombre?: string | null; role?: string | null }>;
+  barberias_count?: number;
+  next_action?: string;
   seed?: Record<string, unknown>;
   draft?: Record<string, unknown>;
   published?: Record<string, unknown>;
   merged?: Partial<DashboardMerged>;
   descansos?: Array<Record<string, unknown>>;
   message?: string;
+  // Phase D canonical product state:
+  product_state?: CanonicalProductState;
+  barberia_state?: CanonicalBarberiaState;
+  subscription_state?: CanonicalSubscriptionState;
+  plan_code?: string | null;
+  plan_name?: string | null;
+  billing_term?: CanonicalBillingTerm | null;
+  period_start?: string | null;
+  period_end?: string | null;
+  days_remaining?: number | null;
 };
 
 export type DashboardLoginResponse = {

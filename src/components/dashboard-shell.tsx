@@ -14,6 +14,7 @@ import {
   Scissors,
   Settings,
   ShieldQuestion,
+  RefreshCw,
   Sparkles,
   UserRound,
   Users
@@ -21,6 +22,7 @@ import {
 import { ThemeToggle } from "@/components/theme-toggle";
 import { useDashboard } from "@/store/dashboard-context";
 import { canAccessPath } from "@/lib/dashboard-access";
+import { getSubscriptionDisplayInfo } from "@/lib/product-state";
 import type { DashboardIdentity, DashboardPermissions } from "@/types/dashboard-state";
 
 const NAV_ITEMS = [
@@ -62,7 +64,8 @@ function buildSettingsEditUrl(input: DashboardIdentity | null): string {
 
 export function DashboardShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
-  const { identity, merged, error, message, access, isAuthenticated, login, logout, saving, session } = useDashboard();
+  const { identity, merged, error, message, access, isAuthenticated, login, logout, saving, session, productState } = useDashboard();
+  const planDisplay = getSubscriptionDisplayInfo(productState);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [showWelcome, setShowWelcome] = useState(false);
@@ -309,9 +312,35 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
                   <Bell size={15} />
                 </button>
                 <ThemeToggle />
-                <button className="ba-btn-gold" type="button">
-                  Plan Pro
-                </button>
+                <span
+                  className={`ba-plan-tag is-${planDisplay.isWarning ? "warning" : planDisplay.isActive ? "active" : "pending"}`}
+                  title={planDisplay.label}
+                >
+                  {planDisplay.dashboardBadge}
+                </span>
+                {planDisplay.isDashboardCtaAction ? (
+                  <button
+                    type="button"
+                    className="ba-btn-gold"
+                    onClick={() => window.location.reload()}
+                    title={planDisplay.dashboardCtaLabel}
+                    aria-label={planDisplay.dashboardCtaLabel}
+                    style={{ display: "inline-flex", alignItems: "center", gap: "6px" }}
+                  >
+                    <RefreshCw size={12} className={saving ? "animate-spin" : ""} />
+                    <span>{planDisplay.dashboardCtaLabel}</span>
+                  </button>
+                ) : (
+                  <a
+                    className="ba-btn-gold"
+                    href={planDisplay.dashboardCtaHref}
+                    title={planDisplay.dashboardCtaLabel}
+                    aria-label={planDisplay.dashboardCtaLabel}
+                    style={{ textDecoration: "none", display: "inline-flex", alignItems: "center", gap: "6px" }}
+                  >
+                    <span>{planDisplay.dashboardCtaLabel}</span>
+                  </a>
+                )}
               </div>
             </div>
             <div className="ba-search">Buscar barbería, cliente o cita...</div>
@@ -384,11 +413,66 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
                 <Bell size={15} />
               </button>
               <ThemeToggle />
-              <button className="ba-btn-gold" type="button">
-                Plan Pro
-              </button>
+              <span
+                className={`ba-plan-tag is-${planDisplay.isWarning ? "warning" : planDisplay.isActive ? "active" : "pending"}`}
+                title={planDisplay.label}
+              >
+                {planDisplay.dashboardBadge}
+              </span>
+              {planDisplay.isDashboardCtaAction ? (
+                <button
+                  type="button"
+                  className="ba-btn-gold"
+                  onClick={() => window.location.reload()}
+                  title={planDisplay.dashboardCtaLabel}
+                  aria-label={planDisplay.dashboardCtaLabel}
+                  style={{ display: "inline-flex", alignItems: "center", gap: "6px" }}
+                >
+                  <RefreshCw size={12} className={saving ? "animate-spin" : ""} />
+                  <span>{planDisplay.dashboardCtaLabel}</span>
+                </button>
+              ) : (
+                <a
+                  className="ba-btn-gold"
+                  href={planDisplay.dashboardCtaHref}
+                  title={planDisplay.dashboardCtaLabel}
+                  aria-label={planDisplay.dashboardCtaLabel}
+                  style={{ textDecoration: "none", display: "inline-flex", alignItems: "center", gap: "6px" }}
+                >
+                  <span>{planDisplay.dashboardCtaLabel}</span>
+                </a>
+              )}
             </div>
           </header>
+
+          {planDisplay.showBanner && (
+            <aside className={`ba-subscription-banner ba-card is-${planDisplay.bannerVariant}`} role="alert">
+              <div className="ba-subscription-banner-body">
+                <h2 className="ba-subscription-banner-title">{planDisplay.bannerTitle}</h2>
+                <p className="ba-subscription-banner-text">{planDisplay.bannerMessage}</p>
+              </div>
+              <div className="ba-subscription-banner-cta">
+                {planDisplay.isDashboardCtaAction ? (
+                  <button
+                    type="button"
+                    className="ba-btn-gold"
+                    onClick={() => window.location.reload()}
+                    aria-label={planDisplay.dashboardCtaLabel}
+                  >
+                    {planDisplay.dashboardCtaLabel}
+                  </button>
+                ) : (
+                  <a
+                    className="ba-btn-gold"
+                    href={planDisplay.dashboardCtaHref}
+                    aria-label={planDisplay.dashboardCtaLabel}
+                  >
+                    {planDisplay.dashboardCtaLabel}
+                  </a>
+                )}
+              </div>
+            </aside>
+          )}
 
           {(safeError || safeMessage) && (
             <section className="ba-alert-stack">
@@ -397,7 +481,22 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
             </section>
           )}
 
-          {canViewCurrentPath ? (
+          {!identity?.barberia_id || productState?.subscription_state === "ZERO_BARBERIA" ? (
+            <section className="ba-card ba-onboarding-empty-state">
+              <div className="ba-onboarding-empty-icon">
+                <Sparkles size={28} />
+              </div>
+              <h2>Empieza creando tu barbería</h2>
+              <p>Al crearla tendrás 7 días gratis para probar BarberAgency.</p>
+              <a
+                className="ba-btn-gold ba-btn-large"
+                href={planDisplay.dashboardCtaHref}
+                aria-label="Crear mi barbería"
+              >
+                Crear mi barbería
+              </a>
+            </section>
+          ) : canViewCurrentPath ? (
             children
           ) : (
             <section className="ba-card ba-access-denied">

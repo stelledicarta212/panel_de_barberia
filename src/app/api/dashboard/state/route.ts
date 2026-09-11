@@ -76,6 +76,31 @@ async function loadPublishedLanding(barberiaId: number): Promise<Record<string, 
   }
 }
 
+async function loadProductState(userId: number): Promise<Record<string, unknown> | null> {
+  const base = String(POSTGREST_BASE_URL || "").trim().replace(/\/+$/, "");
+  if (!base || !userId) {
+    return null;
+  }
+  const url = `${base}/rpc/ba_resolve_user_product_state`;
+  try {
+    const response = await fetch(url, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Accept: "application/json"
+      },
+      body: JSON.stringify({ p_user_id: userId }),
+      cache: "no-store"
+    });
+    if (!response.ok) return null;
+    const text = await response.text().catch(() => "");
+    const data = text ? JSON.parse(text) : null;
+    return isRecord(data) ? data : null;
+  } catch {
+    return null;
+  }
+}
+
 export async function OPTIONS(request: Request) {
   return new NextResponse(null, {
     status: 204,
@@ -112,9 +137,9 @@ export async function GET(request: Request) {
     });
 
     const text = await upstream.text().catch(() => "");
-    let body: unknown = {};
+    let rawJson: unknown = {};
     try {
-      body = text ? JSON.parse(text) : {};
+      rawJson = text ? JSON.parse(text) : {};
     } catch {
       return NextResponse.json(
         {
@@ -125,7 +150,9 @@ export async function GET(request: Request) {
       );
     }
 
-    if (upstream.ok && isRecord(body)) {
+    let body: Record<string, unknown> = isRecord(rawJson) ? { ...rawJson } : {};
+
+    if (upstream.ok && isRecord(rawJson)) {
       const barberiaId = resolveBarberiaId(body, searchParams);
       if (barberiaId) {
         const descansos = await loadDescansos(barberiaId);
@@ -144,6 +171,28 @@ export async function GET(request: Request) {
             ...merged,
             descansos
           }
+        };
+      }
+
+      // Phase D: Canonical product state enrichment
+      const rawUser = isRecord(body.user) ? body.user : isRecord(body.owner) ? body.owner : {};
+      const candidateUserId = Number(rawUser.id ?? body.user_id ?? 0);
+      let productState: Record<string, unknown> | null = isRecord(body.product_state) ? body.product_state : null;
+      if (!productState && candidateUserId > 0) {
+        productState = await loadProductState(candidateUserId);
+      }
+      if (productState) {
+        body = {
+          ...body,
+          product_state: productState,
+          barberia_state: productState.barberia_state ?? body.barberia_state ?? "none",
+          subscription_state: productState.subscription_state ?? body.subscription_state ?? "ZERO_BARBERIA",
+          plan_code: productState.plan_code ?? body.plan_code ?? null,
+          plan_name: productState.plan_name ?? body.plan_name ?? null,
+          billing_term: productState.billing_term ?? body.billing_term ?? null,
+          period_start: productState.period_start ?? body.period_start ?? null,
+          period_end: productState.period_end ?? body.period_end ?? null,
+          days_remaining: productState.days_remaining ?? body.days_remaining ?? null
         };
       }
     }

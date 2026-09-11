@@ -1,3 +1,17 @@
+import type {
+  CanonicalBarberiaState,
+  CanonicalBillingTerm,
+  CanonicalProductState,
+  CanonicalSubscriptionState
+} from "./product-state";
+
+export type {
+  CanonicalBarberiaState,
+  CanonicalBillingTerm,
+  CanonicalProductState,
+  CanonicalSubscriptionState
+};
+
 export type SessionMeUser = {
   id: number;
   email: string;
@@ -28,6 +42,16 @@ export type SessionMeResponse = {
   barberias_count?: number;
   next_action?: string;
   message?: string;
+  // Phase D canonical product state contract:
+  product_state?: CanonicalProductState;
+  barberia_state?: CanonicalBarberiaState;
+  subscription_state?: CanonicalSubscriptionState;
+  plan_code?: string | null;
+  plan_name?: string | null;
+  billing_term?: CanonicalBillingTerm | null;
+  period_start?: string | null;
+  period_end?: string | null;
+  days_remaining?: number | null;
 };
 
 export async function getSessionMe(): Promise<SessionMeResponse> {

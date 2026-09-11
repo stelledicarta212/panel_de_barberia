@@ -18,6 +18,7 @@ import {
 import { NO_PERMISSIONS, resolveDashboardAccess, resolveLoginAccess } from "@/lib/dashboard-access";
 import { getSessionMe } from "@/lib/session-me";
 import type {
+  CanonicalProductState,
   DashboardIdentity,
   DashboardLoginSession,
   DashboardMerged,
@@ -34,6 +35,7 @@ const DASHBOARD_SESSION_PREFIX = "ba_dashboard_session";
 type DashboardContextValue = {
   identity: DashboardIdentity | null;
   rawState: DashboardStateResponse | null;
+  productState: CanonicalProductState | null;
   access: DashboardUserAccess;
   session: DashboardLoginSession | null;
   isAuthenticated: boolean;
@@ -151,6 +153,7 @@ function clearLoginSession(input: DashboardIdentity | null) {
 export function DashboardProvider({ children }: { children: React.ReactNode }) {
   const [identity, setIdentity] = useState<DashboardIdentity | null>(null);
   const [rawState, setRawState] = useState<DashboardStateResponse | null>(null);
+  const [productState, setProductState] = useState<CanonicalProductState | null>(null);
   const [merged, setMerged] = useState<DashboardMerged>(() =>
     env.disableRemoteFetch ? { ...MOCK_MERGED } : EMPTY_MERGED
   );
@@ -193,6 +196,9 @@ export function DashboardProvider({ children }: { children: React.ReactNode }) {
       setError(null);
       try {
         const sessionMe = await getSessionMe();
+        if (sessionMe.product_state) {
+          setProductState(sessionMe.product_state);
+        }
         const fromUrl = normalizeIdentity(resolveIdentityFromUrl());
 
         if (!sessionMe.ok) {
@@ -258,9 +264,33 @@ export function DashboardProvider({ children }: { children: React.ReactNode }) {
             setLoading(false);
             return;
           } else {
-            setSession(null);
+            // ZERO_BARBERIA state: Authenticated user with no barberias yet.
+            // Preserve session so dashboard shell can render friendly onboarding empty state instead of technical error.
+            const zeroBarberiaSession: DashboardLoginSession = {
+              user: sessionMe.user ?? {
+                id: sessionMe.user_id,
+                email: sessionMe.email,
+                nombre: sessionMe.nombre,
+                apellido: sessionMe.apellido
+              },
+              identity: { barberia_id: 0, slug: "" },
+              access: {
+                ...resolveLoginAccess({
+                  user: sessionMe.user ?? {
+                    id: sessionMe.user_id,
+                    email: sessionMe.email,
+                    nombre: sessionMe.nombre,
+                    apellido: sessionMe.apellido
+                  },
+                  role: sessionMe.role ?? "owner",
+                  permissions: sessionMe.permissions
+                }),
+                source: "session_me"
+              }
+            };
+            setSession(zeroBarberiaSession);
             setIdentity(null);
-            setError("No tienes ninguna barbería asociada.");
+            setError(null);
             setLoading(false);
             return;
           }
@@ -363,6 +393,9 @@ export function DashboardProvider({ children }: { children: React.ReactNode }) {
         setSession((prev) => prev ?? readLoginSession(effectiveIdentity));
       }
       setRawState(response);
+      if (response.product_state) {
+        setProductState(response.product_state);
+      }
       setMerged(normalized);
       const nextMessage = String(response.message ?? "").trim();
       setMessage(nextMessage.toLowerCase().startsWith("fallback:") ? null : (nextMessage || null));
@@ -554,6 +587,7 @@ export function DashboardProvider({ children }: { children: React.ReactNode }) {
   const value = useMemo<DashboardContextValue>(() => ({
     identity,
     rawState,
+    productState,
     access,
     session,
     isAuthenticated,
@@ -589,6 +623,7 @@ export function DashboardProvider({ children }: { children: React.ReactNode }) {
     publishAction,
     publishing,
     rawState,
+    productState,
     saveDraftAction,
     saving
   ]);
