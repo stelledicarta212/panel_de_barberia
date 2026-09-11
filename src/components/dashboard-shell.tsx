@@ -486,10 +486,27 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
           </header>
 
           {planDisplay.showBanner && (
-            <aside className={`ba-subscription-banner ba-card is-${planDisplay.bannerVariant}`} role="alert">
+            <aside
+              className={`ba-subscription-banner ba-card is-${planDisplay.bannerVariant}${
+                planDisplay.state === "PAID_ACTIVE" && planDisplay.isWarning ? " ba-plan-expiry-warning" : ""
+              }`}
+              role="alert"
+            >
               <div className="ba-subscription-banner-body">
-                <h2 className="ba-subscription-banner-title">{planDisplay.bannerTitle}</h2>
-                <p className="ba-subscription-banner-text">{planDisplay.bannerMessage}</p>
+                <h2
+                  className={`ba-subscription-banner-title${
+                    planDisplay.state === "PAID_ACTIVE" && planDisplay.isWarning ? " ba-plan-expiry-warning-title" : ""
+                  }`}
+                >
+                  {planDisplay.bannerTitle}
+                </h2>
+                <p
+                  className={`ba-subscription-banner-text${
+                    planDisplay.state === "PAID_ACTIVE" && planDisplay.isWarning ? " ba-plan-expiry-warning-text" : ""
+                  }`}
+                >
+                  {planDisplay.bannerMessage}
+                </p>
               </div>
               <div className="ba-subscription-banner-cta">
                 {planDisplay.isDashboardCtaAction ? (
@@ -497,17 +514,19 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
                     type="button"
                     className="ba-btn-gold"
                     onClick={() => window.location.reload()}
-                    aria-label={planDisplay.dashboardCtaLabel}
+                    aria-label={planDisplay.bannerCtaLabel || planDisplay.dashboardCtaLabel}
                   >
-                    {planDisplay.dashboardCtaLabel}
+                    {planDisplay.bannerCtaLabel || planDisplay.dashboardCtaLabel}
                   </button>
                 ) : (
                   <a
-                    className="ba-btn-gold"
-                    href={planDisplay.dashboardCtaHref}
-                    aria-label={planDisplay.dashboardCtaLabel}
+                    className={`ba-btn-gold${
+                      planDisplay.state === "PAID_ACTIVE" && planDisplay.isWarning ? " ba-plan-expiry-warning-cta" : ""
+                    }`}
+                    href={planDisplay.bannerCtaHref || planDisplay.dashboardCtaHref}
+                    aria-label={planDisplay.bannerCtaLabel || planDisplay.dashboardCtaLabel}
                   >
-                    {planDisplay.dashboardCtaLabel}
+                    {planDisplay.bannerCtaLabel || planDisplay.dashboardCtaLabel}
                   </a>
                 )}
               </div>
@@ -579,8 +598,31 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
             </div>
 
             <div className="ba-plan-drawer-body">
+              {planDisplay.state === "PAID_ACTIVE" && planDisplay.isWarning && (
+                <div className="ba-plan-drawer-expiry-notice">
+                  <strong className="ba-plan-drawer-expiry-title">
+                    {productState?.days_remaining === 1
+                      ? "Tu plan vence mañana"
+                      : `Tu plan vence en ${productState?.days_remaining} días`}
+                  </strong>
+                  {productState?.period_end && (
+                    <span className="ba-plan-drawer-expiry-date">
+                      Fecha de vencimiento: {formatSpanishDate(productState.period_end)}
+                    </span>
+                  )}
+                </div>
+              )}
+
               <div className="ba-plan-drawer-badge-row">
-                <span className="ba-plan-tag is-active">Activo</span>
+                <span
+                  className={`ba-plan-tag is-${
+                    planDisplay.state === "PAID_ACTIVE" && planDisplay.isWarning ? "warning" : "active"
+                  }`}
+                >
+                  {planDisplay.state === "PAID_ACTIVE" && planDisplay.isWarning
+                    ? planDisplay.dashboardBadge
+                    : "Activo"}
+                </span>
                 {productState?.billing_term && BILLING_TERMS_MAP[productState.billing_term] ? (
                   <span className="ba-plan-drawer-term-badge">
                     {BILLING_TERMS_MAP[productState.billing_term]}
@@ -641,10 +683,16 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
 
             <div className="ba-plan-drawer-footer">
               <a
-                href={planDisplay.dashboardCtaHref}
-                className="ba-btn-gold ba-plan-drawer-primary-btn"
+                href={planDisplay.bannerCtaHref || planDisplay.dashboardCtaHref}
+                className={`ba-btn-gold ba-plan-drawer-primary-btn${
+                  planDisplay.state === "PAID_ACTIVE" && planDisplay.isWarning ? " is-warning" : ""
+                }`}
               >
-                <span>Gestionar plan</span>
+                <span>
+                  {planDisplay.state === "PAID_ACTIVE" && planDisplay.isWarning
+                    ? "Renovar ahora"
+                    : "Gestionar plan"}
+                </span>
               </a>
               <button
                 type="button"

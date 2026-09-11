@@ -48,6 +48,8 @@ export interface SubscriptionDisplayInfo {
   bannerTitle: string;
   bannerMessage: string;
   bannerVariant: "info" | "warning" | "destructive" | "pending";
+  bannerCtaLabel?: string;
+  bannerCtaHref?: string;
 
   // Status flags
   isWarning: boolean;
@@ -120,28 +122,56 @@ export function getSubscriptionDisplayInfo(productState?: CanonicalProductState 
       const planTitle = plan_name || "BarberAgency";
       const fullLabel = termLabel ? `${planTitle} (${termLabel})` : planTitle;
       const renewalDate = period_end ? period_end.slice(0, 10) : "";
+
+      const isExpiringSoon =
+        typeof days_remaining === "number" &&
+        days_remaining > 0 &&
+        days_remaining <= 5;
+
+      const expiryBadge = isExpiringSoon
+        ? (days === 1 ? "Vence mañana" : `Vence en ${days} días`)
+        : (termLabel ? `Activo · ${termLabel}` : "Activo");
+
+      const expiryTitle = isExpiringSoon
+        ? (days === 1
+            ? "Tu plan vence mañana"
+            : (termLabel
+                ? `Tu plan ${termLabel.toLowerCase()} vence en ${days} días`
+                : `Tu plan vence en ${days} días`))
+        : "";
+
+      const formattedEndDate = period_end ? formatSpanishDate(period_end) : "";
+      const hasValidFormattedDate = Boolean(formattedEndDate && formattedEndDate !== "-");
+      const expiryMessage = isExpiringSoon
+        ? (hasValidFormattedDate
+            ? `Válido hasta el ${formattedEndDate}.`
+            : "Renueva tu plan para continuar sin interrupciones.")
+        : "";
+
       return {
         state: "PAID_ACTIVE",
         label: fullLabel,
-        badge: termLabel ? `Activo · ${termLabel}` : "Activo",
+        badge: expiryBadge,
         termLabel,
         headerTitle: termLabel ? `${planTitle} · ${termLabel}` : planTitle,
-        headerBadge: "Activo",
+        headerBadge: isExpiringSoon ? expiryBadge : "Activo",
         headerSubtitle: renewalDate ? `Renovación: ${renewalDate}` : "Activo",
         headerCtaLabel: "Ver mi plan",
         headerCtaHref: PLANS_URL,
-        headerPillClass: "is-active",
-        dashboardLabel: fullLabel,
-        dashboardBadge: termLabel ? `Activo · ${termLabel}` : "Activo",
-        dashboardSubtitle: "Activo",
+        headerPillClass: isExpiringSoon ? "is-warning" : "is-active",
+        dashboardLabel: isExpiringSoon ? expiryTitle : fullLabel,
+        dashboardBadge: expiryBadge,
+        dashboardSubtitle: isExpiringSoon ? expiryMessage : "Activo",
         dashboardCtaLabel: "Ver mi plan",
         dashboardCtaHref: PLANS_URL,
         isDashboardCtaAction: false,
-        showBanner: false,
-        bannerTitle: "",
-        bannerMessage: "",
-        bannerVariant: "info",
-        isWarning: false,
+        showBanner: isExpiringSoon,
+        bannerTitle: expiryTitle,
+        bannerMessage: expiryMessage,
+        bannerVariant: "warning",
+        bannerCtaLabel: "Renovar ahora",
+        bannerCtaHref: PLANS_URL,
+        isWarning: isExpiringSoon,
         isExpired: false,
         isActive: true,
         isPending: false

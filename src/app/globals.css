@@ -1295,6 +1295,66 @@ textarea {
   }
 }
 
+/* Paid Plan Expiry Warning Alert & Drawer Notice */
+.ba-subscription-banner.ba-plan-expiry-warning {
+  border-color: rgba(245, 158, 11, 0.45) !important;
+  background: linear-gradient(135deg, rgba(245, 158, 11, 0.12), rgba(245, 158, 11, 0.03)) !important;
+}
+
+.ba-plan-expiry-warning-title {
+  color: #f59e0b !important;
+}
+
+.ba-plan-expiry-warning-text {
+  color: var(--text-muted, rgba(247, 244, 236, 0.8));
+}
+
+.ba-plan-expiry-warning-cta {
+  background: linear-gradient(135deg, #f59e0b, #d97706) !important;
+  color: #0b0c10 !important;
+  border-color: transparent !important;
+  font-weight: 700 !important;
+  box-shadow: 0 2px 10px rgba(245, 158, 11, 0.25);
+  transition: all 0.2s ease;
+}
+
+.ba-plan-expiry-warning-cta:hover {
+  background: linear-gradient(135deg, #fbbf24, #f59e0b) !important;
+  box-shadow: 0 4px 14px rgba(245, 158, 11, 0.4);
+  transform: translateY(-1px);
+}
+
+.ba-plan-drawer-expiry-notice {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 14px 16px;
+  background: rgba(245, 158, 11, 0.1);
+  border: 1px solid rgba(245, 158, 11, 0.35);
+  border-radius: 12px;
+}
+
+.ba-plan-drawer-expiry-title {
+  font-size: 13px;
+  font-weight: 700;
+  color: #f59e0b;
+}
+
+.ba-plan-drawer-expiry-date {
+  font-size: 12px;
+  color: var(--text-muted, rgba(247, 244, 236, 0.75));
+}
+
+.ba-plan-drawer-primary-btn.is-warning {
+  background: linear-gradient(135deg, #f59e0b, #d97706) !important;
+  color: #0b0c10 !important;
+  font-weight: 700 !important;
+}
+
+.ba-plan-drawer-primary-btn.is-warning:hover {
+  background: linear-gradient(135deg, #fbbf24, #f59e0b) !important;
+}
+
 .ba-alert-stack {
   display: grid;
   gap: 8px;
