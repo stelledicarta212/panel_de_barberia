@@ -79,6 +79,20 @@ export type DashboardMerged = {
   descansos: Array<Record<string, unknown>>;
 };
 
+export type DashboardBarberiaItem = {
+  id: number;
+  slug?: string | null;
+  nombre?: string | null;
+  role?: string | null;
+  subscription_state?: CanonicalSubscriptionState | null;
+  plan_code?: string | null;
+  plan_name?: string | null;
+  billing_term?: CanonicalBillingTerm | null;
+  period_start?: string | null;
+  period_end?: string | null;
+  days_remaining?: number | null;
+};
+
 export type DashboardStateResponse = {
   ok: boolean;
   identity?: DashboardIdentity;
@@ -89,8 +103,8 @@ export type DashboardStateResponse = {
   permissions?: Partial<DashboardPermissions>;
   permisos?: Partial<DashboardPermissions>;
   user_id?: number;
-  current_barberia?: { id: number; slug?: string | null; nombre?: string | null; role?: string | null } | null;
-  barberias?: Array<{ id: number; slug?: string | null; nombre?: string | null; role?: string | null }>;
+  current_barberia?: DashboardBarberiaItem | null;
+  barberias?: DashboardBarberiaItem[];
   barberias_count?: number;
   next_action?: string;
   seed?: Record<string, unknown>;

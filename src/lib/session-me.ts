@@ -24,6 +24,13 @@ export type SessionMeBarberia = {
   slug: string;
   nombre: string;
   role: string;
+  subscription_state?: CanonicalSubscriptionState | null;
+  plan_code?: string | null;
+  plan_name?: string | null;
+  billing_term?: CanonicalBillingTerm | null;
+  period_start?: string | null;
+  period_end?: string | null;
+  days_remaining?: number | null;
 };
 
 export type SessionMeResponse = {
