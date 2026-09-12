@@ -21,6 +21,22 @@ export const NO_PERMISSIONS: DashboardPermissions = {
   canViewGlobalFinance: false
 };
 
+export const LIMITED_PERMISSIONS: DashboardPermissions = {
+  canViewDashboard: false,
+  canViewAppointments: false,
+  canViewClients: false,
+  canViewBarbers: false,
+  canViewServices: false,
+  canViewLoyalty: false,
+  canViewPOS: false,
+  canViewSettings: false,
+  canViewSupport: true,
+  canEditLanding: false,
+  canPublishLanding: false,
+  canChargePOS: false,
+  canViewGlobalFinance: false
+};
+
 export const ALL_PERMISSIONS: DashboardPermissions = {
   canViewDashboard: true,
   canViewAppointments: true,
@@ -91,6 +107,72 @@ function readAccessSource(rawState: DashboardStateResponse | null): string {
   return "default_admin";
 }
 
+export function hasEntitlementAccess(rawState: DashboardStateResponse | null): boolean {
+  if (!rawState) return false;
+
+  const subState =
+    rawState.subscription_state ||
+    rawState.product_state?.subscription_state ||
+    rawState.current_barberia?.subscription_state;
+
+  if (subState === "ZERO_BARBERIA") {
+    return false;
+  }
+
+  if (subState === "TRIAL_EXPIRED") {
+    return false;
+  }
+
+  if (subState === "TRIAL_ACTIVE" || subState === "TRIAL_EXPIRING") {
+    const days =
+      typeof rawState.days_remaining === "number"
+        ? rawState.days_remaining
+        : typeof rawState.product_state?.days_remaining === "number"
+          ? rawState.product_state.days_remaining
+          : typeof rawState.current_barberia?.days_remaining === "number"
+            ? rawState.current_barberia.days_remaining
+            : null;
+    if (days !== null && days <= 0) {
+      return false;
+    }
+    return true;
+  }
+
+  if (subState === "PAID_ACTIVE") {
+    const periodEnd =
+      rawState.period_end ||
+      rawState.product_state?.period_end ||
+      rawState.current_barberia?.period_end;
+    if (periodEnd) {
+      const endTime = new Date(periodEnd).getTime();
+      if (!Number.isNaN(endTime) && endTime <= Date.now()) {
+        return false;
+      }
+    }
+    const days =
+      typeof rawState.days_remaining === "number"
+        ? rawState.days_remaining
+        : typeof rawState.product_state?.days_remaining === "number"
+          ? rawState.product_state.days_remaining
+          : typeof rawState.current_barberia?.days_remaining === "number"
+            ? rawState.current_barberia.days_remaining
+            : null;
+    if (days !== null && days <= 0 && periodEnd) {
+      const endTime = new Date(periodEnd).getTime();
+      if (!Number.isNaN(endTime) && endTime <= Date.now()) {
+        return false;
+      }
+    }
+    return true;
+  }
+
+  if (subState === "ACTIVATION_PENDING") {
+    return true;
+  }
+
+  return true;
+}
+
 export function resolveDashboardAccess(rawState: DashboardStateResponse | null): DashboardUserAccess {
   const user = rawState?.user ?? rawState?.usuario ?? {};
   const role = normalizeRole(rawState?.role ?? rawState?.rol ?? user.role ?? user.rol);
@@ -99,14 +181,34 @@ export function resolveDashboardAccess(rawState: DashboardStateResponse | null):
   const userId = Number(user.id ?? user.user_id ?? 0);
   const barberId = Number(user.barber_id ?? user.barbero_id ?? 0);
 
+  if (role === "super_admin") {
+    return {
+      user_id: Number.isFinite(userId) && userId > 0 ? userId : null,
+      role,
+      barber_id: Number.isFinite(barberId) && barberId > 0 ? barberId : null,
+      permissions: {
+        ...base,
+        ...remotePermissions
+      },
+      source: readAccessSource(rawState)
+    };
+  }
+
+  const hasAccess = hasEntitlementAccess(rawState);
+  const effectivePermissions: DashboardPermissions = hasAccess
+    ? {
+        ...base,
+        ...remotePermissions
+      }
+    : {
+        ...LIMITED_PERMISSIONS
+      };
+
   return {
     user_id: Number.isFinite(userId) && userId > 0 ? userId : null,
     role,
     barber_id: Number.isFinite(barberId) && barberId > 0 ? barberId : null,
-    permissions: {
-      ...base,
-      ...remotePermissions
-    },
+    permissions: effectivePermissions,
     source: readAccessSource(rawState)
   };
 }

@@ -559,9 +559,25 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
             children
           ) : (
             <section className="ba-card ba-access-denied">
-              <h1>Acceso restringido</h1>
-              <p>Tu rol actual no tiene permiso para ver este modulo.</p>
-              <small>Rol: {roleLabel}</small>
+              <h1>{planDisplay.isExpired ? "Acceso restringido por vencimiento" : "Acceso restringido"}</h1>
+              <p>
+                {planDisplay.isExpired
+                  ? "Tu plan o periodo de prueba ha expirado. Renueva tu suscripción para volver a acceder a la gestión de citas y operaciones de tu barbería."
+                  : "Tu rol actual no tiene permiso para ver este modulo."}
+              </p>
+              {planDisplay.isExpired ? (
+                <div style={{ marginTop: "1.25rem" }}>
+                  <a
+                    className="ba-btn-gold ba-btn-large"
+                    href={planDisplay.dashboardCtaHref}
+                    aria-label={planDisplay.dashboardCtaLabel}
+                  >
+                    {planDisplay.dashboardCtaLabel}
+                  </a>
+                </div>
+              ) : (
+                <small>Rol: {roleLabel}</small>
+              )}
             </section>
           )}
         </section>
