@@ -196,9 +196,6 @@ export function DashboardProvider({ children }: { children: React.ReactNode }) {
       setError(null);
       try {
         const sessionMe = await getSessionMe();
-        if (sessionMe.product_state) {
-          setProductState(sessionMe.product_state);
-        }
         const fromUrl = normalizeIdentity(resolveIdentityFromUrl());
 
         if (!sessionMe.ok) {
@@ -239,6 +236,19 @@ export function DashboardProvider({ children }: { children: React.ReactNode }) {
               barberia_id: Number(matched.id),
               slug: matched.slug
             };
+            if (matched.subscription_state) {
+              setProductState({
+                barberia_id: Number(matched.id),
+                barberia_state: "single",
+                subscription_state: matched.subscription_state,
+                plan_code: matched.plan_code ?? null,
+                plan_name: matched.plan_name ?? null,
+                billing_term: matched.billing_term ?? null,
+                period_start: matched.period_start ?? null,
+                period_end: matched.period_end ?? null,
+                days_remaining: matched.days_remaining ?? null
+              });
+            }
           } else {
             // Mismatch or unauthorized! Return 403 visual error and stop.
             setSession(null);
@@ -257,6 +267,19 @@ export function DashboardProvider({ children }: { children: React.ReactNode }) {
               barberia_id: Number(sessionMe.current_barberia.id),
               slug: sessionMe.current_barberia.slug
             };
+            if (sessionMe.current_barberia.subscription_state) {
+              setProductState({
+                barberia_id: Number(sessionMe.current_barberia.id),
+                barberia_state: "single",
+                subscription_state: sessionMe.current_barberia.subscription_state,
+                plan_code: sessionMe.current_barberia.plan_code ?? null,
+                plan_name: sessionMe.current_barberia.plan_name ?? null,
+                billing_term: sessionMe.current_barberia.billing_term ?? null,
+                period_start: sessionMe.current_barberia.period_start ?? null,
+                period_end: sessionMe.current_barberia.period_end ?? null,
+                days_remaining: sessionMe.current_barberia.days_remaining ?? null
+              });
+            }
           } else if (userBarberias.length > 0) {
             setSession(null);
             setIdentity(null);
@@ -265,6 +288,17 @@ export function DashboardProvider({ children }: { children: React.ReactNode }) {
             return;
           } else {
             // ZERO_BARBERIA state: Authenticated user with no barberias yet.
+            setProductState({
+              barberia_id: null,
+              barberia_state: "none",
+              subscription_state: "ZERO_BARBERIA",
+              plan_code: null,
+              plan_name: null,
+              billing_term: null,
+              period_start: null,
+              period_end: null,
+              days_remaining: null
+            });
             // Preserve session so dashboard shell can render friendly onboarding empty state instead of technical error.
             const zeroBarberiaSession: DashboardLoginSession = {
               user: sessionMe.user ?? {

@@ -11,6 +11,7 @@ export type CanonicalSubscriptionState =
 export type CanonicalBillingTerm = "monthly" | "quarterly" | "semiannual" | "annual";
 
 export interface CanonicalProductState {
+  barberia_id?: number | null;
   barberia_state: CanonicalBarberiaState;
   subscription_state: CanonicalSubscriptionState;
   plan_code: string | null;

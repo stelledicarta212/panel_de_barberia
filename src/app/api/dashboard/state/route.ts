@@ -76,29 +76,61 @@ async function loadPublishedLanding(barberiaId: number): Promise<Record<string, 
   }
 }
 
-async function loadProductState(userId: number): Promise<Record<string, unknown> | null> {
+async function loadProductState(
+  userId: number,
+  barberiaId: number | null
+): Promise<Record<string, unknown> | null> {
   const base = String(POSTGREST_BASE_URL || "").trim().replace(/\/+$/, "");
   if (!base || !userId) {
     return null;
   }
-  const url = `${base}/rpc/ba_resolve_user_product_state`;
-  try {
-    const response = await fetch(url, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Accept: "application/json"
-      },
-      body: JSON.stringify({ p_user_id: userId }),
-      cache: "no-store"
-    });
-    if (!response.ok) return null;
-    const text = await response.text().catch(() => "");
-    const data = text ? JSON.parse(text) : null;
-    return isRecord(data) ? data : null;
-  } catch {
-    return null;
+
+  // 1. Authoritative barberia-scoped resolution
+  if (barberiaId && barberiaId > 0) {
+    const url = `${base}/rpc/ba_resolve_barberia_product_state`;
+    try {
+      const response = await fetch(url, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Accept: "application/json"
+        },
+        body: JSON.stringify({ p_user_id: userId, p_barberia_id: barberiaId }),
+        cache: "no-store"
+      });
+      if (response.ok) {
+        const text = await response.text().catch(() => "");
+        const data = text ? JSON.parse(text) : null;
+        if (isRecord(data)) return data;
+      }
+    } catch {
+      // ignore and fall through
+    }
   }
+
+  // 2. Fallback to user-global resolution ONLY when no barberia is selected
+  if (!barberiaId || barberiaId <= 0) {
+    const url = `${base}/rpc/ba_resolve_user_product_state`;
+    try {
+      const response = await fetch(url, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Accept: "application/json"
+        },
+        body: JSON.stringify({ p_user_id: userId }),
+        cache: "no-store"
+      });
+      if (!response.ok) return null;
+      const text = await response.text().catch(() => "");
+      const data = text ? JSON.parse(text) : null;
+      return isRecord(data) ? data : null;
+    } catch {
+      return null;
+    }
+  }
+
+  return null;
 }
 
 export async function OPTIONS(request: Request) {
@@ -174,18 +206,68 @@ export async function GET(request: Request) {
         };
       }
 
-      // Phase D: Canonical product state enrichment
+      // Canonical per-barberia product state enrichment
       const rawUser = isRecord(body.user) ? body.user : isRecord(body.owner) ? body.owner : {};
       const candidateUserId = Number(rawUser.id ?? body.user_id ?? 0);
       let productState: Record<string, unknown> | null = isRecord(body.product_state) ? body.product_state : null;
-      if (!productState && candidateUserId > 0) {
-        productState = await loadProductState(candidateUserId);
+
+      if (candidateUserId > 0) {
+        if (!productState || (barberiaId && Number(productState.barberia_id) !== barberiaId)) {
+          productState = await loadProductState(candidateUserId, barberiaId);
+        }
       }
+
+      // Fail closed on unauthorized barberia access
+      if (barberiaId && productState && productState.authorized === false) {
+        return NextResponse.json(
+          {
+            ok: false,
+            code: "unauthorized_barberia",
+            message: "No tienes permisos para acceder a esta barbería."
+          },
+          { status: 403, headers: corsHeaders }
+        );
+      }
+
       if (productState) {
+        const currentBarberiaObj = isRecord(body.current_barberia)
+          ? body.current_barberia
+          : isRecord(body.barberia)
+            ? body.barberia
+            : {};
+        const effectiveBarberiaId = barberiaId ?? (Number(currentBarberiaObj.id ?? 0) || null);
+
+        // Mandatory invariant validation: current_barberia.id === product_state.barberia_id
+        if (effectiveBarberiaId && productState.barberia_id && Number(productState.barberia_id) !== effectiveBarberiaId) {
+          return NextResponse.json(
+            {
+              ok: false,
+              code: "tenant_mismatch",
+              message: "Inconsistencia de identidad entre barbería y estado de producto."
+            },
+            { status: 500, headers: corsHeaders }
+          );
+        }
+
         body = {
           ...body,
-          product_state: productState,
-          barberia_state: productState.barberia_state ?? body.barberia_state ?? "none",
+          ...(effectiveBarberiaId ? { barberia_id: effectiveBarberiaId } : {}),
+          current_barberia: {
+            ...currentBarberiaObj,
+            ...(effectiveBarberiaId ? { id: effectiveBarberiaId } : {}),
+            subscription_state: productState.subscription_state,
+            plan_code: productState.plan_code,
+            plan_name: productState.plan_name,
+            billing_term: productState.billing_term,
+            period_start: productState.period_start,
+            period_end: productState.period_end,
+            days_remaining: productState.days_remaining
+          },
+          product_state: {
+            ...productState,
+            ...(effectiveBarberiaId ? { barberia_id: effectiveBarberiaId } : {})
+          },
+          barberia_state: effectiveBarberiaId ? "single" : (productState.barberia_state ?? body.barberia_state ?? "none"),
           subscription_state: productState.subscription_state ?? body.subscription_state ?? "ZERO_BARBERIA",
           plan_code: productState.plan_code ?? body.plan_code ?? null,
           plan_name: productState.plan_name ?? body.plan_name ?? null,
@@ -197,7 +279,12 @@ export async function GET(request: Request) {
       }
     }
 
-    return NextResponse.json(body, { status: upstream.status, headers: corsHeaders });
+    const responseHeaders = new Headers(corsHeaders);
+    responseHeaders.set("Cache-Control", "no-store, no-cache, must-revalidate, proxy-revalidate");
+    responseHeaders.set("Pragma", "no-cache");
+    responseHeaders.set("Expires", "0");
+
+    return NextResponse.json(body, { status: upstream.status, headers: responseHeaders });
   } catch (error) {
     return NextResponse.json(
       {
