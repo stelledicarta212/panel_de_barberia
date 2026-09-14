@@ -3,9 +3,9 @@ import { normalizeSessionSetCookies } from "../../session/cookies";
 import { getCorsHeaders } from "../../editor/auth";
 
 const SESSION_ME_ENDPOINT = process.env.SESSION_ME_ENDPOINT;
-const GOOGLE_SESSION_ENDPOINT = SESSION_ME_ENDPOINT
-  ? SESSION_ME_ENDPOINT.replace("/session/me", "/auth/google-session")
-  : "https://barberagency-n8n.gymh5g.easypanel.host/webhook/barberagency/auth/google-session";
+const GOOGLE_SESSION_ENDPOINT =
+  process.env.GOOGLE_SESSION_ENDPOINT ??
+  (SESSION_ME_ENDPOINT ? SESSION_ME_ENDPOINT.replace("/session/me", "/auth/google-session") : "");
 
 function jsonResponse(body: unknown, status: number, request: Request, upstreamSetCookie?: string | null) {
   const response = NextResponse.json(body, { status, headers: getCorsHeaders(request, "POST, OPTIONS") });
@@ -13,6 +13,23 @@ function jsonResponse(body: unknown, status: number, request: Request, upstreamS
     response.headers.append("Set-Cookie", cookie);
   }
   return response;
+}
+
+export function sanitizeAuthResponseBody(body: unknown): { sanitizedBody: unknown; extractedCookie: string | null } {
+  if (!body || typeof body !== "object" || Array.isArray(body)) {
+    return { sanitizedBody: body, extractedCookie: null };
+  }
+
+  const record = body as Record<string, unknown>;
+  const extractedCookie =
+    typeof record["set_cookie"] === "string" && record["set_cookie"] ? record["set_cookie"] : null;
+
+  if ("set_cookie" in record || "ba_session" in record) {
+    const { set_cookie: _setCookie, ba_session: _baSession, ...rest } = record;
+    return { sanitizedBody: rest, extractedCookie };
+  }
+
+  return { sanitizedBody: record, extractedCookie };
 }
 
 export async function POST(request: Request) {
@@ -49,14 +66,12 @@ export async function POST(request: Request) {
     }
 
     let setCookieHeader = upstream.headers.get("set-cookie");
-    if (!setCookieHeader && body && typeof body === "object") {
-      const bodyRecord = body as Record<string, unknown>;
-      if (typeof bodyRecord["set_cookie"] === "string" && bodyRecord["set_cookie"]) {
-        setCookieHeader = bodyRecord["set_cookie"];
-      }
+    const { sanitizedBody, extractedCookie } = sanitizeAuthResponseBody(body);
+    if (!setCookieHeader && extractedCookie) {
+      setCookieHeader = extractedCookie;
     }
 
-    return jsonResponse(body, upstream.status, request, setCookieHeader);
+    return jsonResponse(sanitizedBody, upstream.status, request, setCookieHeader);
   } catch (error) {
     return jsonResponse(
       {
