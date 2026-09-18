@@ -78,11 +78,21 @@ async function loadPublishedLanding(barberiaId: number): Promise<Record<string, 
 
 async function loadProductState(
   userId: number,
-  barberiaId: number | null
+  barberiaId: number | null,
+  sessionToken?: string
 ): Promise<Record<string, unknown> | null> {
   const base = String(POSTGREST_BASE_URL || "").trim().replace(/\/+$/, "");
   if (!base || !userId) {
     return null;
+  }
+
+  const headers: Record<string, string> = {
+    "Content-Type": "application/json",
+    Accept: "application/json"
+  };
+  if (sessionToken) {
+    headers["Authorization"] = `Bearer ${sessionToken}`;
+    headers["apikey"] = sessionToken;
   }
 
   // 1. Authoritative barberia-scoped resolution
@@ -91,10 +101,7 @@ async function loadProductState(
     try {
       const response = await fetch(url, {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Accept: "application/json"
-        },
+        headers,
         body: JSON.stringify({ p_user_id: userId, p_barberia_id: barberiaId }),
         cache: "no-store"
       });
@@ -114,10 +121,7 @@ async function loadProductState(
     try {
       const response = await fetch(url, {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Accept: "application/json"
-        },
+        headers,
         body: JSON.stringify({ p_user_id: userId }),
         cache: "no-store"
       });
@@ -213,7 +217,7 @@ export async function GET(request: Request) {
 
       if (candidateUserId > 0) {
         if (!productState || (barberiaId && Number(productState.barberia_id) !== barberiaId)) {
-          productState = await loadProductState(candidateUserId, barberiaId);
+          productState = await loadProductState(candidateUserId, barberiaId, baSession);
         }
       }
 
