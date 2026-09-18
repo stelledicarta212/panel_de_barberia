@@ -1,5 +1,7 @@
 import { NextResponse } from "next/server";
-import { normalizeSessionSetCookies } from "../cookies";
+import { normalizeSessionSetCookies, sanitizeAuthResponseBody } from "../cookies";
+
+export { sanitizeAuthResponseBody };
 
 function jsonResponse(body: unknown, status: number, upstreamSetCookie?: string | null) {
   const response = NextResponse.json(body, { status });
@@ -54,14 +56,12 @@ export async function POST(request: Request) {
     }
 
     let setCookieHeader = upstream.headers.get("set-cookie");
-    if (!setCookieHeader && body && typeof body === "object") {
-      const bodyRecord = body as Record<string, unknown>;
-      if (typeof bodyRecord["set_cookie"] === "string" && bodyRecord["set_cookie"]) {
-        setCookieHeader = bodyRecord["set_cookie"];
-      }
+    const { sanitizedBody, extractedCookie } = sanitizeAuthResponseBody(body);
+    if (!setCookieHeader && extractedCookie) {
+      setCookieHeader = extractedCookie;
     }
 
-    return jsonResponse(body, upstream.status, setCookieHeader);
+    return jsonResponse(sanitizedBody, upstream.status, setCookieHeader);
   } catch (error) {
     return jsonResponse(
       {

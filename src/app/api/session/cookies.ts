@@ -25,3 +25,20 @@ export function normalizeSessionSetCookies(upstreamSetCookie?: string | null): s
   if (!upstreamSetCookie) return [];
   return splitSetCookieHeader(upstreamSetCookie).map(normalizeBaSessionCookie);
 }
+
+export function sanitizeAuthResponseBody(body: unknown): { sanitizedBody: unknown; extractedCookie: string | null } {
+  if (!body || typeof body !== "object" || Array.isArray(body)) {
+    return { sanitizedBody: body, extractedCookie: null };
+  }
+
+  const record = body as Record<string, unknown>;
+  const extractedCookie =
+    typeof record["set_cookie"] === "string" && record["set_cookie"] ? record["set_cookie"] : null;
+
+  if ("set_cookie" in record || "ba_session" in record) {
+    const { set_cookie: _setCookie, ba_session: _baSession, ...rest } = record;
+    return { sanitizedBody: rest, extractedCookie };
+  }
+
+  return { sanitizedBody: record, extractedCookie };
+}

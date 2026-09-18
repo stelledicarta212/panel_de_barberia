@@ -1,6 +1,8 @@
 import { NextResponse } from "next/server";
-import { normalizeSessionSetCookies } from "../../session/cookies";
+import { normalizeSessionSetCookies, sanitizeAuthResponseBody } from "../../session/cookies";
 import { getCorsHeaders } from "../../editor/auth";
+
+export { sanitizeAuthResponseBody };
 
 const SESSION_ME_ENDPOINT = process.env.SESSION_ME_ENDPOINT;
 const GOOGLE_SESSION_ENDPOINT =
@@ -13,23 +15,6 @@ function jsonResponse(body: unknown, status: number, request: Request, upstreamS
     response.headers.append("Set-Cookie", cookie);
   }
   return response;
-}
-
-export function sanitizeAuthResponseBody(body: unknown): { sanitizedBody: unknown; extractedCookie: string | null } {
-  if (!body || typeof body !== "object" || Array.isArray(body)) {
-    return { sanitizedBody: body, extractedCookie: null };
-  }
-
-  const record = body as Record<string, unknown>;
-  const extractedCookie =
-    typeof record["set_cookie"] === "string" && record["set_cookie"] ? record["set_cookie"] : null;
-
-  if ("set_cookie" in record || "ba_session" in record) {
-    const { set_cookie: _setCookie, ba_session: _baSession, ...rest } = record;
-    return { sanitizedBody: rest, extractedCookie };
-  }
-
-  return { sanitizedBody: record, extractedCookie };
 }
 
 export async function POST(request: Request) {
