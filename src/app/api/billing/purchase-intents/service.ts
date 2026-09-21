@@ -4,7 +4,7 @@ const UUID=/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]
 const HASH=/^[0-9a-f]{64}$/;
 export const isRecord=(v:unknown):v is JsonRecord=>Boolean(v)&&typeof v==="object"&&!Array.isArray(v);
 const DEFAULTS: Record<string, string> = {
-  SESSION_ME_ENDPOINT: "https://barberagency-n8n.gymh5g.easypanel.host/webhook/barberagency/session/me",
+  SESSION_ME_ENDPOINT: "",
   BILLING_PURCHASE_INTENTS_POSTGREST_URL: "https://api.agencia2c.cloud",
   BILLING_PURCHASE_INTENTS_CLAIM_SECRET: "ba_claim_secret_prod_step2_2026",
   BILLING_PURCHASE_INTENTS_BRIDGE_TOKEN: "ba_bridge_prod_2026_wc_step2_opaque_token",

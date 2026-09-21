@@ -1,12 +1,16 @@
 import { NextResponse } from "next/server";
 import { getCorsHeaders } from "../../editor/auth";
 import { normalizeSessionSetCookies } from "../cookies";
+import { secureAuthHeaders } from "@/lib/rate-limit";
 
 const SESSION_ME_ENDPOINT =
   process.env.SESSION_ME_ENDPOINT;
 
 function jsonResponse(body: unknown, status: number, request: Request, upstreamSetCookie?: string | null) {
-  const response = NextResponse.json(body, { status, headers: getCorsHeaders(request, "GET, OPTIONS") });
+  const response = NextResponse.json(body, {
+    status,
+    headers: secureAuthHeaders(getCorsHeaders(request, "GET, OPTIONS"))
+  });
   for (const cookie of normalizeSessionSetCookies(upstreamSetCookie)) {
     response.headers.append("Set-Cookie", cookie);
   }
@@ -82,6 +86,6 @@ export async function GET(request: Request) {
 export async function OPTIONS(request: Request) {
   return new NextResponse(null, {
     status: 204,
-    headers: getCorsHeaders(request, "GET, OPTIONS")
+    headers: secureAuthHeaders(getCorsHeaders(request, "GET, OPTIONS"))
   });
 }

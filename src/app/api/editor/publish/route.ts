@@ -1,5 +1,11 @@
 import { NextResponse } from "next/server";
 import { getCorsHeaders, isRecord, parseEditorPayload, validateEditorTenant } from "../auth";
+import {
+  consumeRateLimit,
+  getClientIp,
+  rateLimitResponse,
+  secureAuthHeaders
+} from "@/lib/rate-limit";
 
 const PUBLISH_ENDPOINT =
   process.env.EDITOR_PUBLISH_ENDPOINT ??
@@ -96,6 +102,14 @@ export async function POST(request: Request) {
         ? "Sesion requerida para publicar"
         : tenant.body.message;
     return NextResponse.json({ ...tenant.body, message }, { status: tenant.status, headers: corsHeaders });
+  }
+
+  // Rate limit: 20 requests / 60 seconds / tenant+IP
+  const clientIp = getClientIp(request);
+  const rateLimitKey = `landing_save:${tenant.barberiaId}:${clientIp}`;
+  const limitCheck = await consumeRateLimit(rateLimitKey, 20, 60, true);
+  if (!limitCheck.allowed) {
+    return rateLimitResponse(limitCheck.retryAfter);
   }
 
   const upstreamPayload = normalizePublishPayloadForUpstream(parsed.payload, tenant);

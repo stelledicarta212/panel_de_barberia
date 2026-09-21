@@ -1,10 +1,20 @@
 import { NextResponse } from "next/server";
 import { normalizeSessionSetCookies, sanitizeAuthResponseBody } from "../cookies";
+import {
+  consumeRateLimit,
+  getClientIp,
+  rateLimitResponse,
+  resetRateLimit,
+  secureAuthHeaders
+} from "@/lib/rate-limit";
 
 export { sanitizeAuthResponseBody };
 
 function jsonResponse(body: unknown, status: number, upstreamSetCookie?: string | null) {
-  const response = NextResponse.json(body, { status });
+  const response = NextResponse.json(body, {
+    status,
+    headers: secureAuthHeaders()
+  });
   for (const cookie of normalizeSessionSetCookies(upstreamSetCookie)) {
     response.headers.append("Set-Cookie", cookie);
   }
@@ -31,6 +41,20 @@ export async function POST(request: Request) {
     return jsonResponse({ ok: false, message: "Body JSON invalido" }, 400);
   }
 
+  const clientIp = getClientIp(request);
+  const email =
+    payload && typeof payload === "object" && typeof (payload as Record<string, unknown>).email === "string"
+      ? ((payload as Record<string, unknown>).email as string).toLowerCase().trim()
+      : "anonymous";
+
+  const rateLimitKey = `login:${clientIp}:${email}`;
+
+  // Check if IP + account is currently in lockout cooldown (5 failed attempts / 15 min)
+  const currentCheck = await consumeRateLimit(rateLimitKey, 5, 900, false);
+  if (!currentCheck.allowed) {
+    return rateLimitResponse(currentCheck.retryAfter);
+  }
+
   try {
     const upstream = await fetch(loginEndpoint, {
       method: "POST",
@@ -53,6 +77,17 @@ export async function POST(request: Request) {
         },
         502
       );
+    }
+
+    if (upstream.status === 200) {
+      // Clear failure counter on successful login
+      await resetRateLimit(rateLimitKey);
+    } else if (upstream.status === 401) {
+      // Increment failure counter on invalid credentials
+      const failureCheck = await consumeRateLimit(rateLimitKey, 5, 900, true);
+      if (!failureCheck.allowed) {
+        return rateLimitResponse(failureCheck.retryAfter);
+      }
     }
 
     let setCookieHeader = upstream.headers.get("set-cookie");

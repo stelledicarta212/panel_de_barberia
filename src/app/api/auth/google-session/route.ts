@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { normalizeSessionSetCookies, sanitizeAuthResponseBody } from "../../session/cookies";
 import { getCorsHeaders } from "../../editor/auth";
+import { secureAuthHeaders } from "@/lib/rate-limit";
 
 export { sanitizeAuthResponseBody };
 
@@ -10,7 +11,10 @@ const GOOGLE_SESSION_ENDPOINT =
   (SESSION_ME_ENDPOINT ? SESSION_ME_ENDPOINT.replace("/session/me", "/auth/google-session") : "");
 
 function jsonResponse(body: unknown, status: number, request: Request, upstreamSetCookie?: string | null) {
-  const response = NextResponse.json(body, { status, headers: getCorsHeaders(request, "POST, OPTIONS") });
+  const response = NextResponse.json(body, {
+    status,
+    headers: secureAuthHeaders(getCorsHeaders(request, "POST, OPTIONS"))
+  });
   for (const cookie of normalizeSessionSetCookies(upstreamSetCookie)) {
     response.headers.append("Set-Cookie", cookie);
   }
@@ -72,6 +76,6 @@ export async function POST(request: Request) {
 export async function OPTIONS(request: Request) {
   return new NextResponse(null, {
     status: 204,
-    headers: getCorsHeaders(request, "POST, OPTIONS")
+    headers: secureAuthHeaders(getCorsHeaders(request, "POST, OPTIONS"))
   });
 }

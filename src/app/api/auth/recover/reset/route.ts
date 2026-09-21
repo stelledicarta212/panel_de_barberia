@@ -1,4 +1,10 @@
 import { NextResponse } from "next/server";
+import {
+  consumeRateLimit,
+  getClientIp,
+  rateLimitResponse,
+  secureAuthHeaders
+} from "@/lib/rate-limit";
 
 export async function POST(request: Request) {
   const recoverResetEndpoint = process.env.DASHBOARD_RECOVER_RESET_ENDPOINT;
@@ -10,7 +16,7 @@ export async function POST(request: Request) {
         code: "recover_endpoint_not_configured",
         message: "El servidor de recuperación no está configurado correctamente."
       },
-      { status: 500 }
+      { status: 500, headers: secureAuthHeaders() }
     );
   }
 
@@ -20,30 +26,41 @@ export async function POST(request: Request) {
   } catch {
     return NextResponse.json(
       { ok: false, message: "Cuerpo JSON inválido." },
-      { status: 400 }
+      { status: 400, headers: secureAuthHeaders() }
     );
   }
 
   if (!body || typeof body !== "object" || Array.isArray(body)) {
     return NextResponse.json(
       { ok: false, message: "Payload inválido." },
-      { status: 400 }
+      { status: 400, headers: secureAuthHeaders() }
     );
   }
 
   const payload = body as Record<string, unknown>;
-  if (!payload.token || typeof payload.token !== "string" || !payload.token.trim()) {
+  const rawToken = typeof payload.token === "string" ? payload.token.trim() : "";
+  if (!rawToken) {
     return NextResponse.json(
       { ok: false, message: "El token de recuperación es requerido." },
-      { status: 400 }
+      { status: 400, headers: secureAuthHeaders() }
     );
   }
 
   if (!payload.new_password || typeof payload.new_password !== "string" || payload.new_password.length < 6) {
     return NextResponse.json(
       { ok: false, message: "La nueva contraseña es requerida y debe tener al menos 6 caracteres." },
-      { status: 400 }
+      { status: 400, headers: secureAuthHeaders() }
     );
+  }
+
+  const clientIp = getClientIp(request);
+  const tokenPrefix = rawToken.substring(0, 16);
+  const rateLimitKey = `reset_confirm:${clientIp}:${tokenPrefix}`;
+
+  // Rate limit: 5 attempts / 30 min (1800s)
+  const limitCheck = await consumeRateLimit(rateLimitKey, 5, 1800, true);
+  if (!limitCheck.allowed) {
+    return rateLimitResponse(limitCheck.retryAfter);
   }
 
   try {
@@ -70,16 +87,16 @@ export async function POST(request: Request) {
           ok: false, 
           message: (responseBody as Record<string, unknown>)?.message || "Error al restablecer la contraseña en el servidor." 
         },
-        { status: upstream.status }
+        { status: upstream.status, headers: secureAuthHeaders() }
       );
     }
 
-    return NextResponse.json(responseBody, { status: 200 });
+    return NextResponse.json(responseBody, { status: 200, headers: secureAuthHeaders() });
   } catch (error) {
     console.error("Error proxying recover reset:", error);
     return NextResponse.json(
       { ok: false, message: error instanceof Error ? error.message : "Error interno de red en el proxy." },
-      { status: 502 }
+      { status: 502, headers: secureAuthHeaders() }
     );
   }
 }

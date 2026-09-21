@@ -1,10 +1,14 @@
 import { NextResponse } from "next/server";
 import { getCorsHeaders } from "../../editor/auth";
+import {
+  consumeRateLimit,
+  getClientIp,
+  rateLimitResponse,
+  secureAuthHeaders
+} from "@/lib/rate-limit";
 
 const SESSION_ME_ENDPOINT = process.env.SESSION_ME_ENDPOINT;
-const ONBOARDING_ENDPOINT =
-  process.env.ONBOARDING_ENDPOINT ??
-  "https://barberagency-n8n.gymh5g.easypanel.host/webhook/registro-barberia";
+const ONBOARDING_ENDPOINT = process.env.ONBOARDING_ENDPOINT ?? "";
 
 function readBaSession(cookieHeader: string): string {
   const match = cookieHeader.match(/(?:^|;\s*)ba_session=([^;]+)/);
@@ -12,7 +16,7 @@ function readBaSession(cookieHeader: string): string {
 }
 
 export async function POST(request: Request) {
-  const corsHeaders = getCorsHeaders(request);
+  const corsHeaders = secureAuthHeaders(getCorsHeaders(request));
 
   if (!SESSION_ME_ENDPOINT) {
     return NextResponse.json(
@@ -68,6 +72,15 @@ export async function POST(request: Request) {
       );
     }
 
+    // Rate limit: 10 attempts / 15 min / IP+user
+    const clientIp = getClientIp(request);
+    const userId = Number(sessionData.user_id || 0);
+    const rateLimitKey = `onboarding:${clientIp}:${userId}`;
+    const limitCheck = await consumeRateLimit(rateLimitKey, 10, 900, true);
+    if (!limitCheck.allowed) {
+      return rateLimitResponse(limitCheck.retryAfter);
+    }
+
     // 2. Parsear el body enviado por el cliente
     let rawBody = "";
     try {
@@ -98,29 +111,44 @@ export async function POST(request: Request) {
     }
 
     // Garantizar que no se confie en variables de auth enviadas por el cliente
-    const { auth_ok, auth_user_id, auth_message, ...cleanBody } = body;
+    delete body.user_id;
+    delete body.email;
+    delete body.usuario_id;
+    delete body.session;
+    delete body.auth;
 
-    // 3. Reenviar al webhook de n8n con la cookie ba_session para su verificacion JWT
+    if (!ONBOARDING_ENDPOINT) {
+      return NextResponse.json(
+        {
+          ok: false,
+          code: "onboarding_endpoint_not_configured",
+          message: "El servidor de onboarding no esta configurado."
+        },
+        { status: 500, headers: corsHeaders }
+      );
+    }
+
+    // 3. Reenviar al webhook upstream con la cookie de sesion autenticada
     const upstreamRes = await fetch(ONBOARDING_ENDPOINT, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
         Cookie: `ba_session=${baSession}`
       },
-      body: JSON.stringify(cleanBody),
+      body: JSON.stringify(body),
       cache: "no-store"
     });
 
-    const text = await upstreamRes.text().catch(() => "");
-    let upstreamData: any = {};
+    let upstreamData: Record<string, unknown> = {};
     try {
+      const text = await upstreamRes.text();
       upstreamData = text ? JSON.parse(text) : {};
     } catch {
       return NextResponse.json(
         {
           ok: false,
-          code: "respuesta_no_json",
-          message: "El servidor de onboarding devolvio una respuesta no valida."
+          code: "respuesta_invalida",
+          message: "Respuesta invalida del webhook de onboarding."
         },
         { status: 502, headers: corsHeaders }
       );
@@ -154,6 +182,6 @@ export async function POST(request: Request) {
 export async function OPTIONS(request: Request) {
   return new NextResponse(null, {
     status: 204,
-    headers: getCorsHeaders(request)
+    headers: secureAuthHeaders(getCorsHeaders(request))
   });
 }
