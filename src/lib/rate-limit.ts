@@ -108,5 +108,7 @@ export async function resetRateLimit(key: string): Promise<void> {
       body: JSON.stringify({ p_key: key }),
       cache: "no-store"
     }).catch(() => {});
-  } catch (_) {}
+  } catch {
+    // Suppress network errors in reset to prevent breaking caller flow
+  }
 }

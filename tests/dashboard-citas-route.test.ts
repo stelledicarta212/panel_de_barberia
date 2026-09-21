@@ -1,6 +1,5 @@
 import { describe, expect, it, vi, beforeEach } from "vitest";
 import { POST } from "../src/app/api/dashboard/citas/route";
-import { NextResponse } from "next/server";
 
 vi.stubEnv("DASHBOARD_CITAS_ENDPOINT", "https://mock-n8n.com/citas-webhook");
 

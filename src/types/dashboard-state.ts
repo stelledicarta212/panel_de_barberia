@@ -103,6 +103,7 @@ export type DashboardStateResponse = {
   permissions?: Partial<DashboardPermissions>;
   permisos?: Partial<DashboardPermissions>;
   user_id?: number;
+  barberia_id?: number | null;
   current_barberia?: DashboardBarberiaItem | null;
   barberias?: DashboardBarberiaItem[];
   barberias_count?: number;

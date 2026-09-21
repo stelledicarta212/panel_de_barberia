@@ -2,11 +2,10 @@ import { describe, expect, it } from "vitest";
 import {
   hasEntitlementAccess,
   resolveDashboardAccess,
-  canAccessPath,
-  LIMITED_PERMISSIONS
+  canAccessPath
 } from "../src/lib/dashboard-access";
 import { getSubscriptionDisplayInfo } from "../src/lib/product-state";
-import type { DashboardStateResponse, CanonicalProductState } from "../src/types/dashboard-state";
+import type { DashboardStateResponse, CanonicalProductState, CanonicalSubscriptionState } from "../src/types/dashboard-state";
 
 describe("Production Multi-Barbershop Entitlement & Product-State Invariants", () => {
   // Test Tenant 198: Annual Paid Active in Multi-Barberia Account
@@ -272,7 +271,7 @@ describe("Production Multi-Barbershop Entitlement & Product-State Invariants", (
         barberia_id: step.id,
         current_barberia: {
           id: step.id,
-          subscription_state: step.expectedState as any
+          subscription_state: step.expectedState as CanonicalSubscriptionState
         },
         product_state: currentProductState!,
         role: "owner"
