@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { executeLoyaltyFastPath } from "@/lib/pos-loyalty";
 
 const POS_SALE_ENDPOINT =
   process.env.POS_SALE_ENDPOINT;
@@ -162,7 +163,29 @@ export async function POST(request: Request) {
       );
     }
     
-    return NextResponse.json({ ok: true, ...data });
+    // -------------------------------------------------------------------------
+    // CANONICAL PAYMENT BOUNDARY
+    // El pago POS ha sido confirmado exitosamente en PostgreSQL.
+    // Intentar best-effort Loyalty Fast-Path con aislamiento total de fallas.
+    // -------------------------------------------------------------------------
+    const pagoId = Number(data.pago_id ?? data.id ?? 0);
+    let loyaltyResult = null;
+    if (pagoId > 0) {
+      try {
+        loyaltyResult = await executeLoyaltyFastPath(pagoId, {
+          baSession,
+          barberiaId
+        });
+      } catch {
+        loyaltyResult = { status: "failed" };
+      }
+    }
+
+    return NextResponse.json({
+      ok: true,
+      ...data,
+      ...(loyaltyResult ? { loyalty: loyaltyResult } : {})
+    });
   } catch (error) {
     console.error("Error proxying POS sale:", error);
     return NextResponse.json(

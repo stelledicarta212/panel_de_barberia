@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Cake, CalendarDays, ChevronLeft, ChevronRight, Clock3, Eye, Gift, MoreHorizontal, Pencil, Plus, RefreshCcw, Scissors, Send, Trash2, X } from "lucide-react";
+import { CalendarDays, ChevronLeft, ChevronRight, Clock3, Eye, Gift, MoreHorizontal, Pencil, Plus, RefreshCcw, Scissors, Trash2, X } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { DashboardShell } from "@/components/dashboard-shell";
 import { useDashboard } from "@/store/dashboard-context";
@@ -31,7 +31,6 @@ type RequestItem = {
   avatar: string;
   stampCurrent: number;
   stampRequired: number;
-  birthdayBenefit: string;
   inactiveDays: number;
   reactivationBenefit: string;
   offPeakBenefit: string;
@@ -154,7 +153,6 @@ function mapAppointmentRequests(appointments: Array<Record<string, unknown>>): R
       avatar: "",
       stampCurrent: 0,
       stampRequired: 8,
-      birthdayBenefit: "Sin beneficio configurado",
       inactiveDays: 0,
       reactivationBenefit: "Sin automatizacion",
       offPeakBenefit: "Sin promocion"
@@ -1270,8 +1268,7 @@ export default function CitasPage() {
                   {selected.stampCurrent} / {selected.stampRequired} sellos
                 </small>
                 <ul>
-                  <li><Cake size={11} /><span>{selected.birthdayBenefit}</span></li>
-                  <li><RefreshCcw size={11} /><span>{selected.inactiveDays} dias sin visita Â· {selected.reactivationBenefit}</span></li>
+                  <li><RefreshCcw size={11} /><span>{selected.inactiveDays} dias sin visita · {selected.reactivationBenefit}</span></li>
                   <li><Clock3 size={11} /><span>{selected.offPeakBenefit}</span></li>
                 </ul>
               </section>

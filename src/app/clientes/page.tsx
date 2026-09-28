@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { Cake, ChevronLeft, ChevronRight, Clock3, Gift, MoreHorizontal, RefreshCcw, Scissors, Plus, Search, X } from "lucide-react";
+import { ChevronLeft, ChevronRight, Clock3, Gift, MoreHorizontal, RefreshCcw, Scissors, Plus, Search, X } from "lucide-react";
 import { DashboardShell } from "@/components/dashboard-shell";
 import { useDashboard } from "@/store/dashboard-context";
 
@@ -13,12 +13,10 @@ type Client = {
   lastVisit: string;
   status: "Confirmada" | "Pendiente";
   avatar: string;
-  loyaltyPoints: number;
   preferredBarber: string;
   preferredService: string;
   stampCurrent: number;
   stampRequired: number;
-  birthdayBenefit: string;
   inactiveDays: number;
   reactivationBenefit: string;
   offPeakBenefit: string;
@@ -55,12 +53,10 @@ function mapRealClients(clients: Array<Record<string, unknown>>, appointments: A
       lastVisit: "Sin visita",
       status: "Confirmada",
       avatar: "",
-      loyaltyPoints: 0,
       preferredBarber: "",
       preferredService: "",
       stampCurrent: 0,
       stampRequired: 8,
-      birthdayBenefit: "Sin beneficio configurado",
       inactiveDays: 0,
       reactivationBenefit: "Sin automatizacion",
       offPeakBenefit: "Sin promocion"
@@ -80,12 +76,10 @@ function mapRealClients(clients: Array<Record<string, unknown>>, appointments: A
       lastVisit: "Sin visita",
       status: "Confirmada",
       avatar: "",
-      loyaltyPoints: 0,
       preferredBarber: "",
       preferredService: "",
       stampCurrent: 0,
       stampRequired: 8,
-      birthdayBenefit: "Sin beneficio configurado",
       inactiveDays: 0,
       reactivationBenefit: "Sin automatizacion",
       offPeakBenefit: "Sin promocion"
@@ -158,10 +152,10 @@ export default function ClientesPage() {
       const existing = realClients.find((client) => (phone && client.phone === phone) || (!phone && client.name.toLowerCase() === name.toLowerCase()));
       const client: Client = existing ? { ...existing, lastVisit: appointmentDate } : {
         id: textValue(item.cliente_id) || `cliente-cita-dia-${index + 1}`, name, email: "", phone, lastVisit: appointmentDate,
-        status: "Confirmada", avatar: "", loyaltyPoints: 0,
+        status: "Confirmada", avatar: "",
         preferredBarber: textValue(item.barbero_nombre ?? item.barber ?? item.nombre_barbero),
         preferredService: textValue(item.servicio_nombre ?? item.service ?? item.nombre_servicio),
-        stampCurrent: 0, stampRequired: 8, birthdayBenefit: "Sin beneficio configurado", inactiveDays: 0,
+        stampCurrent: 0, stampRequired: 8, inactiveDays: 0,
         reactivationBenefit: "Sin automatizacion", offPeakBenefit: "Sin promocion"
       };
       byClient.set(phone || name.toLowerCase(), client);
@@ -403,16 +397,10 @@ export default function ClientesPage() {
                   {selected.stampCurrent} / {selected.stampRequired} sellos
                 </small>
                 <ul>
-                  <li><Cake size={11} /><span>{selected.birthdayBenefit}</span></li>
                   <li><RefreshCcw size={11} /><span>{selected.inactiveDays} días sin visita · {selected.reactivationBenefit}</span></li>
                   <li><Clock3 size={11} /><span>{selected.offPeakBenefit}</span></li>
                 </ul>
               </section>
-
-              <footer>
-                <span>Puntos de lealtad</span>
-                <strong>{selected.loyaltyPoints}</strong>
-              </footer>
             </article>
             </>
           ) : null}
