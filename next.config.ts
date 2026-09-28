@@ -32,8 +32,8 @@ const nextConfig: NextConfig = {
             value: "SAMEORIGIN"
           },
           {
-            key: "Content-Security-Policy-Report-Only",
-            value: "default-src 'self' 'unsafe-inline' 'unsafe-eval' data: blob: https:; frame-ancestors 'self';"
+            key: "Content-Security-Policy",
+            value: "default-src 'self' 'unsafe-inline' 'unsafe-eval' data: blob: https:; object-src 'none'; base-uri 'self'; frame-ancestors 'self';"
           }
         ]
       }
