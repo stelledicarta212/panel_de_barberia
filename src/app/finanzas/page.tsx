@@ -103,7 +103,7 @@ export default function ProgramaLealtadPage() {
   const [deactivatingReward, setDeactivatingReward] = useState(false);
 
   // Tab C: Configuration state
-  const [formActivo, setFormActivo] = useState(true);
+  const [formActivo, setFormActivo] = useState(false);
   const [formSellosRequeridos, setFormSellosRequeridos] = useState(10);
   const [formRecompensaDefault, setFormRecompensaDefault] = useState("Corte Gratis");
   const [savingConfig, setSavingConfig] = useState(false);
@@ -133,7 +133,7 @@ export default function ProgramaLealtadPage() {
           setFormRecompensaDefault(data.config.recompensa_default);
         } else {
           setConfig(null);
-          setFormActivo(true);
+          setFormActivo(false);
           setFormSellosRequeridos(10);
           setFormRecompensaDefault("Corte Gratis");
         }
@@ -166,7 +166,7 @@ export default function ProgramaLealtadPage() {
           setFormRecompensaDefault(data.config.recompensa_default);
         } else {
           setConfig(null);
-          setFormActivo(true);
+          setFormActivo(false);
           setFormSellosRequeridos(10);
           setFormRecompensaDefault("Corte Gratis");
         }

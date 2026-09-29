@@ -43,10 +43,23 @@ function getPostgrestBaseUrl(override?: string): string {
   const base =
     process.env.POSTGREST_BASE_URL ??
     process.env.POSTGREST_URL ??
-    process.env.NEXT_PUBLIC_API_BASE_URL ??
-    process.env.NEXT_PUBLIC_API_URL ??
+    process.env.BILLING_PURCHASE_INTENTS_POSTGREST_URL ??
     "";
-  return String(base).trim().replace(/\/+$/, "");
+  const cleaned = String(base).trim().replace(/\/+$/, "");
+  if (cleaned.includes("barberagency-app.gymh5g.easypanel.host")) {
+    return process.env.BILLING_PURCHASE_INTENTS_POSTGREST_URL ?? "https://api.agencia2c.cloud";
+  }
+  return cleaned;
+}
+
+function getServiceRoleToken(): string {
+  const token =
+    process.env.LOYALTY_SERVICE_ROLE_TOKEN ??
+    process.env.POSTGREST_SERVICE_KEY ??
+    process.env.SUPABASE_SERVICE_ROLE_KEY ??
+    process.env.BILLING_PURCHASE_INTENTS_INGEST_TOKEN ??
+    "";
+  return token.trim();
 }
 
 function getTimeoutMs(override?: number): number {
@@ -104,11 +117,16 @@ export async function executeLoyaltyFastPath(
       Accept: "application/json"
     };
 
-    if (options.baSession) {
+    const serviceToken = getServiceRoleToken();
+    if (serviceToken) {
+      headers["Authorization"] = `Bearer ${serviceToken}`;
+      headers["apikey"] = serviceToken;
+    } else if (options.baSession) {
       headers["Cookie"] = `ba_session=${options.baSession}`;
       // Also provide Authorization Bearer if session is a valid JWT format
       if (options.baSession.split(".").length === 3) {
         headers["Authorization"] = `Bearer ${options.baSession}`;
+        headers["apikey"] = options.baSession;
       }
     }
 
