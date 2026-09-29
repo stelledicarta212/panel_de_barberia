@@ -48,7 +48,7 @@ import type {
 } from "@/types/loyalty";
 
 type LoyaltyTab = "clientes" | "recompensas" | "configuracion" | "historial";
-type ClientFilterMode = "todos" | "listos";
+type ClientFilterMode = "periodo" | "listos" | "todos";
 type HistoryFilterMode = "todos" | "acumulaciones" | "canjes";
 
 export default function ProgramaLealtadPage() {
@@ -75,9 +75,9 @@ export default function ProgramaLealtadPage() {
   const [ledger, setLedger] = useState<LoyaltyLedgerEntry[]>([]);
   const [redemptions, setRedemptions] = useState<LoyaltyRedemption[]>([]);
 
-  // Tab A: Clientes & Canjes state
+  // Tab A: Clientes & Canjes state (Default operational mode is period-driven)
   const [customerSearch, setCustomerSearch] = useState("");
-  const [customerFilter, setCustomerFilter] = useState<ClientFilterMode>("todos");
+  const [customerFilter, setCustomerFilter] = useState<ClientFilterMode>("periodo");
 
   // Safe 2-Step Redemption Modal state
   const [selectedClientForRedeem, setSelectedClientForRedeem] = useState<LoyaltyBalance | null>(null);
@@ -254,7 +254,31 @@ export default function ProgramaLealtadPage() {
     [sortedActiveRewards]
   );
 
-  // Filtered customer list (Section 14: Normalized name & phone search)
+  // Date-filtered ledger and redemptions (guarantees [startIso, endIso) half-open interval)
+  const periodLedger = useMemo(() => {
+    return ledger.filter((l) => isDateInRange(l.created_at, dateRange));
+  }, [ledger, dateRange]);
+
+  const periodRedemptions = useMemo(() => {
+    return redemptions.filter((r) => isDateInRange(r.created_at, dateRange));
+  }, [redemptions, dateRange]);
+
+  // Set of clients with canonical loyalty activity in the selected period
+  const periodClientIds = useMemo(() => {
+    const ids = new Set<number>();
+    for (const l of periodLedger) {
+      ids.add(l.cliente_id);
+    }
+    for (const r of periodRedemptions) {
+      ids.add(r.cliente_id);
+    }
+    return ids;
+  }, [periodLedger, periodRedemptions]);
+
+  // KPI 1: Clientes Participantes (active within selected period)
+  const kpiPeriodParticipants = periodClientIds.size;
+
+  // Filtered customer list: Period-driven by default, full-tenant search preserved
   const filteredBalances = useMemo(() => {
     const normalize = (str: string) =>
       str
@@ -265,42 +289,41 @@ export default function ProgramaLealtadPage() {
 
     const term = normalize(customerSearch);
     const rawDigits = customerSearch.replace(/\D/g, "");
+    const isSearching = Boolean(term);
 
     return balances.filter((b) => {
       const progress = resolveClientProgress(b.saldo_sellos);
-      if (customerFilter === "listos" && !progress.isEligible) {
-        return false;
+      const isPeriodActive = periodClientIds.has(b.cliente_id);
+
+      // Search mode: Searches across the full tenant customer directory
+      if (isSearching) {
+        const matchName = normalize(b.cliente_nombre).includes(term);
+        const matchPhone = b.cliente_telefono
+          ? b.cliente_telefono.includes(customerSearch.trim()) ||
+            (rawDigits.length >= 3 && b.cliente_telefono.replace(/\D/g, "").includes(rawDigits))
+          : false;
+
+        if (!matchName && !matchPhone) return false;
+
+        if (customerFilter === "listos" && !progress.isEligible) {
+          return false;
+        }
+        return true;
       }
-      if (!term) return true;
-      const matchName = normalize(b.cliente_nombre).includes(term);
-      const matchPhone = b.cliente_telefono
-        ? b.cliente_telefono.includes(customerSearch.trim()) ||
-          (rawDigits.length >= 3 && b.cliente_telefono.replace(/\D/g, "").includes(rawDigits))
-        : false;
-      return matchName || matchPhone;
+
+      // Default operational mode (no search term typed):
+      if (customerFilter === "periodo") {
+        return isPeriodActive;
+      }
+      if (customerFilter === "listos") {
+        return progress.isEligible;
+      }
+      if (customerFilter === "todos") {
+        return true;
+      }
+      return isPeriodActive;
     });
-  }, [balances, customerFilter, customerSearch, resolveClientProgress]);
-
-  // Date-filtered ledger and redemptions (guarantees [startIso, endIso) half-open interval)
-  const periodLedger = useMemo(() => {
-    return ledger.filter((l) => isDateInRange(l.created_at, dateRange));
-  }, [ledger, dateRange]);
-
-  const periodRedemptions = useMemo(() => {
-    return redemptions.filter((r) => isDateInRange(r.created_at, dateRange));
-  }, [redemptions, dateRange]);
-
-  // KPI 1: Clientes Participantes (active within selected period)
-  const kpiPeriodParticipants = useMemo(() => {
-    const clientIds = new Set<number>();
-    for (const l of periodLedger) {
-      clientIds.add(l.cliente_id);
-    }
-    for (const r of periodRedemptions) {
-      clientIds.add(r.cliente_id);
-    }
-    return clientIds.size;
-  }, [periodLedger, periodRedemptions]);
+  }, [balances, customerFilter, customerSearch, periodClientIds, resolveClientProgress]);
 
   // KPI 2: Sellos en Circulación (stock) & Period flow
   const kpiStampsInCirculation = useMemo(() => {
@@ -855,7 +878,13 @@ export default function ProgramaLealtadPage() {
                 backgroundColor: activeTab === "clientes" ? "rgba(216, 181, 109, 0.2)" : "rgba(255, 255, 255, 0.05)"
               }}
             >
-              {balances.length}
+              {customerSearch.trim()
+                ? filteredBalances.length
+                : customerFilter === "periodo"
+                ? kpiPeriodParticipants
+                : customerFilter === "listos"
+                ? kpiEligibleClients
+                : balances.length}
             </span>
           </button>
 
@@ -989,15 +1018,15 @@ export default function ProgramaLealtadPage() {
                 </label>
               </div>
 
-              {/* Eligibility Filter Pills (Section 15) */}
-              <div style={{ display: "flex", gap: "6px" }}>
+              {/* Eligibility Filter Pills (Section 15 & Phase 5) */}
+              <div style={{ display: "flex", gap: "6px", flexWrap: "wrap" }}>
                 <button
                   type="button"
-                  className={customerFilter === "todos" ? "ba-card-gold" : "ba-btn-ghost"}
-                  onClick={() => setCustomerFilter("todos")}
+                  className={customerFilter === "periodo" ? "ba-card-gold" : "ba-btn-ghost"}
+                  onClick={() => setCustomerFilter("periodo")}
                   style={{ padding: "6px 12px", fontSize: "12px", borderRadius: "6px" }}
                 >
-                  Todos ({balances.length})
+                  Con actividad ({kpiPeriodParticipants})
                 </button>
                 <button
                   type="button"
@@ -1015,8 +1044,50 @@ export default function ProgramaLealtadPage() {
                   <Sparkles size={12} />
                   <span>Listos para canje ({kpiEligibleClients})</span>
                 </button>
+                <button
+                  type="button"
+                  className={customerFilter === "todos" ? "ba-card-gold" : "ba-btn-ghost"}
+                  onClick={() => setCustomerFilter("todos")}
+                  style={{ padding: "6px 12px", fontSize: "12px", borderRadius: "6px" }}
+                >
+                  Directorio completo ({balances.length})
+                </button>
               </div>
             </div>
+
+            {/* Global Search Banner (Section: Phase 5) */}
+            {customerSearch.trim() && (
+              <div
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "space-between",
+                  padding: "10px 14px",
+                  borderRadius: "8px",
+                  backgroundColor: "rgba(216, 181, 109, 0.08)",
+                  border: "1px solid rgba(216, 181, 109, 0.2)",
+                  marginBottom: "16px",
+                  fontSize: "12px",
+                  color: "#d8b56d"
+                }}
+              >
+                <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+                  <Search size={14} />
+                  <span>
+                    Búsqueda en directorio general: <strong>{filteredBalances.length}</strong> cliente(s) para &ldquo;{customerSearch}&rdquo;.
+                    Se indica la actividad en el período <em>{dateRange.label}</em>.
+                  </span>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setCustomerSearch("")}
+                  className="ba-btn-ghost"
+                  style={{ fontSize: "11px", padding: "2px 8px" }}
+                >
+                  Limpiar búsqueda
+                </button>
+              </div>
+            )}
 
             {/* Empty State */}
             {balances.length === 0 ? (
@@ -1028,20 +1099,69 @@ export default function ProgramaLealtadPage() {
                 </p>
               </div>
             ) : filteredBalances.length === 0 ? (
-              <div style={{ padding: "36px 16px", textAlign: "center", color: "var(--muted, #9ca3af)" }}>
-                <Search size={24} style={{ margin: "0 auto 8px", opacity: 0.5 }} />
-                <p style={{ margin: 0, fontSize: "14px" }}>No se encontraron clientes para los filtros aplicados.</p>
-                <button
-                  type="button"
-                  className="ba-btn-ghost"
-                  onClick={() => {
-                    setCustomerSearch("");
-                    setCustomerFilter("todos");
-                  }}
-                  style={{ marginTop: "10px", fontSize: "12px", padding: "4px 10px" }}
-                >
-                  Limpiar filtros
-                </button>
+              <div style={{ padding: "48px 24px", textAlign: "center", color: "var(--muted, #9ca3af)" }}>
+                {customerSearch.trim() ? (
+                  <>
+                    <Search size={28} style={{ margin: "0 auto 8px", opacity: 0.5 }} />
+                    <p style={{ margin: 0, fontSize: "14px", color: "#fff" }}>
+                      No se encontraron clientes para &ldquo;{customerSearch}&rdquo;.
+                    </p>
+                    <button
+                      type="button"
+                      className="ba-btn-ghost"
+                      onClick={() => setCustomerSearch("")}
+                      style={{ marginTop: "10px", fontSize: "12px", padding: "4px 10px" }}
+                    >
+                      Limpiar búsqueda
+                    </button>
+                  </>
+                ) : customerFilter === "periodo" ? (
+                  <>
+                    <Users size={28} style={{ margin: "0 auto 8px", opacity: 0.5, color: "#d8b56d" }} />
+                    <h3 style={{ margin: 0, fontSize: "15px", color: "#fff" }}>
+                      Sin actividad de fidelización en {dateRange.label}
+                    </h3>
+                    <p style={{ margin: "6px 0 0", fontSize: "13px" }}>
+                      No se registraron acumulaciones ni canjes en este rango de fechas.
+                    </p>
+                    <div style={{ display: "flex", justifyContent: "center", gap: "8px", marginTop: "14px" }}>
+                      <button
+                        type="button"
+                        className="ba-btn-ghost"
+                        onClick={() => setCustomerFilter("todos")}
+                        style={{ fontSize: "12px", padding: "6px 12px" }}
+                      >
+                        Ver directorio completo ({balances.length})
+                      </button>
+                      {kpiEligibleClients > 0 && (
+                        <button
+                          type="button"
+                          className="ba-card-gold"
+                          onClick={() => setCustomerFilter("listos")}
+                          style={{ fontSize: "12px", padding: "6px 12px" }}
+                        >
+                          Ver listos para canje ({kpiEligibleClients})
+                        </button>
+                      )}
+                    </div>
+                  </>
+                ) : (
+                  <>
+                    <Users size={28} style={{ margin: "0 auto 8px", opacity: 0.5 }} />
+                    <p style={{ margin: 0, fontSize: "14px" }}>No se encontraron clientes para los filtros aplicados.</p>
+                    <button
+                      type="button"
+                      className="ba-btn-ghost"
+                      onClick={() => {
+                        setCustomerSearch("");
+                        setCustomerFilter("periodo");
+                      }}
+                      style={{ marginTop: "10px", fontSize: "12px", padding: "4px 10px" }}
+                    >
+                      Restablecer filtros
+                    </button>
+                  </>
+                )}
               </div>
             ) : (
               <>
@@ -1075,6 +1195,41 @@ export default function ProgramaLealtadPage() {
                               ) : (
                                 <small style={{ color: "var(--muted, #9ca3af)", fontStyle: "italic" }}>Sin teléfono</small>
                               )}
+                              <div style={{ marginTop: "4px" }}>
+                                {periodClientIds.has(client.cliente_id) ? (
+                                  <span
+                                    style={{
+                                      display: "inline-flex",
+                                      alignItems: "center",
+                                      gap: "3px",
+                                      padding: "2px 6px",
+                                      borderRadius: "4px",
+                                      fontSize: "10px",
+                                      fontWeight: 600,
+                                      backgroundColor: "rgba(16, 185, 129, 0.12)",
+                                      color: "#10b981",
+                                      border: "1px solid rgba(16, 185, 129, 0.25)"
+                                    }}
+                                  >
+                                    Activo en el período
+                                  </span>
+                                ) : (
+                                  <span
+                                    style={{
+                                      display: "inline-flex",
+                                      alignItems: "center",
+                                      gap: "3px",
+                                      padding: "2px 6px",
+                                      borderRadius: "4px",
+                                      fontSize: "10px",
+                                      color: "var(--muted, #9ca3af)",
+                                      backgroundColor: "rgba(255, 255, 255, 0.04)"
+                                    }}
+                                  >
+                                    Sin actividad en el período
+                                  </span>
+                                )}
+                              </div>
                             </td>
 
                             <td style={{ padding: "12px 10px" }}>
