@@ -1,11 +1,15 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
-import { CalendarDays, Check, ChevronDown, Clock } from "lucide-react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { CalendarDays, Check, ChevronDown, ChevronLeft, ChevronRight, Clock, X } from "lucide-react";
 import {
   type DateRangePreset,
   type LoyaltyDateRange,
-  computeDateRange
+  computeDateRange,
+  getBogotaToday,
+  buildCalendarDays,
+  SPANISH_MONTH_FULL,
+  DAYS_OF_WEEK_SHORT
 } from "@/lib/loyalty-date";
 
 interface LoyaltyDateRangePickerProps {
@@ -15,11 +19,11 @@ interface LoyaltyDateRangePickerProps {
 }
 
 const PRESET_OPTIONS: Array<{ key: DateRangePreset; label: string; desc: string }> = [
-  { key: "hoy", label: "Hoy", desc: "Día calendario actual en Colombia" },
+  { key: "hoy", label: "Hoy", desc: "Día actual en Colombia" },
   { key: "ayer", label: "Ayer", desc: "Día anterior completo" },
   { key: "esta_semana", label: "Esta semana", desc: "De lunes a domingo" },
   { key: "este_mes", label: "Este mes", desc: "Mes calendario actual" },
-  { key: "personalizado", label: "Personalizado", desc: "Seleccionar rango de fechas" }
+  { key: "personalizado", label: "Personalizado", desc: "Seleccionar en calendario" }
 ];
 
 export function LoyaltyDateRangePicker({
@@ -30,34 +34,56 @@ export function LoyaltyDateRangePicker({
   const [isOpen, setIsOpen] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
 
-  // Custom date range local state
-  const [customStart, setCustomStart] = useState<string>(selectedRange.startDate);
-  const [customEnd, setCustomEnd] = useState<string>(selectedRange.endDate);
-  const [customError, setCustomError] = useState<string | null>(null);
+  // Active preset in dialog
+  const [activePreset, setActivePreset] = useState<DateRangePreset>(selectedRange.preset);
 
+  // Draft start and end dates (YYYY-MM-DD)
+  const [draftStart, setDraftStart] = useState<string>(selectedRange.startDate);
+  const [draftEnd, setDraftEnd] = useState<string>(selectedRange.endDate);
+
+  // State when user is in the middle of clicking a 2-step range
+  const [isSelectingRange, setIsSelectingRange] = useState(false);
+
+  // Month and year currently shown in the calendar view (month is 0-indexed)
+  const [viewDate, setViewDate] = useState<{ year: number; month: number }>(() => {
+    const [y, m] = selectedRange.startDate.split("-").map(Number);
+    return { year: y || 2026, month: m ? m - 1 : 8 };
+  });
+
+  const todayYmd = useMemo(() => getBogotaToday(), []);
+
+  // When opening, synchronize draft values with currently applied range
   const handleToggleOpen = () => {
     if (disabled) return;
     if (!isOpen) {
-      setCustomStart(selectedRange.startDate);
-      setCustomEnd(selectedRange.endDate);
-      setCustomError(null);
+      setDraftStart(selectedRange.startDate);
+      setDraftEnd(selectedRange.endDate);
+      setActivePreset(selectedRange.preset);
+      setIsSelectingRange(false);
+      const [y, m] = selectedRange.startDate.split("-").map(Number);
+      setViewDate({ year: y || 2026, month: m ? m - 1 : 8 });
     }
     setIsOpen((prev) => !prev);
   };
 
-  // Click outside to close
+  const handleClose = () => {
+    setIsOpen(false);
+    setIsSelectingRange(false);
+  };
+
+  // Click outside and Escape key handling
   useEffect(() => {
     if (!isOpen) return;
 
     const handleClickOutside = (e: MouseEvent) => {
       if (containerRef.current && !containerRef.current.contains(e.target as Node)) {
-        setIsOpen(false);
+        handleClose();
       }
     };
 
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === "Escape") {
-        setIsOpen(false);
+        handleClose();
       }
     };
 
@@ -69,35 +95,83 @@ export function LoyaltyDateRangePicker({
     };
   }, [isOpen]);
 
+  // Month navigation
+  const handlePrevMonth = () => {
+    setViewDate((prev) => {
+      if (prev.month === 0) {
+        return { year: prev.year - 1, month: 11 };
+      }
+      return { year: prev.year, month: prev.month - 1 };
+    });
+  };
+
+  const handleNextMonth = () => {
+    setViewDate((prev) => {
+      if (prev.month === 11) {
+        return { year: prev.year + 1, month: 0 };
+      }
+      return { year: prev.year, month: prev.month + 1 };
+    });
+  };
+
+  // Calendar cells for currently viewed month
+  const calendarCells = useMemo(() => {
+    return buildCalendarDays(viewDate.year, viewDate.month);
+  }, [viewDate.year, viewDate.month]);
+
+  // Handle preset selection
   const handleSelectPreset = (preset: DateRangePreset) => {
-    setCustomError(null);
     if (preset === "personalizado") {
-      // Don't close immediately; let user pick custom dates
+      setActivePreset("personalizado");
+      setIsSelectingRange(false);
       return;
     }
-    const newRange = computeDateRange(preset);
-    onRangeChange(newRange);
-    setIsOpen(false);
+    const computed = computeDateRange(preset);
+    setActivePreset(preset);
+    setDraftStart(computed.startDate);
+    setDraftEnd(computed.endDate);
+    setIsSelectingRange(false);
+
+    // Navigate calendar view to start date of preset
+    const [y, m] = computed.startDate.split("-").map(Number);
+    setViewDate({ year: y, month: m - 1 });
   };
 
-  const handleApplyCustom = (e: React.FormEvent) => {
-    e.preventDefault();
-    setCustomError(null);
+  // Handle day click on the calendar
+  const handleDayClick = (ymd: string) => {
+    setActivePreset("personalizado");
 
-    if (!customStart || !customEnd) {
-      setCustomError("Debes seleccionar fecha inicial y final.");
-      return;
+    if (!isSelectingRange) {
+      // First click: sets both start and end to this day (single-day selection or start of range)
+      setDraftStart(ymd);
+      setDraftEnd(ymd);
+      setIsSelectingRange(true);
+    } else {
+      // Second click: completes range selection
+      if (ymd < draftStart) {
+        // User clicked a day before the start: make clicked date start, previous start end
+        setDraftEnd(draftStart);
+        setDraftStart(ymd);
+      } else {
+        setDraftEnd(ymd);
+      }
+      setIsSelectingRange(false);
     }
-
-    if (customStart > customEnd) {
-      setCustomError("La fecha inicial no puede ser posterior a la fecha final.");
-      return;
-    }
-
-    const newRange = computeDateRange("personalizado", customStart, customEnd);
-    onRangeChange(newRange);
-    setIsOpen(false);
   };
+
+  // Compute live preview range for display
+  const previewRange = useMemo(() => {
+    return computeDateRange(activePreset, draftStart, draftEnd);
+  }, [activePreset, draftStart, draftEnd]);
+
+  // Apply changes
+  const handleApply = () => {
+    onRangeChange(previewRange);
+    setIsOpen(false);
+    setIsSelectingRange(false);
+  };
+
+  const monthLabel = `${SPANISH_MONTH_FULL[viewDate.month]} ${viewDate.year}`;
 
   return (
     <div ref={containerRef} style={{ position: "relative", display: "inline-block" }}>
@@ -138,23 +212,23 @@ export function LoyaltyDateRangePicker({
         />
       </button>
 
-      {/* DROPDOWN / POPOVER */}
+      {/* DROPDOWN / CALENDAR POPOVER */}
       {isOpen && (
         <div
           role="dialog"
-          aria-label="Selector de período"
+          aria-label="Selector de período y calendario interactivo"
           style={{
             position: "absolute",
             top: "calc(100% + 8px)",
             right: 0,
-            zIndex: 999,
-            minWidth: "310px",
-            maxWidth: "92vw",
+            zIndex: 1000,
+            width: "560px",
+            maxWidth: "94vw",
             backgroundColor: "#161619",
             border: "1px solid rgba(216, 181, 109, 0.35)",
-            borderRadius: "12px",
+            borderRadius: "14px",
             padding: "16px",
-            boxShadow: "0 12px 32px rgba(0, 0, 0, 0.6), 0 0 20px rgba(216, 181, 109, 0.08)",
+            boxShadow: "0 16px 40px rgba(0, 0, 0, 0.7), 0 0 24px rgba(216, 181, 109, 0.1)",
             backdropFilter: "blur(16px)"
           }}
         >
@@ -164,147 +238,420 @@ export function LoyaltyDateRangePicker({
               display: "flex",
               justifyContent: "space-between",
               alignItems: "center",
-              marginBottom: "12px",
+              marginBottom: "14px",
               paddingBottom: "10px",
               borderBottom: "1px solid rgba(255, 255, 255, 0.08)"
             }}
           >
             <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
-              <Clock size={14} color="#d8b56d" />
-              <span style={{ fontSize: "12px", fontWeight: 700, color: "#d8b56d", textTransform: "uppercase", letterSpacing: "0.04em" }}>
+              <Clock size={15} color="#d8b56d" />
+              <span
+                style={{
+                  fontSize: "12px",
+                  fontWeight: 700,
+                  color: "#d8b56d",
+                  textTransform: "uppercase",
+                  letterSpacing: "0.04em"
+                }}
+              >
                 Filtrar por período
               </span>
             </div>
-            <span style={{ fontSize: "11px", color: "var(--muted, #9ca3af)" }}>Bogotá (UTC-5)</span>
+            <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+              <span style={{ fontSize: "11px", color: "var(--muted, #9ca3af)" }}>Bogotá (UTC-5)</span>
+              <button
+                type="button"
+                onClick={handleClose}
+                aria-label="Cerrar selector"
+                style={{
+                  background: "transparent",
+                  border: "none",
+                  color: "var(--muted, #9ca3af)",
+                  cursor: "pointer",
+                  padding: "2px",
+                  display: "inline-flex",
+                  alignItems: "center"
+                }}
+              >
+                <X size={15} />
+              </button>
+            </div>
           </div>
 
-          {/* Preset Buttons */}
-          <div style={{ display: "flex", flexDirection: "column", gap: "4px", marginBottom: "14px" }}>
-            {PRESET_OPTIONS.map((opt) => {
-              const isSelected = selectedRange.preset === opt.key;
-              return (
+          {/* Main Body (Presets + Interactive Calendar) */}
+          <div
+            style={{
+              display: "grid",
+              gridTemplateColumns: "repeat(auto-fit, minmax(260px, 1fr))",
+              gap: "16px",
+              alignItems: "start"
+            }}
+          >
+            {/* Presets Column */}
+            <div>
+              <div
+                style={{
+                  fontSize: "11px",
+                  fontWeight: 700,
+                  color: "var(--muted, #9ca3af)",
+                  marginBottom: "8px",
+                  textTransform: "uppercase",
+                  letterSpacing: "0.03em"
+                }}
+              >
+                Accesos rápidos
+              </div>
+              <div style={{ display: "flex", flexDirection: "column", gap: "4px" }}>
+                {PRESET_OPTIONS.map((opt) => {
+                  const isSelected = activePreset === opt.key;
+                  return (
+                    <button
+                      key={opt.key}
+                      type="button"
+                      data-preset={opt.key}
+                      onClick={() => handleSelectPreset(opt.key)}
+                      style={{
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "space-between",
+                        padding: "8px 12px",
+                        borderRadius: "8px",
+                        fontSize: "13px",
+                        fontWeight: isSelected ? 600 : 500,
+                        backgroundColor: isSelected ? "rgba(216, 181, 109, 0.16)" : "transparent",
+                        color: isSelected ? "#d8b56d" : "#e5e7eb",
+                        border: `1px solid ${isSelected ? "rgba(216, 181, 109, 0.35)" : "transparent"}`,
+                        cursor: "pointer",
+                        textAlign: "left",
+                        transition: "all 0.12s ease"
+                      }}
+                      onMouseEnter={(e) => {
+                        if (!isSelected) {
+                          e.currentTarget.style.backgroundColor = "rgba(255, 255, 255, 0.04)";
+                        }
+                      }}
+                      onMouseLeave={(e) => {
+                        if (!isSelected) {
+                          e.currentTarget.style.backgroundColor = "transparent";
+                        }
+                      }}
+                    >
+                      <div>
+                        <div>{opt.label}</div>
+                        <div style={{ fontSize: "11px", color: "var(--muted, #9ca3af)", marginTop: "1px" }}>
+                          {opt.desc}
+                        </div>
+                      </div>
+                      {isSelected && <Check size={15} color="#d8b56d" />}
+                    </button>
+                  );
+                })}
+              </div>
+
+              {/* Instructions hint */}
+              <div
+                style={{
+                  marginTop: "12px",
+                  padding: "8px 10px",
+                  borderRadius: "6px",
+                  backgroundColor: "rgba(255, 255, 255, 0.02)",
+                  border: "1px solid rgba(255, 255, 255, 0.06)",
+                  fontSize: "11px",
+                  color: "var(--muted, #9ca3af)",
+                  lineHeight: "1.4"
+                }}
+              >
+                {isSelectingRange ? (
+                  <span style={{ color: "#d8b56d" }}>
+                    ● Haz clic en la <strong>fecha final</strong> del rango.
+                  </span>
+                ) : (
+                  <span>
+                    💡 Haz clic en un día para seleccionarlo, o dos días para definir un rango.
+                  </span>
+                )}
+              </div>
+            </div>
+
+            {/* Interactive Calendar Column */}
+            <div
+              style={{
+                backgroundColor: "rgba(0, 0, 0, 0.25)",
+                padding: "12px",
+                borderRadius: "10px",
+                border: "1px solid rgba(255, 255, 255, 0.08)"
+              }}
+            >
+              {/* Calendar Month & Navigation */}
+              <div
+                style={{
+                  display: "flex",
+                  justifyContent: "space-between",
+                  alignItems: "center",
+                  marginBottom: "10px"
+                }}
+              >
                 <button
-                  key={opt.key}
                   type="button"
-                  onClick={() => handleSelectPreset(opt.key)}
+                  data-testid="prev-month"
+                  onClick={handlePrevMonth}
+                  aria-label="Mes anterior"
                   style={{
-                    display: "flex",
+                    display: "inline-flex",
                     alignItems: "center",
-                    justifyContent: "space-between",
-                    padding: "8px 12px",
+                    justifyContent: "center",
+                    width: "28px",
+                    height: "28px",
                     borderRadius: "6px",
-                    fontSize: "13px",
-                    fontWeight: isSelected ? 600 : 500,
-                    backgroundColor: isSelected ? "rgba(216, 181, 109, 0.15)" : "transparent",
-                    color: isSelected ? "#d8b56d" : "#e5e7eb",
-                    border: `1px solid ${isSelected ? "rgba(216, 181, 109, 0.3)" : "transparent"}`,
+                    border: "1px solid rgba(255, 255, 255, 0.12)",
+                    backgroundColor: "rgba(255, 255, 255, 0.04)",
+                    color: "#e5e7eb",
                     cursor: "pointer",
-                    textAlign: "left",
-                    transition: "all 0.1s ease"
+                    transition: "all 0.12s ease"
                   }}
                   onMouseEnter={(e) => {
-                    if (!isSelected) {
-                      e.currentTarget.style.backgroundColor = "rgba(255, 255, 255, 0.04)";
-                    }
+                    e.currentTarget.style.backgroundColor = "rgba(216, 181, 109, 0.15)";
+                    e.currentTarget.style.color = "#d8b56d";
                   }}
                   onMouseLeave={(e) => {
-                    if (!isSelected) {
-                      e.currentTarget.style.backgroundColor = "transparent";
-                    }
+                    e.currentTarget.style.backgroundColor = "rgba(255, 255, 255, 0.04)";
+                    e.currentTarget.style.color = "#e5e7eb";
                   }}
                 >
-                  <div>
-                    <div>{opt.label}</div>
-                    <div style={{ fontSize: "11px", color: "var(--muted, #9ca3af)", marginTop: "1px" }}>{opt.desc}</div>
-                  </div>
-                  {isSelected && <Check size={16} color="#d8b56d" />}
+                  <ChevronLeft size={16} />
                 </button>
-              );
-            })}
+
+                <span
+                  data-testid="month-label"
+                  style={{
+                    fontSize: "13px",
+                    fontWeight: 700,
+                    color: "#fff",
+                    letterSpacing: "-0.01em"
+                  }}
+                >
+                  {monthLabel}
+                </span>
+
+                <button
+                  type="button"
+                  data-testid="next-month"
+                  onClick={handleNextMonth}
+                  aria-label="Mes siguiente"
+                  style={{
+                    display: "inline-flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    width: "28px",
+                    height: "28px",
+                    borderRadius: "6px",
+                    border: "1px solid rgba(255, 255, 255, 0.12)",
+                    backgroundColor: "rgba(255, 255, 255, 0.04)",
+                    color: "#e5e7eb",
+                    cursor: "pointer",
+                    transition: "all 0.12s ease"
+                  }}
+                  onMouseEnter={(e) => {
+                    e.currentTarget.style.backgroundColor = "rgba(216, 181, 109, 0.15)";
+                    e.currentTarget.style.color = "#d8b56d";
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.backgroundColor = "rgba(255, 255, 255, 0.04)";
+                    e.currentTarget.style.color = "#e5e7eb";
+                  }}
+                >
+                  <ChevronRight size={16} />
+                </button>
+              </div>
+
+              {/* Day of Week Headers */}
+              <div
+                style={{
+                  display: "grid",
+                  gridTemplateColumns: "repeat(7, 1fr)",
+                  gap: "2px",
+                  textAlign: "center",
+                  marginBottom: "4px"
+                }}
+              >
+                {DAYS_OF_WEEK_SHORT.map((day) => (
+                  <span
+                    key={`head-${day}`}
+                    style={{
+                      fontSize: "11px",
+                      fontWeight: 600,
+                      color: "var(--muted, #9ca3af)",
+                      padding: "4px 0"
+                    }}
+                  >
+                    {day}
+                  </span>
+                ))}
+              </div>
+
+              {/* Day Grid */}
+              <div
+                style={{
+                  display: "grid",
+                  gridTemplateColumns: "repeat(7, 1fr)",
+                  gap: "2px",
+                  textAlign: "center"
+                }}
+              >
+                {calendarCells.map((cell) => {
+                  if (cell.day === null || !cell.ymd) {
+                    return <div key={cell.key} style={{ minHeight: "34px" }} />;
+                  }
+
+                  const ymd = cell.ymd;
+                  const isStart = ymd === draftStart;
+                  const isEnd = ymd === draftEnd;
+                  const isSingle = isStart && isEnd;
+                  const isInRange = draftStart && draftEnd && ymd > draftStart && ymd < draftEnd;
+                  const isToday = ymd === todayYmd;
+
+                  let bgColor = "transparent";
+                  let textColor = "#e5e7eb";
+                  let fontWeight: number | string = 500;
+                  let borderRadius = "6px";
+
+                  if (isSingle) {
+                    bgColor = "#d8b56d";
+                    textColor = "#121214";
+                    fontWeight = 700;
+                    borderRadius = "6px";
+                  } else if (isStart) {
+                    bgColor = "#d8b56d";
+                    textColor = "#121214";
+                    fontWeight = 700;
+                    borderRadius = "6px 0 0 6px";
+                  } else if (isEnd) {
+                    bgColor = "#d8b56d";
+                    textColor = "#121214";
+                    fontWeight = 700;
+                    borderRadius = "0 6px 6px 0";
+                  } else if (isInRange) {
+                    bgColor = "rgba(216, 181, 109, 0.22)";
+                    textColor = "#d8b56d";
+                    fontWeight = 600;
+                    borderRadius = "0";
+                  }
+
+                  return (
+                    <button
+                      key={cell.key}
+                      type="button"
+                      data-date={ymd}
+                      onClick={() => handleDayClick(ymd)}
+                      style={{
+                        minHeight: "34px",
+                        display: "inline-flex",
+                        alignItems: "center",
+                        justifyContent: "center",
+                        backgroundColor: bgColor,
+                        color: textColor,
+                        fontWeight,
+                        fontSize: "12px",
+                        borderRadius,
+                        border: isToday && !isStart && !isEnd && !isInRange
+                          ? "1px solid rgba(16, 185, 129, 0.7)"
+                          : "1px solid transparent",
+                        cursor: "pointer",
+                        transition: "background-color 0.1s ease",
+                        outline: "none"
+                      }}
+                      onMouseEnter={(e) => {
+                        if (!isStart && !isEnd && !isInRange) {
+                          e.currentTarget.style.backgroundColor = "rgba(255, 255, 255, 0.08)";
+                        }
+                      }}
+                      onMouseLeave={(e) => {
+                        if (!isStart && !isEnd && !isInRange) {
+                          e.currentTarget.style.backgroundColor = "transparent";
+                        }
+                      }}
+                    >
+                      {cell.day}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
           </div>
 
-          {/* Custom Date Inputs Section */}
-          <form
-            onSubmit={handleApplyCustom}
+          {/* Footer: Selected Range Display + Action Buttons */}
+          <div
             style={{
+              display: "flex",
+              justifyContent: "space-between",
+              alignItems: "center",
+              flexWrap: "wrap",
+              gap: "10px",
+              marginTop: "16px",
               paddingTop: "12px",
               borderTop: "1px solid rgba(255, 255, 255, 0.08)"
             }}
           >
-            <div style={{ fontSize: "11px", fontWeight: 600, color: "var(--muted, #9ca3af)", marginBottom: "8px", textTransform: "uppercase" }}>
-              Rango Personalizado
+            {/* Selected range display */}
+            <div style={{ fontSize: "12px", color: "#e5e7eb", display: "flex", alignItems: "center", gap: "6px" }}>
+              <span style={{ color: "var(--muted, #9ca3af)" }}>Selección:</span>
+              <strong data-testid="preview-range-label" style={{ color: "#d8b56d" }}>{previewRange.label}</strong>
             </div>
 
-            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "8px", marginBottom: "10px" }}>
-              <div>
-                <label style={{ display: "block", fontSize: "11px", color: "#9ca3af", marginBottom: "4px" }}>
-                  Desde
-                </label>
-                <input
-                  type="date"
-                  value={customStart}
-                  onChange={(e) => setCustomStart(e.target.value)}
-                  style={{
-                    width: "100%",
-                    padding: "6px 8px",
-                    borderRadius: "6px",
-                    border: "1px solid rgba(255, 255, 255, 0.15)",
-                    backgroundColor: "rgba(0, 0, 0, 0.3)",
-                    color: "#fff",
-                    fontSize: "12px",
-                    outline: "none"
-                  }}
-                />
-              </div>
+            {/* Action buttons */}
+            <div style={{ display: "flex", gap: "8px" }}>
+              <button
+                type="button"
+                data-testid="cancel-range-btn"
+                onClick={handleClose}
+                style={{
+                  padding: "7px 14px",
+                  borderRadius: "6px",
+                  fontSize: "12px",
+                  fontWeight: 600,
+                  backgroundColor: "rgba(255, 255, 255, 0.06)",
+                  color: "#d1d5db",
+                  border: "1px solid rgba(255, 255, 255, 0.12)",
+                  cursor: "pointer",
+                  transition: "all 0.15s ease"
+                }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.backgroundColor = "rgba(255, 255, 255, 0.1)";
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.backgroundColor = "rgba(255, 255, 255, 0.06)";
+                }}
+              >
+                Cancelar
+              </button>
 
-              <div>
-                <label style={{ display: "block", fontSize: "11px", color: "#9ca3af", marginBottom: "4px" }}>
-                  Hasta
-                </label>
-                <input
-                  type="date"
-                  value={customEnd}
-                  onChange={(e) => setCustomEnd(e.target.value)}
-                  style={{
-                    width: "100%",
-                    padding: "6px 8px",
-                    borderRadius: "6px",
-                    border: "1px solid rgba(255, 255, 255, 0.15)",
-                    backgroundColor: "rgba(0, 0, 0, 0.3)",
-                    color: "#fff",
-                    fontSize: "12px",
-                    outline: "none"
-                  }}
-                />
-              </div>
+              <button
+                type="button"
+                data-testid="apply-range-btn"
+                onClick={handleApply}
+                style={{
+                  padding: "7px 18px",
+                  borderRadius: "6px",
+                  fontSize: "12px",
+                  fontWeight: 700,
+                  backgroundColor: "#d8b56d",
+                  color: "#121214",
+                  border: "none",
+                  cursor: "pointer",
+                  transition: "opacity 0.15s ease",
+                  boxShadow: "0 2px 8px rgba(216, 181, 109, 0.3)"
+                }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.opacity = "0.9";
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.opacity = "1";
+                }}
+              >
+                Aplicar
+              </button>
             </div>
-
-            {customError && (
-              <div style={{ fontSize: "11px", color: "#ef4444", marginBottom: "8px" }}>
-                {customError}
-              </div>
-            )}
-
-            <button
-              type="submit"
-              style={{
-                width: "100%",
-                padding: "8px",
-                borderRadius: "6px",
-                backgroundColor: "#d8b56d",
-                color: "#121214",
-                fontSize: "12px",
-                fontWeight: 700,
-                border: "none",
-                cursor: "pointer",
-                transition: "opacity 0.15s ease"
-              }}
-              onMouseEnter={(e) => { e.currentTarget.style.opacity = "0.9"; }}
-              onMouseLeave={(e) => { e.currentTarget.style.opacity = "1"; }}
-            >
-              Aplicar Rango Personalizado
-            </button>
-          </form>
+          </div>
         </div>
       )}
     </div>

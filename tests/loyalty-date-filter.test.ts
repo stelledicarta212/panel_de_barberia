@@ -406,4 +406,29 @@ describe("LOYALTY DATE FILTERING & TIMEZONE AWARENESS (AMERICA/BOGOTA)", () => {
       expect(data.periodo?.to).toBe("2026-09-30T00:00:00.000Z");
     });
   });
+
+  describe("17. Selección de día arbitrario en el calendario interactivo", () => {
+    it("Permite seleccionar un solo día arbitrario (ej. 15 sep 2026) con intervalo exacto de 24h", () => {
+      const singleDay = computeDateRange("personalizado", "2026-09-15", "2026-09-15");
+      expect(singleDay.startDate).toBe("2026-09-15");
+      expect(singleDay.endDate).toBe("2026-09-15");
+      expect(singleDay.startIso).toBe("2026-09-15T05:00:00.000Z");
+      expect(singleDay.endIso).toBe("2026-09-16T05:00:00.000Z");
+      expect(singleDay.label).toBe("15 sep 2026");
+
+      // Interval verification
+      expect(isDateInRange("2026-09-15T00:00:00-05:00", singleDay)).toBe(true);
+      expect(isDateInRange("2026-09-15T23:59:59.999-05:00", singleDay)).toBe(true);
+      expect(isDateInRange("2026-09-16T00:00:00-05:00", singleDay)).toBe(false);
+      expect(isDateInRange("2026-09-14T23:59:59-05:00", singleDay)).toBe(false);
+    });
+
+    it("BOGOTA_TIMEZONE es America/Bogota y bogotaYmdToIso convierte correctamente", () => {
+      expect(BOGOTA_TIMEZONE).toBe("America/Bogota");
+      expect(bogotaYmdToIso("2026-09-15", false)).toBe("2026-09-15T05:00:00.000Z");
+      expect(bogotaYmdToIso("2026-09-15", true)).toBe("2026-09-16T05:00:00.000Z");
+      expect(formatBogotaDateDisplay("2026-09-15")).toBe("15 sep 2026");
+      expect(validateDateRangeParams("2026-09-15T05:00:00Z", "2026-09-16T05:00:00Z").valid).toBe(true);
+    });
+  });
 });

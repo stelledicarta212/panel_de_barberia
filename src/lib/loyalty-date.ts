@@ -21,10 +21,40 @@ const SPANISH_MONTH_SHORT = [
   "jul", "ago", "sep", "oct", "nov", "dic"
 ];
 
-const SPANISH_MONTH_FULL = [
+export const SPANISH_MONTH_FULL = [
   "Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio",
   "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre"
 ];
+
+export const DAYS_OF_WEEK_SHORT = ["L", "M", "X", "J", "V", "S", "D"];
+
+export interface CalendarDayCell {
+  day: number | null;
+  key: string;
+  ymd: string | null;
+}
+
+/**
+ * Builds the cell grid (Monday first, L-D) for a given year and month (0-indexed).
+ */
+export function buildCalendarDays(year: number, month: number): CalendarDayCell[] {
+  const firstDayJs = new Date(year, month, 1).getDay();
+  const firstDayMondayIndex = (firstDayJs + 6) % 7;
+  const daysInMonth = new Date(Date.UTC(year, month + 1, 0, 12, 0, 0)).getUTCDate();
+
+  const cells: CalendarDayCell[] = [];
+  for (let i = 0; i < firstDayMondayIndex; i += 1) {
+    cells.push({ day: null, key: `pad-start-${i}`, ymd: null });
+  }
+  for (let d = 1; d <= daysInMonth; d += 1) {
+    const ymd = `${year}-${pad2(month + 1)}-${pad2(d)}`;
+    cells.push({ day: d, key: `d-${ymd}`, ymd });
+  }
+  while (cells.length % 7 !== 0) {
+    cells.push({ day: null, key: `pad-end-${cells.length}`, ymd: null });
+  }
+  return cells;
+}
 
 function pad2(n: number): string {
   return String(n).padStart(2, "0");
@@ -186,13 +216,18 @@ export function computeDateRange(
         end = tmp;
       }
 
+      const label =
+        start === end
+          ? formatBogotaDateDisplay(start)
+          : `${formatBogotaDateDisplay(start)} - ${formatBogotaDateDisplay(end)}`;
+
       return {
         preset: "personalizado",
         startDate: start,
         endDate: end,
         startIso: bogotaYmdToIso(start, false),
         endIso: bogotaYmdToIso(end, true),
-        label: `${formatBogotaDateDisplay(start)} - ${formatBogotaDateDisplay(end)}`
+        label
       };
     }
 
