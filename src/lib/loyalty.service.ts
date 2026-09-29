@@ -55,7 +55,8 @@ export class LoyaltyService {
   static async getSummary(
     barberiaId: number,
     baSession?: string,
-    dateRange?: { from?: string; to?: string }
+    dateRange?: { from?: string; to?: string },
+    clientLookup?: Map<number, { nombre: string; telefono?: string }>
   ): Promise<LoyaltySummaryResponse> {
     const baseUrl = getPostgrestBaseUrl();
     if (!baseUrl) {
@@ -126,19 +127,91 @@ export class LoyaltyService {
 
     // Parse clients mapping for identity resolution
     const clientNameMap = new Map<number, { nombre: string; telefono?: string }>();
+    if (clientLookup && clientLookup.size > 0) {
+      for (const [id, meta] of clientLookup.entries()) {
+        const cleanName = String(meta.nombre || "").trim();
+        if (cleanName && !cleanName.toLowerCase().startsWith("cliente #")) {
+          clientNameMap.set(id, {
+            nombre: cleanName,
+            telefono: meta.telefono ? String(meta.telefono).trim() : undefined
+          });
+        }
+      }
+    }
     if (clientsRes.ok) {
       const rows = await clientsRes.json().catch(() => []);
       if (Array.isArray(rows)) {
         for (const c of rows) {
           if (c && typeof c.id === "number") {
-            clientNameMap.set(c.id, {
-              nombre: String(c.nombre || `Cliente #${c.id}`).trim(),
-              telefono: c.telefono ? String(c.telefono).trim() : undefined
-            });
+            const cleanName = String(c.nombre || "").trim();
+            if (cleanName && !cleanName.toLowerCase().startsWith("cliente #")) {
+              clientNameMap.set(c.id, {
+                nombre: cleanName,
+                telefono: c.telefono ? String(c.telefono).trim() : undefined
+              });
+            }
           }
         }
       }
     }
+
+    // Upstream state fallback for client directory enrichment when PostgREST RLS restricts client reads
+    const stateEndpoint = process.env.DASHBOARD_STATE_ENDPOINT;
+    if (clientNameMap.size === 0 && stateEndpoint && baSession) {
+      try {
+        const stateRes = await fetch(`${stateEndpoint}?barberia_id=${barberiaId}`, {
+          headers: { Cookie: `ba_session=${baSession}` },
+          cache: "no-store"
+        });
+        if (stateRes.ok) {
+          const stateData = await stateRes.json().catch(() => null);
+          const stateMerged = stateData && typeof stateData === "object" && (stateData as Record<string, unknown>).merged;
+          if (stateMerged && typeof stateMerged === "object") {
+            const m = stateMerged as Record<string, unknown>;
+            const rawClients = Array.isArray(m.clients) ? m.clients : [];
+            const rawAppointments = Array.isArray(m.appointments) ? m.appointments : [];
+            for (const c of rawClients) {
+              const item = c as Record<string, unknown>;
+              const cid = Number(item.id ?? item.cliente_id ?? 0);
+              const name = String(item.nombre ?? item.nombre_completo ?? item.name ?? "").trim();
+              const tel = item.telefono || item.phone ? String(item.telefono ?? item.phone).trim() : undefined;
+              if (Number.isFinite(cid) && cid > 0 && name && !name.toLowerCase().startsWith("cliente #")) {
+                clientNameMap.set(cid, { nombre: name, telefono: tel });
+              }
+            }
+            for (const a of rawAppointments) {
+              const item = a as Record<string, unknown>;
+              const cid = Number(item.cliente_id ?? item.id_cliente ?? 0);
+              const name = String(item.cliente_nombre ?? item.nombre_cliente ?? item.client ?? "").trim();
+              const tel = item.cliente_tel || item.telefono || item.phone
+                ? String(item.cliente_tel ?? item.telefono ?? item.phone).trim()
+                : undefined;
+              if (Number.isFinite(cid) && cid > 0 && name && !name.toLowerCase().startsWith("cliente #")) {
+                const existing = clientNameMap.get(cid);
+                clientNameMap.set(cid, {
+                  nombre: existing?.nombre || name,
+                  telefono: existing?.telefono || tel
+                });
+              }
+            }
+          }
+        }
+      } catch {
+        // Fallback silently if upstream state is unreachable
+      }
+    }
+
+    // Helper to resolve canonical name with defensive fallback
+    const resolveClientIdentity = (clienteId: number, fallbackExisting?: string | null) => {
+      const meta = clientNameMap.get(clienteId);
+      if (meta?.nombre && !meta.nombre.toLowerCase().startsWith("cliente #")) {
+        return meta.nombre;
+      }
+      if (fallbackExisting && !fallbackExisting.toLowerCase().startsWith("cliente #")) {
+        return fallbackExisting;
+      }
+      return `Cliente #${clienteId}`;
+    };
 
     // Parse balances
     let balances: LoyaltyBalance[] = [];
@@ -146,12 +219,12 @@ export class LoyaltyService {
       const rows = await balancesRes.json().catch(() => []);
       if (Array.isArray(rows)) {
         balances = rows.map((r) => {
-          const clientMeta = clientNameMap.get(r.cliente_id);
+          const clientMeta = clientNameMap.get(Number(r.cliente_id));
           return {
             barberia_id: Number(r.barberia_id),
             cliente_id: Number(r.cliente_id),
-            cliente_nombre: clientMeta?.nombre || `Cliente #${r.cliente_id}`,
-            cliente_telefono: clientMeta?.telefono,
+            cliente_nombre: resolveClientIdentity(Number(r.cliente_id), r.cliente_nombre),
+            cliente_telefono: clientMeta?.telefono || r.cliente_telefono || undefined,
             saldo_sellos: Number(r.saldo_sellos ?? 0),
             total_acumulaciones: Number(r.total_acumulaciones ?? 0),
             total_canjes: Number(r.total_canjes ?? 0),
@@ -167,12 +240,11 @@ export class LoyaltyService {
       const rows = await ledgerRes.json().catch(() => []);
       if (Array.isArray(rows)) {
         ledger = rows.map((r) => {
-          const clientMeta = clientNameMap.get(r.cliente_id);
           return {
             id: Number(r.id),
             barberia_id: Number(r.barberia_id),
             cliente_id: Number(r.cliente_id),
-            cliente_nombre: clientMeta?.nombre || `Cliente #${r.cliente_id}`,
+            cliente_nombre: resolveClientIdentity(Number(r.cliente_id), r.cliente_nombre),
             delta: Number(r.delta),
             tipo_movimiento: r.tipo_movimiento,
             source_type: r.source_type,
@@ -192,13 +264,12 @@ export class LoyaltyService {
       const rows = await redemptionsRes.json().catch(() => []);
       if (Array.isArray(rows)) {
         redemptions = rows.map((r) => {
-          const clientMeta = clientNameMap.get(r.cliente_id);
           const reward = rewards.find((rw) => rw.id === r.reward_id);
           return {
             id: Number(r.id),
             barberia_id: Number(r.barberia_id),
             cliente_id: Number(r.cliente_id),
-            cliente_nombre: clientMeta?.nombre || `Cliente #${r.cliente_id}`,
+            cliente_nombre: resolveClientIdentity(Number(r.cliente_id), r.cliente_nombre),
             reward_id: r.reward_id != null ? Number(r.reward_id) : null,
             reward_nombre: reward?.nombre || (r.reward_id ? `Recompensa #${r.reward_id}` : "Recompensa"),
             costo_sellos_snapshot: Number(r.costo_sellos_snapshot),

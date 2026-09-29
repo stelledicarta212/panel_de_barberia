@@ -52,7 +52,7 @@ type ClientFilterMode = "periodo" | "listos" | "todos";
 type HistoryFilterMode = "todos" | "acumulaciones" | "canjes";
 
 export default function ProgramaLealtadPage() {
-  const { identity, access } = useDashboard();
+  const { identity, access, merged } = useDashboard();
   const barberiaId = identity?.barberia_id ?? null;
   const searchInputId = useId();
 
@@ -254,14 +254,118 @@ export default function ProgramaLealtadPage() {
     [sortedActiveRewards]
   );
 
+  // Build tenant canonical client directory from dashboard context (clientes & citas)
+  const tenantClientMap = useMemo(() => {
+    const map = new Map<number, { nombre: string; telefono?: string }>();
+
+    // 1. Ingest canonical clients from dashboard context
+    (merged.clients || []).forEach((c) => {
+      const rawId = Number(c.id ?? c.cliente_id ?? 0);
+      const name = String(c.nombre ?? c.nombre_completo ?? c.name ?? "").trim();
+      const phone = String(c.telefono ?? c.phone ?? "").trim() || undefined;
+      if (Number.isFinite(rawId) && rawId > 0 && name && !name.toLowerCase().startsWith("cliente #")) {
+        const existing = map.get(rawId);
+        map.set(rawId, {
+          nombre: name,
+          telefono: phone || existing?.telefono
+        });
+      }
+    });
+
+    // 2. Ingest canonical appointments from dashboard context
+    (merged.appointments || []).forEach((a) => {
+      const rawId = Number(a.cliente_id ?? a.id_cliente ?? 0);
+      const name = String(a.cliente_nombre ?? a.nombre_cliente ?? a.client ?? "").trim();
+      const phone = String(a.cliente_tel ?? a.telefono ?? a.phone ?? "").trim() || undefined;
+      if (Number.isFinite(rawId) && rawId > 0 && name && !name.toLowerCase().startsWith("cliente #")) {
+        const existing = map.get(rawId);
+        map.set(rawId, {
+          nombre: existing?.nombre || name,
+          telefono: existing?.telefono || phone
+        });
+      }
+    });
+
+    return map;
+  }, [merged.clients, merged.appointments]);
+
+  // Secondary lookup index by phone digits (min 7 digits)
+  const tenantPhoneMap = useMemo(() => {
+    const map = new Map<string, { nombre: string; telefono?: string }>();
+    for (const meta of tenantClientMap.values()) {
+      if (meta.telefono) {
+        const digits = meta.telefono.replace(/\D/g, "");
+        if (digits.length >= 7) {
+          map.set(digits, meta);
+        }
+      }
+    }
+    return map;
+  }, [tenantClientMap]);
+
+  // Resolved balances: Enrich with canonical identity, fallback defensively to Cliente #<id>
+  const resolvedBalances = useMemo(() => {
+    return balances.map((b) => {
+      let meta = tenantClientMap.get(b.cliente_id);
+      if (!meta && b.cliente_telefono) {
+        const digits = b.cliente_telefono.replace(/\D/g, "");
+        if (digits.length >= 7) {
+          meta = tenantPhoneMap.get(digits);
+        }
+      }
+
+      const hasCanonicalName = b.cliente_nombre && !b.cliente_nombre.toLowerCase().startsWith("cliente #");
+      const resolvedNombre = hasCanonicalName
+        ? b.cliente_nombre
+        : (meta?.nombre || b.cliente_nombre || `Cliente #${b.cliente_id}`);
+      const resolvedTelefono = b.cliente_telefono || meta?.telefono || null;
+
+      return {
+        ...b,
+        cliente_nombre: resolvedNombre,
+        cliente_telefono: resolvedTelefono
+      };
+    });
+  }, [balances, tenantClientMap, tenantPhoneMap]);
+
+  // Resolved ledger: Enrich with canonical client names
+  const resolvedLedger = useMemo(() => {
+    return ledger.map((entry) => {
+      const meta = tenantClientMap.get(entry.cliente_id);
+      const hasCanonicalName = entry.cliente_nombre && !entry.cliente_nombre.toLowerCase().startsWith("cliente #");
+      const resolvedNombre = hasCanonicalName
+        ? entry.cliente_nombre
+        : (meta?.nombre || entry.cliente_nombre || `Cliente #${entry.cliente_id}`);
+      return {
+        ...entry,
+        cliente_nombre: resolvedNombre
+      };
+    });
+  }, [ledger, tenantClientMap]);
+
+  // Resolved redemptions: Enrich with canonical client names
+  const resolvedRedemptions = useMemo(() => {
+    return redemptions.map((red) => {
+      const meta = tenantClientMap.get(red.cliente_id);
+      const hasCanonicalName = red.cliente_nombre && !red.cliente_nombre.toLowerCase().startsWith("cliente #");
+      const resolvedNombre = hasCanonicalName
+        ? red.cliente_nombre
+        : (meta?.nombre || red.cliente_nombre || `Cliente #${red.cliente_id}`);
+      return {
+        ...red,
+        cliente_nombre: resolvedNombre
+      };
+    });
+  }, [redemptions, tenantClientMap]);
+
   // Date-filtered ledger and redemptions (guarantees [startIso, endIso) half-open interval)
   const periodLedger = useMemo(() => {
-    return ledger.filter((l) => isDateInRange(l.created_at, dateRange));
-  }, [ledger, dateRange]);
+    return resolvedLedger.filter((l) => isDateInRange(l.created_at, dateRange));
+  }, [resolvedLedger, dateRange]);
 
   const periodRedemptions = useMemo(() => {
-    return redemptions.filter((r) => isDateInRange(r.created_at, dateRange));
-  }, [redemptions, dateRange]);
+    return resolvedRedemptions.filter((r) => isDateInRange(r.created_at, dateRange));
+  }, [resolvedRedemptions, dateRange]);
 
   // Set of clients with canonical loyalty activity in the selected period
   const periodClientIds = useMemo(() => {
@@ -291,7 +395,7 @@ export default function ProgramaLealtadPage() {
     const rawDigits = customerSearch.replace(/\D/g, "");
     const isSearching = Boolean(term);
 
-    return balances.filter((b) => {
+    return resolvedBalances.filter((b) => {
       const progress = resolveClientProgress(b.saldo_sellos);
       const isPeriodActive = periodClientIds.has(b.cliente_id);
 
@@ -323,12 +427,12 @@ export default function ProgramaLealtadPage() {
       }
       return isPeriodActive;
     });
-  }, [balances, customerFilter, customerSearch, periodClientIds, resolveClientProgress]);
+  }, [resolvedBalances, customerFilter, customerSearch, periodClientIds, resolveClientProgress]);
 
   // KPI 2: Sellos en Circulación (stock) & Period flow
   const kpiStampsInCirculation = useMemo(() => {
-    return balances.reduce((sum, b) => sum + b.saldo_sellos, 0);
-  }, [balances]);
+    return resolvedBalances.reduce((sum, b) => sum + b.saldo_sellos, 0);
+  }, [resolvedBalances]);
 
   const periodStampsEmitted = useMemo(() => {
     return periodLedger
@@ -348,8 +452,8 @@ export default function ProgramaLealtadPage() {
   // KPI 4: Listos para Canje (current snapshot of eligible clients)
   const kpiEligibleClients = useMemo(() => {
     if (sortedActiveRewards.length === 0) return 0;
-    return balances.filter((b) => sortedActiveRewards.some((r) => b.saldo_sellos >= r.costo_en_sellos)).length;
-  }, [balances, sortedActiveRewards]);
+    return resolvedBalances.filter((b) => sortedActiveRewards.some((r) => b.saldo_sellos >= r.costo_en_sellos)).length;
+  }, [resolvedBalances, sortedActiveRewards]);
 
   // Selected reward in redemption modal
   const selectedRewardForRedeem = useMemo(() => {
@@ -778,7 +882,7 @@ export default function ProgramaLealtadPage() {
               <Users size={16} color="#d8b56d" />
             </div>
             <div style={{ fontSize: "24px", fontWeight: 700, margin: "6px 0 2px", color: "#fff" }}>
-              {loading && !balances.length ? "..." : kpiPeriodParticipants.toLocaleString()}
+              {loading && !resolvedBalances.length ? "..." : kpiPeriodParticipants.toLocaleString()}
             </div>
             <small style={{ color: "var(--muted, #9ca3af)", fontSize: "11px" }}>
               Activos en el período ({dateRange.label})
@@ -792,7 +896,7 @@ export default function ProgramaLealtadPage() {
               <Scissors size={16} color="#10b981" />
             </div>
             <div style={{ fontSize: "24px", fontWeight: 700, margin: "6px 0 2px", color: "#10b981" }}>
-              {loading && !balances.length ? "..." : `✂ ${kpiStampsInCirculation.toLocaleString()}`}
+              {loading && !resolvedBalances.length ? "..." : `✂ ${kpiStampsInCirculation.toLocaleString()}`}
             </div>
             <small style={{ color: "var(--muted, #9ca3af)", fontSize: "11px" }}>
               Saldo activo · Período: +{periodStampsEmitted} / -{periodStampsRedeemed}
@@ -828,7 +932,7 @@ export default function ProgramaLealtadPage() {
               <Sparkles size={16} color="#d8b56d" />
             </div>
             <div style={{ fontSize: "24px", fontWeight: 700, margin: "6px 0 2px", color: "#d8b56d" }}>
-              {loading && !balances.length ? "..." : kpiEligibleClients.toLocaleString()}
+              {loading && !resolvedBalances.length ? "..." : kpiEligibleClients.toLocaleString()}
             </div>
             <small style={{ color: "var(--muted, #9ca3af)", fontSize: "11px" }}>
               Estado actual (con saldo para canjear)
@@ -884,7 +988,7 @@ export default function ProgramaLealtadPage() {
                 ? kpiPeriodParticipants
                 : customerFilter === "listos"
                 ? kpiEligibleClients
-                : balances.length}
+                : resolvedBalances.length}
             </span>
           </button>
 
@@ -1050,7 +1154,7 @@ export default function ProgramaLealtadPage() {
                   onClick={() => setCustomerFilter("todos")}
                   style={{ padding: "6px 12px", fontSize: "12px", borderRadius: "6px" }}
                 >
-                  Directorio completo ({balances.length})
+                  Directorio completo ({resolvedBalances.length})
                 </button>
               </div>
             </div>
@@ -1090,7 +1194,7 @@ export default function ProgramaLealtadPage() {
             )}
 
             {/* Empty State */}
-            {balances.length === 0 ? (
+            {resolvedBalances.length === 0 ? (
               <div style={{ padding: "48px 24px", textAlign: "center", color: "var(--muted, #9ca3af)" }}>
                 <Users size={32} style={{ margin: "0 auto 12px", opacity: 0.5 }} />
                 <h3 style={{ margin: 0, fontSize: "15px", color: "#fff" }}>No hay clientes registrados aún</h3>
@@ -1131,7 +1235,7 @@ export default function ProgramaLealtadPage() {
                         onClick={() => setCustomerFilter("todos")}
                         style={{ fontSize: "12px", padding: "6px 12px" }}
                       >
-                        Ver directorio completo ({balances.length})
+                        Ver directorio completo ({resolvedBalances.length})
                       </button>
                       {kpiEligibleClients > 0 && (
                         <button
