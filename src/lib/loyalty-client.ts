@@ -5,9 +5,20 @@ import type {
   LoyaltyRedeemResult
 } from "@/types/loyalty";
 
-export async function fetchLoyaltySummary(barberiaId?: number | null): Promise<LoyaltySummaryResponse> {
-  const query = barberiaId && barberiaId > 0 ? `?barberia_id=${encodeURIComponent(String(barberiaId))}` : "";
-  const res = await fetch(`/api/loyalty${query}`, {
+export async function fetchLoyaltySummary(
+  barberiaId?: number | null,
+  dateRange?: { from?: string; to?: string } | null
+): Promise<LoyaltySummaryResponse> {
+  const params = new URLSearchParams();
+  if (barberiaId && barberiaId > 0) {
+    params.set("barberia_id", String(barberiaId));
+  }
+  if (dateRange?.from && dateRange?.to) {
+    params.set("from", dateRange.from);
+    params.set("to", dateRange.to);
+  }
+  const queryString = params.toString() ? `?${params.toString()}` : "";
+  const res = await fetch(`/api/loyalty${queryString}`, {
     method: "GET",
     credentials: "include",
     cache: "no-store"

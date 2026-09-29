@@ -32,6 +32,12 @@ import {
   updateLoyaltyRewardClient,
   redeemLoyaltyRewardClient
 } from "@/lib/loyalty-client";
+import { LoyaltyDateRangePicker } from "@/components/loyalty-date-range-picker";
+import {
+  type LoyaltyDateRange,
+  computeDateRange,
+  isDateInRange
+} from "@/lib/loyalty-date";
 import type {
   LoyaltyConfig,
   LoyaltyReward,
@@ -67,8 +73,6 @@ export default function ProgramaLealtadPage() {
   const [balances, setBalances] = useState<LoyaltyBalance[]>([]);
   const [ledger, setLedger] = useState<LoyaltyLedgerEntry[]>([]);
   const [redemptions, setRedemptions] = useState<LoyaltyRedemption[]>([]);
-  const [totalSellosEmitidos, setTotalSellosEmitidos] = useState(0);
-  const [totalCanjesRealizados, setTotalCanjesRealizados] = useState(0);
 
   // Tab A: Clientes & Canjes state
   const [customerSearch, setCustomerSearch] = useState("");
@@ -107,39 +111,51 @@ export default function ProgramaLealtadPage() {
   // Tab D: History state
   const [historyFilter, setHistoryFilter] = useState<HistoryFilterMode>("todos");
 
+  // Date range filter state (America/Bogota)
+  const [dateRange, setDateRange] = useState<LoyaltyDateRange>(() => computeDateRange("hoy"));
+
   // Load canonical data
-  const loadSummary = useCallback(async () => {
-    setLoading(true);
-    setError(null);
-    try {
-      const data = await fetchLoyaltySummary(barberiaId);
-      if (data.config) {
-        setConfig(data.config);
-        setFormActivo(data.config.activo);
-        setFormSellosRequeridos(data.config.sellos_requeridos);
-        setFormRecompensaDefault(data.config.recompensa_default);
-      } else {
-        setConfig(null);
-        setFormActivo(true);
-        setFormSellosRequeridos(10);
-        setFormRecompensaDefault("Corte Gratis");
+  const loadSummary = useCallback(
+    async (rangeToUse?: LoyaltyDateRange) => {
+      setLoading(true);
+      setError(null);
+      const activeRange = rangeToUse ?? dateRange;
+      try {
+        const queryRange = activeRange
+          ? { from: activeRange.startIso, to: activeRange.endIso }
+          : undefined;
+        const data = await fetchLoyaltySummary(barberiaId, queryRange);
+        if (data.config) {
+          setConfig(data.config);
+          setFormActivo(data.config.activo);
+          setFormSellosRequeridos(data.config.sellos_requeridos);
+          setFormRecompensaDefault(data.config.recompensa_default);
+        } else {
+          setConfig(null);
+          setFormActivo(true);
+          setFormSellosRequeridos(10);
+          setFormRecompensaDefault("Corte Gratis");
+        }
+        setRewards(data.rewards || []);
+        setBalances(data.balances || []);
+        setLedger(data.ledger || []);
+        setRedemptions(data.redemptions || []);
+      } catch (err) {
+        setError(err instanceof Error ? err.message : "Error cargando información canónica de lealtad");
+      } finally {
+        setLoading(false);
       }
-      setRewards(data.rewards || []);
-      setBalances(data.balances || []);
-      setLedger(data.ledger || []);
-      setRedemptions(data.redemptions || []);
-      setTotalSellosEmitidos(data.total_sellos_emitidos || 0);
-      setTotalCanjesRealizados(data.total_canjes_realizados || 0);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Error cargando información canónica de lealtad");
-    } finally {
-      setLoading(false);
-    }
-  }, [barberiaId]);
+    },
+    [barberiaId, dateRange]
+  );
 
   useEffect(() => {
     let ignore = false;
-    fetchLoyaltySummary(barberiaId)
+    const queryRange = dateRange
+      ? { from: dateRange.startIso, to: dateRange.endIso }
+      : undefined;
+
+    fetchLoyaltySummary(barberiaId, queryRange)
       .then((data) => {
         if (ignore) return;
         if (data.config) {
@@ -157,8 +173,6 @@ export default function ProgramaLealtadPage() {
         setBalances(data.balances || []);
         setLedger(data.ledger || []);
         setRedemptions(data.redemptions || []);
-        setTotalSellosEmitidos(data.total_sellos_emitidos || 0);
-        setTotalCanjesRealizados(data.total_canjes_realizados || 0);
       })
       .catch((err) => {
         if (ignore) return;
@@ -171,7 +185,7 @@ export default function ProgramaLealtadPage() {
     return () => {
       ignore = true;
     };
-  }, [barberiaId]);
+  }, [barberiaId, dateRange]);
 
   // Active rewards sorted ascending by cost
   const sortedActiveRewards = useMemo(() => {
@@ -248,12 +262,48 @@ export default function ProgramaLealtadPage() {
     });
   }, [balances, customerFilter, customerSearch, resolveClientProgress]);
 
-  // Canonical KPI calculations (Section 10)
-  const kpiTotalClients = balances.length;
+  // Date-filtered ledger and redemptions (guarantees [startIso, endIso) half-open interval)
+  const periodLedger = useMemo(() => {
+    return ledger.filter((l) => isDateInRange(l.created_at, dateRange));
+  }, [ledger, dateRange]);
+
+  const periodRedemptions = useMemo(() => {
+    return redemptions.filter((r) => isDateInRange(r.created_at, dateRange));
+  }, [redemptions, dateRange]);
+
+  // KPI 1: Clientes Participantes (active within selected period)
+  const kpiPeriodParticipants = useMemo(() => {
+    const clientIds = new Set<number>();
+    for (const l of periodLedger) {
+      clientIds.add(l.cliente_id);
+    }
+    for (const r of periodRedemptions) {
+      clientIds.add(r.cliente_id);
+    }
+    return clientIds.size;
+  }, [periodLedger, periodRedemptions]);
+
+  // KPI 2: Sellos en Circulación (stock) & Period flow
   const kpiStampsInCirculation = useMemo(() => {
     return balances.reduce((sum, b) => sum + b.saldo_sellos, 0);
   }, [balances]);
-  const kpiTotalRedemptions = totalCanjesRealizados || redemptions.length;
+
+  const periodStampsEmitted = useMemo(() => {
+    return periodLedger
+      .filter((l) => l.delta > 0)
+      .reduce((sum, l) => sum + l.delta, 0);
+  }, [periodLedger]);
+
+  const periodStampsRedeemed = useMemo(() => {
+    return periodLedger
+      .filter((l) => l.delta < 0)
+      .reduce((sum, l) => sum + Math.abs(l.delta), 0);
+  }, [periodLedger]);
+
+  // KPI 3: Canjes Realizados (in period)
+  const kpiPeriodRedemptions = periodRedemptions.length;
+
+  // KPI 4: Listos para Canje (current snapshot of eligible clients)
   const kpiEligibleClients = useMemo(() => {
     if (sortedActiveRewards.length === 0) return 0;
     return balances.filter((b) => sortedActiveRewards.some((r) => b.saldo_sellos >= r.costo_en_sellos)).length;
@@ -465,13 +515,13 @@ export default function ProgramaLealtadPage() {
     }
   };
 
-  // Filtered ledger entries
+  // Filtered ledger entries (uses periodLedger to respect selected date range)
   const filteredLedger = useMemo(() => {
-    if (historyFilter === "todos") return ledger;
-    if (historyFilter === "acumulaciones") return ledger.filter((l) => l.tipo_movimiento === "acumulacion");
-    if (historyFilter === "canjes") return ledger.filter((l) => l.tipo_movimiento === "canje");
-    return ledger;
-  }, [ledger, historyFilter]);
+    if (historyFilter === "todos") return periodLedger;
+    if (historyFilter === "acumulaciones") return periodLedger.filter((l) => l.tipo_movimiento === "acumulacion");
+    if (historyFilter === "canjes") return periodLedger.filter((l) => l.tipo_movimiento === "canje");
+    return periodLedger;
+  }, [periodLedger, historyFilter]);
 
   // Keyboard accessibility for modals (Escape key)
   useEffect(() => {
@@ -534,7 +584,7 @@ export default function ProgramaLealtadPage() {
             </p>
           </div>
 
-          <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
+          <div style={{ display: "flex", alignItems: "center", gap: "10px", flexWrap: "wrap" }}>
             {/* Status Pill with icon and high contrast (Section 7 & 44) */}
             <div
               style={{
@@ -554,10 +604,17 @@ export default function ProgramaLealtadPage() {
               <span>{formActivo ? "● Programa Activo" : "○ Programa Inactivo"}</span>
             </div>
 
+            {/* Date Range Selector (America/Bogota) */}
+            <LoyaltyDateRangePicker
+              selectedRange={dateRange}
+              onRangeChange={setDateRange}
+              disabled={loading}
+            />
+
             <button
               type="button"
               className="ba-btn-ghost"
-              onClick={loadSummary}
+              onClick={() => loadSummary(dateRange)}
               title="Actualizar datos canónicos"
               disabled={loading}
               style={{
@@ -627,7 +684,7 @@ export default function ProgramaLealtadPage() {
               <button
                 type="button"
                 className="ba-card-gold"
-                onClick={loadSummary}
+                onClick={() => loadSummary(dateRange)}
                 style={{ padding: "4px 12px", fontSize: "12px", borderRadius: "6px" }}
               >
                 Reintentar
@@ -645,16 +702,18 @@ export default function ProgramaLealtadPage() {
             marginBottom: "20px"
           }}
         >
-          {/* KPI 1: Clientes en Fidelización */}
+          {/* KPI 1: Clientes Participantes */}
           <div className="ba-card" style={{ padding: "16px", borderRadius: "10px" }}>
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", color: "var(--muted, #9ca3af)", fontSize: "12px" }}>
               <span>Clientes Participantes</span>
               <Users size={16} color="#d8b56d" />
             </div>
             <div style={{ fontSize: "24px", fontWeight: 700, margin: "6px 0 2px", color: "#fff" }}>
-              {loading && !balances.length ? "..." : kpiTotalClients.toLocaleString()}
+              {loading && !balances.length ? "..." : kpiPeriodParticipants.toLocaleString()}
             </div>
-            <small style={{ color: "var(--muted, #9ca3af)", fontSize: "11px" }}>Con actividad en el programa</small>
+            <small style={{ color: "var(--muted, #9ca3af)", fontSize: "11px" }}>
+              Activos en el período ({dateRange.label})
+            </small>
           </div>
 
           {/* KPI 2: Sellos en Circulación */}
@@ -667,7 +726,7 @@ export default function ProgramaLealtadPage() {
               {loading && !balances.length ? "..." : `✂ ${kpiStampsInCirculation.toLocaleString()}`}
             </div>
             <small style={{ color: "var(--muted, #9ca3af)", fontSize: "11px" }}>
-              Saldo activo (+{totalSellosEmitidos} emitidos)
+              Saldo activo · Período: +{periodStampsEmitted} / -{periodStampsRedeemed}
             </small>
           </div>
 
@@ -678,9 +737,11 @@ export default function ProgramaLealtadPage() {
               <Gift size={16} color="#f59e0b" />
             </div>
             <div style={{ fontSize: "24px", fontWeight: 700, margin: "6px 0 2px", color: "#f59e0b" }}>
-              {loading && !redemptions.length ? "..." : kpiTotalRedemptions.toLocaleString()}
+              {loading && !redemptions.length ? "..." : kpiPeriodRedemptions.toLocaleString()}
             </div>
-            <small style={{ color: "var(--muted, #9ca3af)", fontSize: "11px" }}>Total histórico completado</small>
+            <small style={{ color: "var(--muted, #9ca3af)", fontSize: "11px" }}>
+              En el período ({dateRange.label})
+            </small>
           </div>
 
           {/* KPI 4: Listos para Canje */}
@@ -700,7 +761,9 @@ export default function ProgramaLealtadPage() {
             <div style={{ fontSize: "24px", fontWeight: 700, margin: "6px 0 2px", color: "#d8b56d" }}>
               {loading && !balances.length ? "..." : kpiEligibleClients.toLocaleString()}
             </div>
-            <small style={{ color: "var(--muted, #9ca3af)", fontSize: "11px" }}>Clientes con saldo para canjear</small>
+            <small style={{ color: "var(--muted, #9ca3af)", fontSize: "11px" }}>
+              Estado actual (con saldo para canjear)
+            </small>
           </div>
         </section>
 
@@ -1413,7 +1476,7 @@ export default function ProgramaLealtadPage() {
                   <span>Actividad Reciente</span>
                 </h2>
                 <small style={{ color: "var(--muted, #9ca3af)", fontSize: "12px" }}>
-                  Últimos movimientos canónicos registrados en el ledger inmutable de PostgreSQL.
+                  Movimientos canónicos en el período ({dateRange.label}).
                 </small>
               </div>
 
@@ -1425,7 +1488,7 @@ export default function ProgramaLealtadPage() {
                   onClick={() => setHistoryFilter("todos")}
                   style={{ padding: "4px 10px", fontSize: "11px", borderRadius: "6px" }}
                 >
-                  Todos ({ledger.length})
+                  Todos ({periodLedger.length})
                 </button>
                 <button
                   type="button"

@@ -54,13 +54,31 @@ export class LoyaltyService {
   /**
    * Fetches full Loyalty summary for a tenant from PostgreSQL / PostgREST.
    */
-  static async getSummary(barberiaId: number, baSession?: string): Promise<LoyaltySummaryResponse> {
+  static async getSummary(
+    barberiaId: number,
+    baSession?: string,
+    dateRange?: { from?: string; to?: string }
+  ): Promise<LoyaltySummaryResponse> {
     const baseUrl = getPostgrestBaseUrl();
     if (!baseUrl) {
       throw new Error("POSTGREST_BASE_URL no está configurado.");
     }
 
     const headers = buildHeaders(baSession);
+
+    const hasDateRange = Boolean(dateRange?.from && dateRange?.to);
+    let ledgerUrl = `${baseUrl}/loyalty_ledger?barberia_id=eq.${barberiaId}&order=created_at.desc`;
+    let redemptionsUrl = `${baseUrl}/loyalty_redemptions?barberia_id=eq.${barberiaId}&order=created_at.desc`;
+
+    if (hasDateRange && dateRange?.from && dateRange?.to) {
+      const fromEnc = encodeURIComponent(dateRange.from);
+      const toEnc = encodeURIComponent(dateRange.to);
+      ledgerUrl += `&created_at=gte.${fromEnc}&created_at=lt.${toEnc}&limit=500`;
+      redemptionsUrl += `&created_at=gte.${fromEnc}&created_at=lt.${toEnc}&limit=500`;
+    } else {
+      ledgerUrl += `&limit=50`;
+      redemptionsUrl += `&limit=50`;
+    }
 
     // Parallel fetch of canonical sources
     const [configRes, rewardsRes, balancesRes, ledgerRes, redemptionsRes, clientsRes] = await Promise.all([
@@ -76,11 +94,11 @@ export class LoyaltyService {
         headers,
         cache: "no-store"
       }),
-      fetch(`${baseUrl}/loyalty_ledger?barberia_id=eq.${barberiaId}&order=created_at.desc&limit=50`, {
+      fetch(ledgerUrl, {
         headers,
         cache: "no-store"
       }),
-      fetch(`${baseUrl}/loyalty_redemptions?barberia_id=eq.${barberiaId}&order=created_at.desc&limit=50`, {
+      fetch(redemptionsUrl, {
         headers,
         cache: "no-store"
       }),
@@ -195,7 +213,9 @@ export class LoyaltyService {
       }
     }
 
-    const total_sellos_emitidos = balances.reduce((acc, b) => acc + b.total_acumulaciones, 0);
+    const total_sellos_emitidos = hasDateRange
+      ? ledger.filter((l) => l.delta > 0).reduce((acc, l) => acc + l.delta, 0)
+      : balances.reduce((acc, b) => acc + b.total_acumulaciones, 0);
     const total_canjes_realizados = redemptions.length;
 
     return {
@@ -206,7 +226,10 @@ export class LoyaltyService {
       ledger,
       redemptions,
       total_sellos_emitidos,
-      total_canjes_realizados
+      total_canjes_realizados,
+      ...(hasDateRange && dateRange?.from && dateRange?.to
+        ? { periodo: { from: dateRange.from, to: dateRange.to } }
+        : {})
     };
   }
 

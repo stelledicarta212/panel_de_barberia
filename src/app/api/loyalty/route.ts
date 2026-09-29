@@ -1,12 +1,23 @@
 import { NextResponse } from "next/server";
 import { authenticateLoyaltyRequest } from "@/lib/loyalty-auth";
 import { LoyaltyService } from "@/lib/loyalty.service";
+import { validateDateRangeParams } from "@/lib/loyalty-date";
 
 export async function GET(request: Request) {
   try {
     const url = new URL(request.url);
     const queryBarberiaId = url.searchParams.get("barberia_id");
     const explicitBarberiaId = queryBarberiaId ? Number(queryBarberiaId) : null;
+
+    const fromParam = url.searchParams.get("from");
+    const toParam = url.searchParams.get("to");
+    const dateValidation = validateDateRangeParams(fromParam, toParam);
+    if (!dateValidation.valid) {
+      return NextResponse.json(
+        { ok: false, code: "rango_fechas_invalido", message: dateValidation.error },
+        { status: 400 }
+      );
+    }
 
     const auth = await authenticateLoyaltyRequest(request, {
       explicitBarberiaId: Number.isFinite(explicitBarberiaId) ? explicitBarberiaId : null,
@@ -20,7 +31,11 @@ export async function GET(request: Request) {
       );
     }
 
-    const summary = await LoyaltyService.getSummary(auth.barberiaId, auth.baSession);
+    const dateRange = dateValidation.startIso && dateValidation.endIso
+      ? { from: dateValidation.startIso, to: dateValidation.endIso }
+      : undefined;
+
+    const summary = await LoyaltyService.getSummary(auth.barberiaId, auth.baSession, dateRange);
     return NextResponse.json(summary);
   } catch (error) {
     return NextResponse.json(

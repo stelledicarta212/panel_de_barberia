@@ -71,6 +71,10 @@ export interface LoyaltySummaryResponse {
   redemptions: LoyaltyRedemption[];
   total_sellos_emitidos: number;
   total_canjes_realizados: number;
+  periodo?: {
+    from: string;
+    to: string;
+  };
   error?: string;
   message?: string;
 }
