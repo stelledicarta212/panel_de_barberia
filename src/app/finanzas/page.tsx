@@ -604,7 +604,7 @@ export default function ProgramaLealtadPage() {
           </div>
 
           <div style={{ display: "flex", alignItems: "center", gap: "10px", flexWrap: "wrap" }}>
-            {/* Status Pill with icon and high contrast (Section 7 & 44) */}
+            {/* Status Pill with icon and high contrast (Canonical Truth-in-UI) */}
             <div
               style={{
                 display: "inline-flex",
@@ -614,13 +614,39 @@ export default function ProgramaLealtadPage() {
                 borderRadius: "20px",
                 fontSize: "12px",
                 fontWeight: 600,
-                backgroundColor: formActivo ? "rgba(16, 185, 129, 0.15)" : "rgba(107, 114, 128, 0.2)",
-                color: formActivo ? "#10b981" : "#d1d5db",
-                border: `1px solid ${formActivo ? "rgba(16, 185, 129, 0.4)" : "rgba(107, 114, 128, 0.4)"}`
+                backgroundColor: !config
+                  ? "rgba(107, 114, 128, 0.2)"
+                  : config.activo
+                  ? "rgba(16, 185, 129, 0.15)"
+                  : "rgba(239, 68, 68, 0.15)",
+                color: !config
+                  ? "#9ca3af"
+                  : config.activo
+                  ? "#10b981"
+                  : "#f87171",
+                border: `1px solid ${
+                  !config
+                    ? "rgba(107, 114, 128, 0.4)"
+                    : config.activo
+                    ? "rgba(16, 185, 129, 0.4)"
+                    : "rgba(239, 68, 68, 0.4)"
+                }`
               }}
             >
-              {formActivo ? <BadgeCheck size={14} /> : <AlertCircle size={14} />}
-              <span>{formActivo ? "● Programa Activo" : "○ Programa Inactivo"}</span>
+              {!config ? (
+                <AlertCircle size={14} />
+              ) : config.activo ? (
+                <BadgeCheck size={14} />
+              ) : (
+                <AlertCircle size={14} />
+              )}
+              <span>
+                {!config
+                  ? "○ Programa no configurado"
+                  : config.activo
+                  ? "● Programa Activo"
+                  : "○ Programa Inactivo"}
+              </span>
             </div>
 
             {/* Date Range Selector (America/Bogota) */}

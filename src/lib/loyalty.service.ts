@@ -12,13 +12,8 @@ function getPostgrestBaseUrl(): string {
   const base =
     process.env.POSTGREST_BASE_URL ??
     process.env.POSTGREST_URL ??
-    process.env.BILLING_PURCHASE_INTENTS_POSTGREST_URL ??
     "";
-  const cleaned = String(base).trim().replace(/\/+$/, "");
-  if (cleaned.includes("barberagency-app.gymh5g.easypanel.host")) {
-    return process.env.BILLING_PURCHASE_INTENTS_POSTGREST_URL ?? "https://api.agencia2c.cloud";
-  }
-  return cleaned;
+  return String(base).trim().replace(/\/+$/, "");
 }
 
 function getServiceRoleToken(): string {
@@ -117,32 +112,6 @@ export class LoyaltyService {
       const rows = await configRes.json().catch(() => []);
       if (Array.isArray(rows) && rows.length > 0) {
         config = rows[0] as LoyaltyConfig;
-      }
-    }
-
-    // Auto-provision default configuration if absent for authorized tenant
-    if (!config && barberiaId > 0) {
-      try {
-        const createRes = await fetch(`${baseUrl}/barberia_loyalty_config`, {
-          method: "POST",
-          headers: buildHeaders(baSession, "return=representation"),
-          body: JSON.stringify({
-            barberia_id: barberiaId,
-            program_type: "stamps",
-            activo: true,
-            sellos_requeridos: 10,
-            recompensa_default: "Corte Gratis"
-          }),
-          cache: "no-store"
-        });
-        if (createRes.ok) {
-          const createdRows = await createRes.json().catch(() => []);
-          if (Array.isArray(createdRows) && createdRows.length > 0) {
-            config = createdRows[0] as LoyaltyConfig;
-          }
-        }
-      } catch {
-        // Non-blocking auto-provision attempt
       }
     }
 

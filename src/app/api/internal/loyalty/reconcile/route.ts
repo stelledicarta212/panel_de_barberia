@@ -28,13 +28,8 @@ function getPostgrestBaseUrl(): string {
   const base =
     process.env.POSTGREST_BASE_URL ??
     process.env.POSTGREST_URL ??
-    process.env.BILLING_PURCHASE_INTENTS_POSTGREST_URL ??
     "";
-  const cleaned = String(base).trim().replace(/\/+$/, "");
-  if (cleaned.includes("barberagency-app.gymh5g.easypanel.host")) {
-    return process.env.BILLING_PURCHASE_INTENTS_POSTGREST_URL ?? "https://api.agencia2c.cloud";
-  }
-  return cleaned;
+  return String(base).trim().replace(/\/+$/, "");
 }
 
 function getServiceRoleToken(): string {
