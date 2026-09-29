@@ -36,9 +36,10 @@ export interface CalendarDayCell {
 
 /**
  * Builds the cell grid (Monday first, L-D) for a given year and month (0-indexed).
+ * Derived purely from Gregorian calendar in UTC to avoid any client timezone skew.
  */
 export function buildCalendarDays(year: number, month: number): CalendarDayCell[] {
-  const firstDayJs = new Date(year, month, 1).getDay();
+  const firstDayJs = new Date(Date.UTC(year, month, 1, 12, 0, 0)).getUTCDay();
   const firstDayMondayIndex = (firstDayJs + 6) % 7;
   const daysInMonth = new Date(Date.UTC(year, month + 1, 0, 12, 0, 0)).getUTCDate();
 
@@ -54,6 +55,20 @@ export function buildCalendarDays(year: number, month: number): CalendarDayCell[
     cells.push({ day: null, key: `pad-end-${cells.length}`, ymd: null });
   }
   return cells;
+}
+
+/**
+ * Converts an ISO string or Date to "YYYY-MM-DD" in America/Bogota.
+ */
+export function isoToBogotaYmd(isoOrTimestamp: string | Date): string | null {
+  try {
+    const d = typeof isoOrTimestamp === "string" ? new Date(isoOrTimestamp) : isoOrTimestamp;
+    if (isNaN(d.getTime())) return null;
+    const { year, month, day } = getBogotaDateParts(d);
+    return `${year}-${pad2(month)}-${pad2(day)}`;
+  } catch {
+    return null;
+  }
 }
 
 function pad2(n: number): string {

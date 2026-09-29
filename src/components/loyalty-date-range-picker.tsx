@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { CalendarDays, Check, ChevronDown, ChevronLeft, ChevronRight, Clock, X } from "lucide-react";
 import {
   type DateRangePreset,
@@ -16,6 +16,7 @@ interface LoyaltyDateRangePickerProps {
   selectedRange: LoyaltyDateRange;
   onRangeChange: (newRange: LoyaltyDateRange) => void;
   disabled?: boolean;
+  activityDates?: string[];
 }
 
 const PRESET_OPTIONS: Array<{ key: DateRangePreset; label: string; desc: string }> = [
@@ -29,10 +30,16 @@ const PRESET_OPTIONS: Array<{ key: DateRangePreset; label: string; desc: string 
 export function LoyaltyDateRangePicker({
   selectedRange,
   onRangeChange,
-  disabled = false
+  disabled = false,
+  activityDates
 }: LoyaltyDateRangePickerProps) {
   const [isOpen, setIsOpen] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
+
+  // Dynamic positioning state to ensure viewport containment
+  const [placement, setPlacement] = useState<"bottom" | "top">("bottom");
+  const [maxHeight, setMaxHeight] = useState<number>(500);
+  const [rightOffset, setRightOffset] = useState<number>(0);
 
   // Active preset in dialog
   const [activePreset, setActivePreset] = useState<DateRangePreset>(selectedRange.preset);
@@ -44,6 +51,9 @@ export function LoyaltyDateRangePicker({
   // State when user is in the middle of clicking a 2-step range
   const [isSelectingRange, setIsSelectingRange] = useState(false);
 
+  // Canonical activity set
+  const activitySet = useMemo(() => new Set(activityDates || []), [activityDates]);
+
   // Month and year currently shown in the calendar view (month is 0-indexed)
   const [viewDate, setViewDate] = useState<{ year: number; month: number }>(() => {
     const [y, m] = selectedRange.startDate.split("-").map(Number);
@@ -51,6 +61,46 @@ export function LoyaltyDateRangePicker({
   });
 
   const todayYmd = useMemo(() => getBogotaToday(), []);
+
+  // Viewport adaptation and flip positioning calculation
+  const updatePosition = useCallback(() => {
+    if (!containerRef.current) return;
+    const rect = containerRef.current.getBoundingClientRect();
+    const vh = window.innerHeight;
+    const vw = window.innerWidth;
+
+    // Available space above and below (leaving 12px margin to viewport edge)
+    const spaceBelow = Math.max(0, vh - rect.bottom - 12);
+    const spaceAbove = Math.max(0, rect.top - 12);
+    const preferredHeight = 490;
+
+    let newPlacement: "bottom" | "top" = "bottom";
+    let availableVertical = spaceBelow;
+
+    // Flip to top if space below is constrained and space above has more room
+    if (spaceBelow < preferredHeight && spaceAbove > spaceBelow) {
+      newPlacement = "top";
+      availableVertical = spaceAbove;
+    }
+
+    // Maximum height bounded between 260px and available space
+    const computedMaxHeight = Math.max(260, Math.min(availableVertical, vh - 24));
+
+    // Horizontal containment within viewport margins [12px, vw - 12px]
+    const popoverWidth = Math.min(560, vw - 24);
+    let newRightOffset = 0;
+    const leftEdge = rect.right - popoverWidth;
+
+    if (leftEdge < 12) {
+      newRightOffset = -(12 - leftEdge);
+    } else if (rect.right > vw - 12) {
+      newRightOffset = rect.right - (vw - 12);
+    }
+
+    setPlacement(newPlacement);
+    setMaxHeight(computedMaxHeight);
+    setRightOffset(newRightOffset);
+  }, []);
 
   // When opening, synchronize draft values with currently applied range
   const handleToggleOpen = () => {
@@ -62,6 +112,7 @@ export function LoyaltyDateRangePicker({
       setIsSelectingRange(false);
       const [y, m] = selectedRange.startDate.split("-").map(Number);
       setViewDate({ year: y || 2026, month: m ? m - 1 : 8 });
+      updatePosition();
     }
     setIsOpen((prev) => !prev);
   };
@@ -94,6 +145,20 @@ export function LoyaltyDateRangePicker({
       document.removeEventListener("keydown", handleKeyDown);
     };
   }, [isOpen]);
+
+  // Window resize and scroll handling to keep popover safely inside viewport
+  useEffect(() => {
+    if (!isOpen) return;
+
+    updatePosition();
+    window.addEventListener("resize", updatePosition, { passive: true });
+    window.addEventListener("scroll", updatePosition, { passive: true });
+
+    return () => {
+      window.removeEventListener("resize", updatePosition);
+      window.removeEventListener("scroll", updatePosition);
+    };
+  }, [isOpen, updatePosition]);
 
   // Month navigation
   const handlePrevMonth = () => {
@@ -219,27 +284,32 @@ export function LoyaltyDateRangePicker({
           aria-label="Selector de período y calendario interactivo"
           style={{
             position: "absolute",
-            top: "calc(100% + 8px)",
-            right: 0,
+            ...(placement === "top"
+              ? { bottom: "calc(100% + 8px)", top: "auto" }
+              : { top: "calc(100% + 8px)", bottom: "auto" }),
+            right: `${rightOffset}px`,
             zIndex: 1000,
             width: "560px",
-            maxWidth: "94vw",
+            maxWidth: "calc(100vw - 24px)",
+            maxHeight: `${maxHeight}px`,
+            display: "flex",
+            flexDirection: "column",
             backgroundColor: "#161619",
             border: "1px solid rgba(216, 181, 109, 0.35)",
             borderRadius: "14px",
-            padding: "16px",
-            boxShadow: "0 16px 40px rgba(0, 0, 0, 0.7), 0 0 24px rgba(216, 181, 109, 0.1)",
-            backdropFilter: "blur(16px)"
+            boxShadow: "0 16px 40px rgba(0, 0, 0, 0.8), 0 0 24px rgba(216, 181, 109, 0.15)",
+            backdropFilter: "blur(16px)",
+            overflow: "hidden"
           }}
         >
-          {/* Header */}
+          {/* 1. Header (Fixed at top of dialog, never scrolls away) */}
           <div
             style={{
+              flexShrink: 0,
               display: "flex",
               justifyContent: "space-between",
               alignItems: "center",
-              marginBottom: "14px",
-              paddingBottom: "10px",
+              padding: "14px 16px 10px 16px",
               borderBottom: "1px solid rgba(255, 255, 255, 0.08)"
             }}
           >
@@ -278,13 +348,18 @@ export function LoyaltyDateRangePicker({
             </div>
           </div>
 
-          {/* Main Body (Presets + Interactive Calendar) */}
+          {/* 2. Scrollable Body (Internal scroll when height is constrained) */}
           <div
             style={{
+              flex: "1 1 auto",
+              overflowY: "auto",
+              overflowX: "hidden",
+              padding: "14px 16px",
               display: "grid",
-              gridTemplateColumns: "repeat(auto-fit, minmax(260px, 1fr))",
+              gridTemplateColumns: "repeat(auto-fit, minmax(230px, 1fr))",
               gap: "16px",
-              alignItems: "start"
+              alignItems: "start",
+              overscrollBehavior: "contain"
             }}
           >
             {/* Presets Column */}
@@ -509,6 +584,7 @@ export function LoyaltyDateRangePicker({
                   const isSingle = isStart && isEnd;
                   const isInRange = draftStart && draftEnd && ymd > draftStart && ymd < draftEnd;
                   const isToday = ymd === todayYmd;
+                  const hasActivity = activitySet.has(ymd);
 
                   let bgColor = "transparent";
                   let textColor = "#e5e7eb";
@@ -545,7 +621,9 @@ export function LoyaltyDateRangePicker({
                       onClick={() => handleDayClick(ymd)}
                       style={{
                         minHeight: "34px",
+                        position: "relative",
                         display: "inline-flex",
+                        flexDirection: "column",
                         alignItems: "center",
                         justifyContent: "center",
                         backgroundColor: bgColor,
@@ -558,7 +636,8 @@ export function LoyaltyDateRangePicker({
                           : "1px solid transparent",
                         cursor: "pointer",
                         transition: "background-color 0.1s ease",
-                        outline: "none"
+                        outline: "none",
+                        padding: "2px 0"
                       }}
                       onMouseEnter={(e) => {
                         if (!isStart && !isEnd && !isInRange) {
@@ -571,7 +650,21 @@ export function LoyaltyDateRangePicker({
                         }
                       }}
                     >
-                      {cell.day}
+                      <span>{cell.day}</span>
+                      {hasActivity && (
+                        <span
+                          data-activity="true"
+                          title="Actividad canónica de lealtad en esta fecha"
+                          style={{
+                            display: "block",
+                            width: "4px",
+                            height: "4px",
+                            borderRadius: "50%",
+                            backgroundColor: isSingle || isStart || isEnd ? "#121214" : "#d8b56d",
+                            marginTop: "1px"
+                          }}
+                        />
+                      )}
                     </button>
                   );
                 })}
@@ -579,17 +672,18 @@ export function LoyaltyDateRangePicker({
             </div>
           </div>
 
-          {/* Footer: Selected Range Display + Action Buttons */}
+          {/* 3. Sticky Footer: Selected Range Display + Action Buttons (flexShrink: 0) */}
           <div
             style={{
+              flexShrink: 0,
               display: "flex",
               justifyContent: "space-between",
               alignItems: "center",
               flexWrap: "wrap",
               gap: "10px",
-              marginTop: "16px",
-              paddingTop: "12px",
-              borderTop: "1px solid rgba(255, 255, 255, 0.08)"
+              padding: "12px 16px",
+              borderTop: "1px solid rgba(255, 255, 255, 0.08)",
+              backgroundColor: "#161619"
             }}
           >
             {/* Selected range display */}

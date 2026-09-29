@@ -8,7 +8,9 @@ import {
   computeDateRange,
   isDateInRange,
   validateDateRangeParams,
-  formatBogotaDateDisplay
+  formatBogotaDateDisplay,
+  isoToBogotaYmd,
+  buildCalendarDays
 } from "../src/lib/loyalty-date";
 import { LoyaltyService } from "../src/lib/loyalty.service";
 import { fetchLoyaltySummary } from "../src/lib/loyalty-client";
@@ -429,6 +431,60 @@ describe("LOYALTY DATE FILTERING & TIMEZONE AWARENESS (AMERICA/BOGOTA)", () => {
       expect(bogotaYmdToIso("2026-09-15", true)).toBe("2026-09-16T05:00:00.000Z");
       expect(formatBogotaDateDisplay("2026-09-15")).toBe("15 sep 2026");
       expect(validateDateRangeParams("2026-09-15T05:00:00Z", "2026-09-16T05:00:00Z").valid).toBe(true);
+    });
+  });
+
+  describe("18. Calendario civil dinámico, fuente de verdad y navegación", () => {
+    it("isoToBogotaYmd convierte marcas temporales ISO a fecha YYYY-MM-DD en America/Bogota", () => {
+      // 05:00 UTC = 00:00 en Colombia
+      expect(isoToBogotaYmd("2026-09-15T05:00:00.000Z")).toBe("2026-09-15");
+      // 04:59:59 UTC = 23:59:59 en Colombia del día anterior
+      expect(isoToBogotaYmd("2026-09-15T04:59:59.000Z")).toBe("2026-09-14");
+      // Marca temporal con offset explícito
+      expect(isoToBogotaYmd("2026-09-28T22:00:00-05:00")).toBe("2026-09-28");
+      // Entrada inválida
+      expect(isoToBogotaYmd("invalido")).toBeNull();
+    });
+
+    it("buildCalendarDays calcula dinámicamente días bisiestos y longitudes de mes", () => {
+      // Febrero 2024 (año bisiesto) -> 29 días reales
+      const feb2024 = buildCalendarDays(2024, 1);
+      const feb2024Days = feb2024.filter((c) => c.day !== null);
+      expect(feb2024Days.length).toBe(29);
+      expect(feb2024Days[28].day).toBe(29);
+      expect(feb2024Days[28].ymd).toBe("2024-02-29");
+      expect(feb2024.length % 7).toBe(0);
+
+      // Febrero 2026 (no bisiesto) -> 28 días reales
+      const feb2026 = buildCalendarDays(2026, 1);
+      const feb2026Days = feb2026.filter((c) => c.day !== null);
+      expect(feb2026Days.length).toBe(28);
+      expect(feb2026.length % 7).toBe(0);
+
+      // Septiembre 2026 (30 días)
+      const sep2026 = buildCalendarDays(2026, 8);
+      const sep2026Days = sep2026.filter((c) => c.day !== null);
+      expect(sep2026Days.length).toBe(30);
+      expect(sep2026.length % 7).toBe(0);
+
+      // Octubre 2026 (31 días)
+      const oct2026 = buildCalendarDays(2026, 9);
+      const oct2026Days = oct2026.filter((c) => c.day !== null);
+      expect(oct2026Days.length).toBe(31);
+      expect(oct2026.length % 7).toBe(0);
+    });
+
+    it("Semántica de día operativo 28 septiembre 2026 produce [28 Sep 00:00, 29 Sep 00:00) exclusive", () => {
+      const range = computeDateRange("personalizado", "2026-09-28", "2026-09-28");
+      expect(range.startDate).toBe("2026-09-28");
+      expect(range.endDate).toBe("2026-09-28");
+      expect(range.startIso).toBe("2026-09-28T05:00:00.000Z");
+      expect(range.endIso).toBe("2026-09-29T05:00:00.000Z");
+      expect(range.label).toBe("28 sep 2026");
+
+      expect(isDateInRange("2026-09-28T00:00:00-05:00", range)).toBe(true);
+      expect(isDateInRange("2026-09-28T23:59:59.999-05:00", range)).toBe(true);
+      expect(isDateInRange("2026-09-29T00:00:00-05:00", range)).toBe(false);
     });
   });
 });

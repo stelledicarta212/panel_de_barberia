@@ -36,7 +36,8 @@ import { LoyaltyDateRangePicker } from "@/components/loyalty-date-range-picker";
 import {
   type LoyaltyDateRange,
   computeDateRange,
-  isDateInRange
+  isDateInRange,
+  isoToBogotaYmd
 } from "@/lib/loyalty-date";
 import type {
   LoyaltyConfig,
@@ -186,6 +187,24 @@ export default function ProgramaLealtadPage() {
       ignore = true;
     };
   }, [barberiaId, dateRange]);
+
+  // Canonical loyalty activity dates for authenticated tenant (Section: Source-of-truth)
+  const canonicalActivityDates = useMemo(() => {
+    const dates = new Set<string>();
+    for (const entry of ledger) {
+      if (entry.created_at) {
+        const ymd = isoToBogotaYmd(entry.created_at);
+        if (ymd) dates.add(ymd);
+      }
+    }
+    for (const r of redemptions) {
+      if (r.created_at) {
+        const ymd = isoToBogotaYmd(r.created_at);
+        if (ymd) dates.add(ymd);
+      }
+    }
+    return Array.from(dates);
+  }, [ledger, redemptions]);
 
   // Active rewards sorted ascending by cost
   const sortedActiveRewards = useMemo(() => {
@@ -609,6 +628,7 @@ export default function ProgramaLealtadPage() {
               selectedRange={dateRange}
               onRangeChange={setDateRange}
               disabled={loading}
+              activityDates={canonicalActivityDates}
             />
 
             <button
