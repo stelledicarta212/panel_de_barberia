@@ -176,9 +176,16 @@ export async function POST(request: Request) {
     formData.get("barberia_id") ??
     formData.get("id_barberia") ??
     formData.get("p_barberia_id");
-  const barberiaId = Number(rawBarberiaId);
+  const parsedId = Number(rawBarberiaId);
+  const barberiaId = Number.isFinite(parsedId) && parsedId > 0 ? parsedId : undefined;
 
-  if (!Number.isFinite(barberiaId) || barberiaId <= 0) {
+  const slug = (
+    formData.get("slug") ??
+    formData.get("biz_slug") ??
+    ""
+  ).toString().trim();
+
+  if (!barberiaId && !slug) {
     return NextResponse.json(
       {
         ok: false,
@@ -188,12 +195,6 @@ export async function POST(request: Request) {
       { status: 400, headers: corsHeaders }
     );
   }
-
-  const slug = (
-    formData.get("slug") ??
-    formData.get("biz_slug") ??
-    ""
-  ).toString().trim();
 
   let tenant;
   try {
@@ -314,6 +315,10 @@ export async function POST(request: Request) {
   const barberId = formData.get("barber_id");
   if (barberId) {
     upstreamFormData.append("barber_id", String(barberId).trim());
+  }
+  const serviceId = formData.get("service_id");
+  if (serviceId) {
+    upstreamFormData.append("service_id", String(serviceId).trim());
   }
 
   const controller = new AbortController();

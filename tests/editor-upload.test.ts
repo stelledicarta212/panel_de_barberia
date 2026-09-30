@@ -470,4 +470,63 @@ describe("POST /api/editor/upload route handler", () => {
     expect(body.code).toBe("upload_upstream_timeout");
     expect(body.message).toContain("tardo demasiado");
   });
+
+  it("resolves tenant from slug when barberia_id is omitted and forwards slot and service_id upstream", async () => {
+    let capturedUpstreamFormData: FormData | null = null;
+
+    vi.spyOn(globalThis, "fetch").mockImplementation(async (input, init) => {
+      const url = String(input);
+      if (url.includes("/session/me")) {
+        return new Response(
+          JSON.stringify({
+            ok: true,
+            barberias: [
+              { id: 198, slug: "barberia-propia" },
+              { id: 250, slug: "otra-barberia" }
+            ]
+          }),
+          { status: 200, headers: { "Content-Type": "application/json" } }
+        );
+      }
+      if (url.includes("/webhook/upload-live")) {
+        capturedUpstreamFormData = (init?.body as FormData) || null;
+        return new Response(
+          JSON.stringify({
+            ok: true,
+            url: "https://pub-369b1ea177db4f8e8b8fb47c8f6c0ef7.r2.dev/services/tenant-198/service-123.jpg"
+          }),
+          { status: 200, headers: { "Content-Type": "application/json" } }
+        );
+      }
+      return new Response("Not Found", { status: 404 });
+    });
+
+    const formData = new FormData();
+    // barberia_id is omitted, only slug and slot are passed
+    formData.append("slug", "barberia-propia");
+    formData.append("slot", "service");
+    formData.append("service_id", "45");
+    formData.append(
+      "file",
+      new File([VALID_JPEG_BYTES], "corte.jpg", { type: "image/jpeg" })
+    );
+
+    const req = new Request("http://localhost/api/editor/upload", {
+      method: "POST",
+      headers: { Cookie: "ba_session=sess-123" },
+      body: formData
+    });
+
+    const res = await POST(req);
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(body.ok).toBe(true);
+    expect(body.url).toBe("https://pub-369b1ea177db4f8e8b8fb47c8f6c0ef7.r2.dev/services/tenant-198/service-123.jpg");
+
+    expect(capturedUpstreamFormData).not.toBeNull();
+    expect(capturedUpstreamFormData!.get("barberia_id")).toBe("198");
+    expect(capturedUpstreamFormData!.get("biz_slug")).toBe("barberia-propia");
+    expect(capturedUpstreamFormData!.get("slot")).toBe("service");
+    expect(capturedUpstreamFormData!.get("service_id")).toBe("45");
+  });
 });

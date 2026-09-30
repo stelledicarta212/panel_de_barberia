@@ -153,20 +153,21 @@ export async function validateEditorTenant(request: Request, payload: Record<str
     };
   }
 
-  const barberiaId = resolvePayloadBarberiaId(payload);
-  if (!barberiaId) {
+  const requestedBarberiaId = resolvePayloadBarberiaId(payload);
+  const slug = resolvePayloadSlug(payload);
+
+  if (!requestedBarberiaId && !slug) {
     return {
       ok: false,
       status: 400,
       body: {
         ok: false,
         code: "barberia_id_requerido",
-        message: "barberia_id requerido"
+        message: "barberia_id o slug requerido"
       }
     };
   }
 
-  const slug = resolvePayloadSlug(payload);
   const sessionRes = await fetch(sessionMeEndpoint, {
     method: "GET",
     headers: { Cookie: `ba_session=${baSession}` },
@@ -200,15 +201,38 @@ export async function validateEditorTenant(request: Request, payload: Record<str
     };
   }
 
-  const matched = readAuthorizedBarberias(sessionBody).find((item) => item.id === barberiaId);
+  const authorizedList = readAuthorizedBarberias(sessionBody);
+
+  let matched: { id: number; slug: string | null } | undefined;
+  if (requestedBarberiaId) {
+    matched = authorizedList.find((item) => item.id === requestedBarberiaId);
+    if (!matched) {
+      return {
+        ok: false,
+        status: 403,
+        body: {
+          ok: false,
+          code: "barberia_ajena",
+          message: "No tienes permisos para esta barberia"
+        }
+      };
+    }
+  } else if (slug) {
+    matched = authorizedList.find((item) => item.slug === slug);
+  }
+
+  if (!matched && !requestedBarberiaId && authorizedList.length === 1) {
+    matched = authorizedList[0];
+  }
+
   if (!matched) {
     return {
       ok: false,
-      status: 403,
+      status: 400,
       body: {
         ok: false,
-        code: "barberia_ajena",
-        message: "No tienes permisos para esta barberia"
+        code: "barberia_id_requerido",
+        message: "barberia_id requerido"
       }
     };
   }
@@ -228,7 +252,7 @@ export async function validateEditorTenant(request: Request, payload: Record<str
   return {
     ok: true,
     baSession,
-    barberiaId,
+    barberiaId: matched.id,
     slug: matched.slug
   };
 }
