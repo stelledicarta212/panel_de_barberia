@@ -316,6 +316,10 @@ export async function POST(request: Request) {
     upstreamFormData.append("barber_id", String(barberId).trim());
   }
 
+  const controller = new AbortController();
+  const timeoutMs = Number(process.env.EDITOR_UPLOAD_TIMEOUT_MS) || 15000;
+  const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
+
   try {
     const upstreamRes = await fetch(uploadEndpoint, {
       method: "POST",
@@ -324,8 +328,11 @@ export async function POST(request: Request) {
         Cookie: `ba_session=${tenant.baSession}`
       },
       body: upstreamFormData,
-      cache: "no-store"
+      cache: "no-store",
+      signal: controller.signal
     });
+
+    clearTimeout(timeoutId);
 
     const text = await upstreamRes.text().catch(() => "");
     let body: Record<string, unknown> = {};
@@ -380,6 +387,17 @@ export async function POST(request: Request) {
       { status: 200, headers: corsHeaders }
     );
   } catch (error) {
+    clearTimeout(timeoutId);
+    if (error instanceof Error && error.name === "AbortError") {
+      return NextResponse.json(
+        {
+          ok: false,
+          code: "upload_upstream_timeout",
+          message: "El servidor de almacenamiento tardo demasiado en responder."
+        },
+        { status: 504, headers: corsHeaders }
+      );
+    }
     return NextResponse.json(
       {
         ok: false,

@@ -419,4 +419,55 @@ describe("POST /api/editor/upload route handler", () => {
     expect(body.ok).toBe(false);
     expect(body.code).toBe("invalid_storage_url");
   });
+
+  it("handles upstream timeout and returns HTTP 504 upload_upstream_timeout", async () => {
+    process.env.EDITOR_UPLOAD_TIMEOUT_MS = "50"; // 50ms fast timeout
+
+    vi.spyOn(globalThis, "fetch").mockImplementation(async (input, init) => {
+      const url = String(input);
+      if (url.includes("/session/me")) {
+        return new Response(
+          JSON.stringify({
+            ok: true,
+            barberias: [{ id: 198, slug: "barberia-propia" }]
+          }),
+          { status: 200, headers: { "Content-Type": "application/json" } }
+        );
+      }
+      if (url.includes("/webhook/upload-live")) {
+        // Simulate a hanging upstream call that aborts on signal
+        return new Promise((resolve, reject) => {
+          const signal = init?.signal;
+          if (signal) {
+            signal.addEventListener("abort", () => {
+              const err = new Error("The operation was aborted");
+              err.name = "AbortError";
+              reject(err);
+            });
+          }
+        });
+      }
+      return new Response("Not Found", { status: 404 });
+    });
+
+    const formData = new FormData();
+    formData.append("barberia_id", "198");
+    formData.append(
+      "file",
+      new File([VALID_PNG_BYTES], "logo.png", { type: "image/png" })
+    );
+
+    const req = new Request("http://localhost/api/editor/upload", {
+      method: "POST",
+      headers: { Cookie: "ba_session=sess-123" },
+      body: formData
+    });
+
+    const res = await POST(req);
+    expect(res.status).toBe(504);
+    const body = await res.json();
+    expect(body.ok).toBe(false);
+    expect(body.code).toBe("upload_upstream_timeout");
+    expect(body.message).toContain("tardo demasiado");
+  });
 });
