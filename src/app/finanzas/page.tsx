@@ -206,10 +206,28 @@ export default function ProgramaLealtadPage() {
     return Array.from(dates);
   }, [ledger, redemptions]);
 
-  // Active rewards sorted ascending by cost
+  // Active rewards sorted ascending by cost (with canonical config fallback)
   const sortedActiveRewards = useMemo(() => {
-    return rewards.filter((r) => r.activo).sort((a, b) => a.costo_en_sellos - b.costo_en_sellos);
-  }, [rewards]);
+    const list = rewards.filter((r) => r.activo);
+    if (list.length > 0) {
+      return [...list].sort((a, b) => a.costo_en_sellos - b.costo_en_sellos);
+    }
+    if (config) {
+      return [
+        {
+          id: 0,
+          barberia_id: config.barberia_id,
+          nombre: config.recompensa_default || "Corte Gratis",
+          costo_en_sellos: config.sellos_requeridos || 10,
+          descripcion: "Recompensa principal",
+          activo: config.activo,
+          created_at: config.created_at,
+          updated_at: config.updated_at
+        }
+      ];
+    }
+    return [];
+  }, [rewards, config]);
 
   // Dynamic progress & eligibility helper (Section 18)
   const resolveClientProgress = useCallback(
@@ -230,11 +248,14 @@ export default function ProgramaLealtadPage() {
       } else if (isEligible) {
         statusType = "eligible";
         statusText = `¡Recompensa lista! (${highestAffordable?.nombre} — ${highestAffordable?.costo_en_sellos} sellos)`;
-        progressPercent = next ? Math.min(100, Math.round((balance / next.costo_en_sellos) * 100)) : 100;
+        progressPercent = next
+          ? Math.min(100, Math.round(((balance / next.costo_en_sellos) * 100) * 10) / 10)
+          : 100;
       } else if (balance > 0 && next) {
         statusType = "progress";
-        statusText = `Faltan ${next.costo_en_sellos - balance} sellos para ${next.nombre} (${next.costo_en_sellos} sellos)`;
-        progressPercent = Math.min(100, Math.round((balance / next.costo_en_sellos) * 100));
+        const rawPct = (balance / next.costo_en_sellos) * 100;
+        progressPercent = Math.min(100, Math.round(rawPct * 10) / 10);
+        statusText = `${balance} / ${next.costo_en_sellos} sellos (faltan ${next.costo_en_sellos - balance} para ${next.nombre})`;
       } else {
         statusType = "zero";
         statusText = next ? `0 / ${next.costo_en_sellos} sellos para ${next.nombre}` : "0 sellos";
@@ -481,7 +502,7 @@ export default function ProgramaLealtadPage() {
 
   // Execute canonical redemption (Step 2 confirmation)
   const handleConfirmRedeem = async () => {
-    if (!selectedClientForRedeem || !selectedRewardId || !canAffordSelectedReward || redeeming) return;
+    if (!selectedClientForRedeem || selectedRewardId == null || !canAffordSelectedReward || redeeming) return;
     setRedeeming(true);
     setActionMessage(null);
     try {
@@ -1360,7 +1381,7 @@ export default function ProgramaLealtadPage() {
                               <div style={{ display: "flex", flexDirection: "column", gap: "4px" }}>
                                 <div style={{ display: "flex", justifyContent: "space-between", fontSize: "11px", color: "var(--muted, #9ca3af)" }}>
                                   <span>{progress.statusText}</span>
-                                  <span>{progress.progressPercent}%</span>
+                                  <span style={{ fontWeight: 600, color: progress.isEligible ? "#10b981" : "#d8b56d" }}>{progress.progressPercent}%</span>
                                 </div>
                                 <div
                                   style={{
@@ -1399,7 +1420,7 @@ export default function ProgramaLealtadPage() {
                                   }}
                                 >
                                   <Check size={12} />
-                                  <span>Canje disponible</span>
+                                  <span>¡Listo para canje!</span>
                                 </span>
                               ) : client.saldo_sellos > 0 ? (
                                 <span
@@ -1695,7 +1716,7 @@ export default function ProgramaLealtadPage() {
                   style={{ marginTop: "4px" }}
                 />
                 <small style={{ color: "var(--muted, #9ca3af)", marginTop: "4px", display: "block", fontSize: "11px" }}>
-                  Referencia informativa para la meta principal del cliente. Cada recompensa en el catálogo define su propio costo en sellos.
+                  Cantidad de sellos requeridos para obtener el beneficio. Al guardar, se sincroniza automáticamente con el catálogo y las metas de tus clientes.
                 </small>
               </label>
 
@@ -1712,7 +1733,7 @@ export default function ProgramaLealtadPage() {
                   style={{ marginTop: "4px" }}
                 />
                 <small style={{ color: "var(--muted, #9ca3af)", marginTop: "4px", display: "block", fontSize: "11px" }}>
-                  Descripción general del premio principal asociado al programa.
+                  Beneficio o premio correspondiente al completar los sellos. Al guardar, se actualiza automáticamente en el catálogo de recompensas.
                 </small>
               </label>
 

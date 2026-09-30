@@ -37,8 +37,8 @@ export async function POST(request: Request) {
       );
     }
 
-    const rewardId = Number(body.reward_id);
-    if (!Number.isInteger(rewardId) || rewardId <= 0) {
+    const rewardId = body.reward_id != null ? Number(body.reward_id) : 0;
+    if (!Number.isInteger(rewardId) || rewardId < 0) {
       return NextResponse.json(
         { ok: false, code: "recompensa_requerida", message: "reward_id inválido o requerido" },
         { status: 400 }

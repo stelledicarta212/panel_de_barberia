@@ -121,6 +121,7 @@ export async function PATCH(request: Request) {
     }
 
     const updated = await LoyaltyService.updateConfig(auth.barberiaId, patch, auth.baSession);
+    await LoyaltyService.syncDefaultReward(auth.barberiaId, updated, auth.baSession);
     return NextResponse.json({ ok: true, config: updated });
   } catch (error) {
     return NextResponse.json(

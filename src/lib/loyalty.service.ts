@@ -125,6 +125,47 @@ export class LoyaltyService {
       }
     }
 
+    // Auto-provision or synthesize default reward if tenant has config but zero rewards in catalog
+    if (rewards.length === 0 && config) {
+      try {
+        const provRes = await fetch(`${baseUrl}/loyalty_rewards`, {
+          method: "POST",
+          headers: buildHeaders(baSession, "return=representation"),
+          body: JSON.stringify({
+            barberia_id: barberiaId,
+            nombre: config.recompensa_default || "Corte Gratis",
+            costo_en_sellos: config.sellos_requeridos || 10,
+            descripcion: "Recompensa principal del programa de fidelización",
+            activo: config.activo ?? true
+          }),
+          cache: "no-store"
+        });
+        if (provRes && typeof provRes.json === "function" && provRes.ok) {
+          const provRows = await provRes.json().catch(() => []);
+          if (Array.isArray(provRows) && provRows.length > 0) {
+            rewards = provRows as LoyaltyReward[];
+          }
+        }
+      } catch {
+        // Fallback silently
+      }
+
+      if (rewards.length === 0) {
+        rewards = [
+          {
+            id: 0,
+            barberia_id: barberiaId,
+            nombre: config.recompensa_default || "Corte Gratis",
+            costo_en_sellos: config.sellos_requeridos || 10,
+            descripcion: "Recompensa principal",
+            activo: config.activo ?? true,
+            created_at: config.created_at || new Date().toISOString(),
+            updated_at: config.updated_at || new Date().toISOString()
+          }
+        ];
+      }
+    }
+
     // Parse clients mapping for identity resolution
     const clientNameMap = new Map<number, { nombre: string; telefono?: string }>();
     if (clientLookup && clientLookup.size > 0) {
@@ -379,18 +420,82 @@ export class LoyaltyService {
       throw new Error(`Error actualizando configuración de fidelización: ${res.status} ${errText}`);
     }
 
+    let savedConfig: LoyaltyConfig;
     const rows = await res.json().catch(() => []);
     if (Array.isArray(rows) && rows.length > 0) {
-      return rows[0] as LoyaltyConfig;
+      savedConfig = rows[0] as LoyaltyConfig;
+    } else {
+      const refetch = await fetch(`${baseUrl}/barberia_loyalty_config?barberia_id=eq.${barberiaId}`, {
+        headers: buildHeaders(baSession),
+        cache: "no-store"
+      });
+      const refetchRows = await refetch.json().catch(() => []);
+      savedConfig = refetchRows[0] as LoyaltyConfig;
     }
 
-    // Refetch if representation not returned
-    const refetch = await fetch(`${baseUrl}/barberia_loyalty_config?barberia_id=eq.${barberiaId}`, {
-      headers: buildHeaders(baSession),
-      cache: "no-store"
-    });
-    const refetchRows = await refetch.json().catch(() => []);
-    return refetchRows[0] as LoyaltyConfig;
+    return savedConfig;
+  }
+
+  /**
+   * Synchronizes the default reward in loyalty_rewards according to the loyalty configuration.
+   * Auto-provisions the reward if absent, or updates it if present.
+   */
+  static async syncDefaultReward(
+    barberiaId: number,
+    config: LoyaltyConfig,
+    baSession?: string
+  ): Promise<LoyaltyReward | null> {
+    const baseUrl = getPostgrestBaseUrl();
+    if (!baseUrl || !config) return null;
+
+    try {
+      const rewardsRes = await fetch(`${baseUrl}/loyalty_rewards?barberia_id=eq.${barberiaId}&order=id.asc`, {
+        headers: buildHeaders(baSession),
+        cache: "no-store"
+      });
+      if (!rewardsRes || typeof rewardsRes.json !== "function") return null;
+      const existingRewards: LoyaltyReward[] = rewardsRes.ok ? await rewardsRes.json().catch(() => []) : [];
+
+      if (!existingRewards || existingRewards.length === 0) {
+        const createRes = await fetch(`${baseUrl}/loyalty_rewards`, {
+          method: "POST",
+          headers: buildHeaders(baSession, "return=representation"),
+          body: JSON.stringify({
+            barberia_id: barberiaId,
+            nombre: config.recompensa_default || "Corte Gratis",
+            costo_en_sellos: config.sellos_requeridos || 10,
+            descripcion: "Recompensa principal del programa de fidelización",
+            activo: config.activo ?? true
+          }),
+          cache: "no-store"
+        });
+        if (createRes.ok) {
+          const rows = await createRes.json().catch(() => []);
+          return rows[0] || null;
+        }
+      } else {
+        const targetReward = existingRewards[0];
+        if (targetReward) {
+          const updateRes = await fetch(`${baseUrl}/loyalty_rewards?id=eq.${targetReward.id}&barberia_id=eq.${barberiaId}`, {
+            method: "PATCH",
+            headers: buildHeaders(baSession, "return=representation"),
+            body: JSON.stringify({
+              nombre: config.recompensa_default,
+              costo_en_sellos: config.sellos_requeridos,
+              activo: config.activo
+            }),
+            cache: "no-store"
+          });
+          if (updateRes.ok) {
+            const rows = await updateRes.json().catch(() => []);
+            return rows[0] || null;
+          }
+        }
+      }
+    } catch (syncErr) {
+      console.error("Error in syncDefaultReward:", syncErr);
+    }
+    return null;
   }
 
   /**
@@ -523,8 +628,25 @@ export class LoyaltyService {
     if (!Number.isInteger(clienteId) || clienteId <= 0) {
       return { success: false, status: "invalid_client", message: "cliente_id inválido" };
     }
-    if (!Number.isInteger(rewardId) || rewardId <= 0) {
-      return { success: false, status: "invalid_reward", message: "reward_id inválido" };
+    let targetRewardId = rewardId;
+    if (!Number.isInteger(targetRewardId) || targetRewardId <= 0) {
+      try {
+        const fetchRewardRes = await fetch(
+          `${baseUrl}/loyalty_rewards?barberia_id=eq.${barberiaId}&activo=eq.true&order=id.asc&limit=1`,
+          {
+            headers: buildHeaders(baSession),
+            cache: "no-store"
+          }
+        );
+        const rows = fetchRewardRes.ok ? await fetchRewardRes.json().catch(() => []) : [];
+        if (Array.isArray(rows) && rows.length > 0 && typeof rows[0].id === "number") {
+          targetRewardId = rows[0].id;
+        } else {
+          return { success: false, status: "invalid_reward", message: "No hay recompensas activas disponibles para canjear" };
+        }
+      } catch {
+        return { success: false, status: "invalid_reward", message: "reward_id inválido" };
+      }
     }
 
     const rpcUrl = `${baseUrl}/rpc/ba_loyalty_redeem`;
@@ -533,7 +655,7 @@ export class LoyaltyService {
       headers: buildHeaders(baSession),
       body: JSON.stringify({
         p_cliente_id: clienteId,
-        p_reward_id: rewardId,
+        p_reward_id: targetRewardId,
         p_cita_id: citaId || null,
         p_notas: notas || null
       }),
