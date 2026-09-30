@@ -1,5 +1,8 @@
-const SESSION_ME_ENDPOINT =
-  process.env.SESSION_ME_ENDPOINT;
+const DEFAULT_SESSION_ME_ENDPOINT = process.env.SESSION_ME_ENDPOINT;
+
+function getSessionMeEndpoint(): string | undefined {
+  return process.env.SESSION_ME_ENDPOINT || DEFAULT_SESSION_ME_ENDPOINT;
+}
 
 export type EditorAuthResult =
   | {
@@ -124,7 +127,8 @@ function readAuthorizedBarberias(body: unknown): Array<{ id: number; slug: strin
 }
 
 export async function validateEditorTenant(request: Request, payload: Record<string, unknown>): Promise<EditorAuthResult> {
-  if (!SESSION_ME_ENDPOINT) {
+  const sessionMeEndpoint = getSessionMeEndpoint();
+  if (!sessionMeEndpoint) {
     return {
       ok: false,
       status: 500,
@@ -163,7 +167,7 @@ export async function validateEditorTenant(request: Request, payload: Record<str
   }
 
   const slug = resolvePayloadSlug(payload);
-  const sessionRes = await fetch(SESSION_ME_ENDPOINT, {
+  const sessionRes = await fetch(sessionMeEndpoint, {
     method: "GET",
     headers: { Cookie: `ba_session=${baSession}` },
     cache: "no-store"
