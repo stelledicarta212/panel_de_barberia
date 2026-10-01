@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { LoyaltyService } from "../src/lib/loyalty.service";
-import type { LoyaltyConfig, LoyaltyReward } from "../src/types/loyalty";
+import type { LoyaltyConfig } from "../src/types/loyalty";
 
 const postgrestBase = "https://postgrest.test";
 

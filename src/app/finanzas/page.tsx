@@ -7,6 +7,7 @@ import {
   ArrowRight,
   BadgeCheck,
   Check,
+  Clock,
   Edit2,
   Gift,
   History,
@@ -24,6 +25,7 @@ import {
   X
 } from "lucide-react";
 import { DashboardShell } from "@/components/dashboard-shell";
+import { OffPeakManager } from "@/components/off-peak-manager";
 import { useDashboard } from "@/store/dashboard-context";
 import {
   fetchLoyaltySummary,
@@ -47,7 +49,7 @@ import type {
   LoyaltyRedemption
 } from "@/types/loyalty";
 
-type LoyaltyTab = "clientes" | "recompensas" | "configuracion" | "historial";
+type LoyaltyTab = "clientes" | "recompensas" | "tiempos_muertos" | "configuracion" | "historial";
 type ClientFilterMode = "periodo" | "listos" | "todos";
 type HistoryFilterMode = "todos" | "acumulaciones" | "canjes";
 
@@ -63,6 +65,7 @@ export default function ProgramaLealtadPage() {
 
   // Navigation tab (cajero lands directly on operational 'clientes' tab)
   const [activeTab, setActiveTab] = useState<LoyaltyTab>("clientes");
+  const [offPeakRulesCount, setOffPeakRulesCount] = useState<number>(0);
 
   // Canonical state loaded from PostgreSQL API
   const [loading, setLoading] = useState(true);
@@ -1047,6 +1050,40 @@ export default function ProgramaLealtadPage() {
             </span>
           </button>
 
+          <button
+            type="button"
+            role="tab"
+            aria-selected={activeTab === "tiempos_muertos"}
+            onClick={() => setActiveTab("tiempos_muertos")}
+            style={{
+              padding: "10px 16px",
+              fontSize: "13px",
+              fontWeight: 600,
+              background: "transparent",
+              border: "none",
+              borderBottom: activeTab === "tiempos_muertos" ? "2px solid #d8b56d" : "2px solid transparent",
+              color: activeTab === "tiempos_muertos" ? "#d8b56d" : "var(--muted, #9ca3af)",
+              cursor: "pointer",
+              display: "inline-flex",
+              alignItems: "center",
+              gap: "8px",
+              whiteSpace: "nowrap"
+            }}
+          >
+            <Clock size={16} />
+            <span>Tiempos Muertos</span>
+            <span
+              style={{
+                fontSize: "11px",
+                padding: "2px 6px",
+                borderRadius: "10px",
+                backgroundColor: activeTab === "tiempos_muertos" ? "rgba(216, 181, 109, 0.2)" : "rgba(255, 255, 255, 0.05)"
+              }}
+            >
+              {offPeakRulesCount}
+            </span>
+          </button>
+
           {isOwnerOrAdmin && (
             <button
               type="button"
@@ -1630,6 +1667,18 @@ export default function ProgramaLealtadPage() {
               </div>
             )}
           </div>
+        )}
+
+        {/* TAB: TIEMPOS MUERTOS & DESCUENTOS INTELIGENTES */}
+        {activeTab === "tiempos_muertos" && (
+          <OffPeakManager
+            barberiaId={barberiaId}
+            isOwnerOrAdmin={isOwnerOrAdmin}
+            services={merged.services || []}
+            barbers={merged.barbers || []}
+            onActionMessage={setActionMessage}
+            onRulesCountChange={setOffPeakRulesCount}
+          />
         )}
 
         {/* TAB C: CONFIGURACIÓN DEL PROGRAMA (Owner/Admin Only - Section 34) */}

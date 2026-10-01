@@ -42,6 +42,11 @@ type Movement = {
   serviceId?: string;
   barberId?: string;
   dateKey: string;
+  precioBase?: number;
+  descuentoPorcentaje?: number;
+  descuentoValor?: number;
+  precioFinal?: number;
+  promocionSnapshot?: Record<string, unknown> | null;
 };
 
 function text(value: unknown): string {
@@ -196,12 +201,19 @@ function mapAppointment(item: Record<string, unknown>, index: number): Movement 
   const rawEstado = text(item.estado ?? item.status).toLowerCase();
   const hasPayment = Boolean(pagoId || paidAt || rawEstado === "pagada" || (typeof rawMethod === "string" && rawMethod.trim().length > 0));
   const rawDate = item.fecha ?? item.date;
+
+  const precioBase = item.precio_base != null ? num(item.precio_base) : num(item.precio);
+  const descuentoPorcentaje = item.descuento_porcentaje != null ? num(item.descuento_porcentaje) : 0;
+  const descuentoValor = item.descuento_valor != null ? num(item.descuento_valor) : 0;
+  const precioFinal = item.precio_final != null ? num(item.precio_final) : (item.total != null ? num(item.total) : precioBase);
+  const finalAmount = hasPayment ? num(item.total_pagado ?? item.total ?? precioFinal) : precioFinal;
+
   return {
     id: text(item.id) || `cita-${index + 1}`,
     client: text(item.cliente_nombre ?? item.client ?? item.nombre_cliente) || "Cliente",
     service: text(item.servicio_nombre ?? item.service ?? item.nombre_servicio) || "Servicio",
     method: text(rawMethod) || "Pendiente",
-    amount: num(item.total_pagado ?? item.total),
+    amount: finalAmount,
     status: hasPayment ? "Aceptada" : "Pendiente",
     rawEstado,
     date: formatDate(rawDate),
@@ -209,7 +221,12 @@ function mapAppointment(item: Record<string, unknown>, index: number): Movement 
     hour: formatHour(item.hora_inicio ?? item.hora ?? item.hour),
     barber: text(item.barbero_nombre ?? item.barber ?? item.nombre_barbero) || "Sin barbero",
     serviceId: text(item.servicio_id ?? item.id_servicio),
-    barberId: text(item.barbero_id ?? item.id_barbero)
+    barberId: text(item.barbero_id ?? item.id_barbero),
+    precioBase,
+    descuentoPorcentaje,
+    descuentoValor,
+    precioFinal,
+    promocionSnapshot: (item.promocion_snapshot as Record<string, unknown>) ?? null
   };
 }
 
@@ -477,6 +494,11 @@ function InventarioContent() {
   }, [paramCitaId, movements, services]);
   /* eslint-enable react-hooks/set-state-in-effect */
 
+  const loadedAppointment = useMemo(() => {
+    if (!loadedAppointmentId) return null;
+    return movements.find((m) => String(m.id) === String(loadedAppointmentId)) || null;
+  }, [loadedAppointmentId, movements]);
+
   const selectedServicesGrouped = useMemo(() => {
     const counts = new Map<string, number>();
     for (const id of selectedServiceIds) {
@@ -485,14 +507,32 @@ function InventarioContent() {
     return Array.from(counts.entries())
       .map(([id, quantity]) => {
         const service = services.find((s) => s.id === id);
+        const hasLoadedPromo = Boolean(
+          loadedAppointment &&
+          (loadedAppointment.serviceId === id || loadedAppointment.service.toLowerCase() === service?.name?.toLowerCase()) &&
+          loadedAppointment.descuentoPorcentaje && loadedAppointment.descuentoPorcentaje > 0 &&
+          loadedAppointment.precioFinal != null
+        );
+
+        const effectiveAmount = hasLoadedPromo && loadedAppointment?.precioFinal != null
+          ? loadedAppointment.precioFinal
+          : (service?.amount ?? 0);
+
         return {
           ...service,
+          amount: effectiveAmount,
           quantity,
-          totalAmount: (service?.amount ?? 0) * quantity
+          totalAmount: effectiveAmount * quantity,
+          promo: hasLoadedPromo && loadedAppointment ? {
+            base: loadedAppointment.precioBase || service?.amount || 0,
+            descuentoPct: loadedAppointment.descuentoPorcentaje || 0,
+            descuentoVal: loadedAppointment.descuentoValor || 0,
+            precioFinal: loadedAppointment.precioFinal || 0
+          } : null
         };
       })
       .filter((item) => item.id);
-  }, [selectedServiceIds, services]);
+  }, [selectedServiceIds, services, loadedAppointment]);
 
   const subtotal = useMemo(
     () => selectedServicesGrouped.reduce((acc, item) => acc + (item.totalAmount ?? 0), 0),
@@ -1347,6 +1387,12 @@ function InventarioContent() {
                         <span className="text-[10px] text-[var(--muted)] font-medium">
                           {item.quantity} × {money(item.amount ?? 0)}
                         </span>
+                        {item.promo && (
+                          <span className="text-[10px] text-[#d8b56d] font-semibold flex items-center gap-1">
+                            <Sparkles size={10} />
+                            <span>Promo Tiempos Muertos (-{item.promo.descuentoPct}%)</span>
+                          </span>
+                        )}
                       </div>
                       <div className="flex items-center gap-1.5 shrink-0">
                         <button

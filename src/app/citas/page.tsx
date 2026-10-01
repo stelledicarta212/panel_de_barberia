@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import { CalendarDays, ChevronLeft, ChevronRight, Clock3, Eye, Gift, MoreHorizontal, Pencil, Plus, RefreshCcw, Scissors, Trash2, X } from "lucide-react";
+import { CalendarDays, ChevronLeft, ChevronRight, Clock3, Eye, Gift, MoreHorizontal, Pencil, Plus, RefreshCcw, Scissors, Sparkles, Trash2, X } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { DashboardShell } from "@/components/dashboard-shell";
 import { useDashboard } from "@/store/dashboard-context";
@@ -34,6 +34,11 @@ type RequestItem = {
   inactiveDays: number;
   reactivationBenefit: string;
   offPeakBenefit: string;
+  precioBase?: number;
+  descuentoPorcentaje?: number;
+  descuentoValor?: number;
+  precioFinal?: number;
+  promocionSnapshot?: Record<string, unknown> | null;
 };
 
 type CreatedAppointment = {
@@ -59,6 +64,15 @@ type BarberOption = {
   id: string;
   name: string;
   isActive: boolean;
+};
+
+type SlotPromoInfo = {
+  tieneDescuento: boolean;
+  descuentoPorcentaje: number;
+  descuentoValor: number;
+  precioFinal: number;
+  precioBase: number;
+  promocionNombre: string | null;
 };
 
 
@@ -136,6 +150,17 @@ function mapAppointmentRequests(appointments: Array<Record<string, unknown>>): R
     const hasPayment = Boolean(item.pago_id || item.pagado_en || item.total_pagado || rawEstado === "pagada" || (typeof rawMethod === "string" && rawMethod.trim().length > 0));
     const status: RequestStatus =
       rawEstado.includes("pend") ? "Pendiente" : rawEstado.includes("acept") || rawEstado.includes("confirm") ? "Aceptada" : "Enviada";
+
+    const precioBase = item.precio_base != null ? numberValue(item.precio_base) : numberValue(item.precio);
+    const descuentoPct = item.descuento_porcentaje != null ? numberValue(item.descuento_porcentaje) : 0;
+    const descuentoVal = item.descuento_valor != null ? numberValue(item.descuento_valor) : 0;
+    const precioFinal = item.precio_final != null ? numberValue(item.precio_final) : numberValue(item.total || item.precio || 0);
+    const snap = (item.promocion_snapshot as Record<string, unknown>) || null;
+    const promoNombre = snap && typeof snap.nombre === "string" ? snap.nombre : (descuentoPct > 0 ? `Promo -${descuentoPct}%` : "Sin promoción");
+    const offPeakBenefit = descuentoPct > 0
+      ? `⚡ ${promoNombre} (-${descuentoPct}%) · $${precioFinal.toLocaleString()} (Regular: $${precioBase.toLocaleString()})`
+      : "Sin promoción";
+
     return {
       id: textValue(item.id) || `cita-${index + 1}`,
       client,
@@ -146,7 +171,7 @@ function mapAppointmentRequests(appointments: Array<Record<string, unknown>>): R
       hour: textValue(item.hora_inicio ?? item.hora ?? item.hour).slice(0, 5),
       barber: textValue(item.barbero_nombre ?? item.barber ?? item.nombre_barbero),
       description: textValue(item.notas ?? item.description),
-      total: numberValue(item.total),
+      total: precioFinal || numberValue(item.total),
       status,
       rawEstado,
       hasPayment,
@@ -155,7 +180,12 @@ function mapAppointmentRequests(appointments: Array<Record<string, unknown>>): R
       stampRequired: 8,
       inactiveDays: 0,
       reactivationBenefit: "Sin automatizacion",
-      offPeakBenefit: "Sin promocion"
+      offPeakBenefit,
+      precioBase,
+      descuentoPorcentaje: descuentoPct,
+      descuentoValor: descuentoVal,
+      precioFinal,
+      promocionSnapshot: snap
     };
   });
 }
@@ -323,6 +353,7 @@ export default function CitasPage() {
 
   const [availableBarberIds, setAvailableBarberIds] = useState<string[]>([]);
   const [slotOptions, setSlotOptions] = useState<string[]>([]);
+  const [slotPromoMap, setSlotPromoMap] = useState<Record<string, SlotPromoInfo>>({});
   const [availabilityStatus, setAvailabilityStatus] = useState<{
     type: "idle" | "loading" | "success" | "error";
     message: string;
@@ -384,10 +415,14 @@ export default function CitasPage() {
     () => barberOptions.find((barber) => barber.id === form.barbero) ?? null,
     [barberOptions, form.barbero]
   );
+  const selectedSlotPromo = form.hora ? slotPromoMap[form.hora] : null;
   const computedItems = useMemo(() => {
     if (!selectedService) return [{ name: "Sin servicio seleccionado", price: 0 }];
-    return [{ name: selectedService.name, price: selectedService.price }];
-  }, [selectedService]);
+    const price = (selectedSlotPromo && selectedSlotPromo.tieneDescuento && selectedSlotPromo.precioFinal > 0)
+      ? selectedSlotPromo.precioFinal
+      : selectedService.price;
+    return [{ name: selectedService.name, price }];
+  }, [selectedService, selectedSlotPromo]);
   const subtotal = useMemo(() => computedItems.reduce((acc, item) => acc + item.price, 0), [computedItems]);
   const tax = useMemo(() => Number((subtotal * 0.13).toFixed(2)), [subtotal]);
   const total = useMemo(() => Number((subtotal + tax).toFixed(2)), [subtotal, tax]);
@@ -552,6 +587,7 @@ export default function CitasPage() {
             notas: ""
           });
           setSlotOptions([]);
+          setSlotPromoMap({});
           setAvailableBarberIds([]);
         }
         if (refresh) await refresh();
@@ -765,11 +801,13 @@ export default function CitasPage() {
       if (cancelled) return;
       if (!barberiaId || !reserveDateStr || !form.servicio || !form.barbero) {
         setSlotOptions([]);
+        setSlotPromoMap({});
         setAvailabilityStatus({ type: "idle", message: "" });
         return;
       }
       if (reserveDateStr < todayIsoDate()) {
         setSlotOptions([]);
+        setSlotPromoMap({});
         setAvailabilityStatus({ type: "error", message: "Selecciona una fecha de hoy en adelante." });
         return;
       }
@@ -784,15 +822,34 @@ export default function CitasPage() {
       if (cancelled) return;
       if (!response.ok) {
         setSlotOptions([]);
+        setSlotPromoMap({});
         setAvailabilityStatus({ type: "error", message: response.message || "No fue posible consultar slots." });
         return;
       }
+      const promoMap: Record<string, SlotPromoInfo> = {};
+      const relevantSlots = response.slots.filter(
+        (slot) => textValue(slot.barbero_id ?? slot.id_barbero) === String(form.barbero)
+      );
+
       const slots = Array.from(new Set(
-        response.slots
-          .filter((slot) => textValue(slot.barbero_id ?? slot.id_barbero) === String(form.barbero))
-          .map((slot) => normalizeSlotTime(slot.hora_inicio ?? slot.hora ?? slot.start))
+        relevantSlots
+          .map((slot) => {
+            const time = normalizeSlotTime(slot.hora_inicio ?? slot.hora ?? slot.start);
+            if (time && (slot.tiene_descuento || Number(slot.descuento_porcentaje) > 0)) {
+              promoMap[time] = {
+                tieneDescuento: Boolean(slot.tiene_descuento),
+                descuentoPorcentaje: Number(slot.descuento_porcentaje || 0),
+                descuentoValor: Number(slot.descuento_valor || 0),
+                precioFinal: Number(slot.precio_final || 0),
+                precioBase: Number(slot.precio_base || 0),
+                promocionNombre: (slot.promocion_nombre as string) || null
+              };
+            }
+            return time;
+          })
           .filter(Boolean)
       )).sort();
+      setSlotPromoMap(promoMap);
       setSlotOptions(slots);
       setAvailabilityStatus({
         type: "success",
@@ -1325,6 +1382,7 @@ export default function CitasPage() {
                 onChange={(e) => {
                   setForm((prev) => ({ ...prev, fecha: e.target.value, barbero: "", hora: "" }));
                   setSlotOptions([]);
+                  setSlotPromoMap({});
                   setAvailableBarberIds([]);
                   setCreateStatus({ type: "idle", message: "" });
                 }}
@@ -1339,6 +1397,7 @@ export default function CitasPage() {
                 onChange={(e) => {
                   setForm((prev) => ({ ...prev, barbero: e.target.value, hora: "" }));
                   setSlotOptions([]);
+                  setSlotPromoMap({});
                   setCreateStatus({ type: "idle", message: "" });
                 }}
                 required
@@ -1389,6 +1448,7 @@ export default function CitasPage() {
                 onChange={(e) => {
                   setForm((prev) => ({ ...prev, servicio: e.target.value, barbero: "", hora: "" }));
                   setSlotOptions([]);
+                  setSlotPromoMap({});
                   setAvailableBarberIds([]);
                   setCreateStatus({ type: "idle", message: "" });
                 }}
@@ -1419,12 +1479,41 @@ export default function CitasPage() {
                 ) : (
                   <>
                     <option value="">Selecciona hora disponible</option>
-                    {displayHours.map((hour) => (
-                      <option key={hour} value={hour}>{hour}</option>
-                    ))}
+                    {displayHours.map((hour) => {
+                      const promo = slotPromoMap[hour];
+                      const label = promo?.tieneDescuento
+                        ? `${hour} ⚡ Promo -${promo.descuentoPorcentaje}% ($${promo.precioFinal.toLocaleString()})`
+                        : hour;
+                      return (
+                        <option key={hour} value={hour}>{label}</option>
+                      );
+                    })}
                   </>
                 )}
               </select>
+              {selectedSlotPromo?.tieneDescuento ? (
+                <div style={{
+                  marginTop: "0.5rem",
+                  padding: "0.5rem 0.75rem",
+                  background: "rgba(245, 158, 11, 0.12)",
+                  border: "1px solid rgba(245, 158, 11, 0.35)",
+                  borderRadius: "6px",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "space-between",
+                  fontSize: "0.82rem",
+                  color: "#f59e0b"
+                }}>
+                  <span style={{ display: "flex", alignItems: "center", gap: "0.4rem", fontWeight: 600 }}>
+                    <Sparkles className="w-3.5 h-3.5 inline" />
+                    {selectedSlotPromo.promocionNombre || "Promo Tiempos Muertos"} (-{selectedSlotPromo.descuentoPorcentaje}%)
+                  </span>
+                  <span>
+                    <s style={{ color: "#94a3b8", marginRight: "0.5rem" }}>${selectedSlotPromo.precioBase.toLocaleString()}</s>
+                    <strong style={{ color: "#10b981", fontSize: "0.9rem" }}>${selectedSlotPromo.precioFinal.toLocaleString()}</strong>
+                  </span>
+                </div>
+              ) : null}
 
               <label>Notas</label>
               <textarea
@@ -1541,7 +1630,14 @@ export default function CitasPage() {
                       <span className="ba-citas-initials" aria-hidden="true">{initialsFromName(req.client)}</span>
                       <span data-label="Cliente">{req.client}</span>
                     </span>
-                    <span data-label="Servicio">{req.service}</span>
+                    <span data-label="Servicio">
+                      {req.service}
+                      {req.descuentoPorcentaje && req.descuentoPorcentaje > 0 ? (
+                        <em style={{ marginLeft: "6px", fontSize: "0.75rem", color: "#f59e0b", fontWeight: 600, display: "inline-flex", alignItems: "center", gap: "2px" }}>
+                          <Sparkles size={10} /> -{req.descuentoPorcentaje}%
+                        </em>
+                      ) : null}
+                    </span>
                     <span data-label="Fecha">{req.date}</span>
                     <span data-label="Hora">{(req.hour ?? form.hora) || "Sin hora"}</span>
                     <span data-label="Barbero">{(req.barber ?? selectedBarber?.name) || "Sin barbero"}</span>
