@@ -707,7 +707,7 @@ export async function savePosSale(payload: {
   monto_total: number;
   servicios: Array<{ id: string | number; name: string; amount: number }>;
   cita_id?: string | number;
-}): Promise<{ ok: boolean; message: string }> {
+}): Promise<{ ok: boolean; message: string; total?: number; pago_id?: number }> {
   try {
     const res = await fetch("/api/pos", {
       method: "POST",
@@ -720,7 +720,12 @@ export async function savePosSale(payload: {
     if (!res.ok) {
       return { ok: false, message: data.message || "Error en el servidor de facturación." };
     }
-    return { ok: true, message: data.message || "Cobro procesado con éxito." };
+    return {
+      ok: true,
+      message: data.message || "Cobro procesado con éxito.",
+      total: data.total != null ? Number(data.total) : undefined,
+      pago_id: data.pago_id != null ? Number(data.pago_id) : undefined
+    };
   } catch (err) {
     console.error("Error en savePosSale relative fetch:", err);
     return { ok: false, message: "Error de red al conectar con el servidor de cobro." };

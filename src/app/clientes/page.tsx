@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { ChevronLeft, ChevronRight, Clock3, Gift, MoreHorizontal, RefreshCcw, Scissors, Plus, Search, X } from "lucide-react";
 import { DashboardShell } from "@/components/dashboard-shell";
 import { useDashboard } from "@/store/dashboard-context";
@@ -39,14 +39,24 @@ function formatDbDate(value: unknown): string {
   return `${match[3]}/${match[2]}/${match[1]}`;
 }
 
-function mapRealClients(clients: Array<Record<string, unknown>>, appointments: Array<Record<string, unknown>>): Client[] {
+function mapRealClients(
+  clients: Array<Record<string, unknown>>,
+  appointments: Array<Record<string, unknown>>,
+  loyaltyBalances?: Map<string, number>,
+  loyaltyRequired?: number
+): Client[] {
   const byPhone = new Map<string, Client>();
+  const reqStamps = loyaltyRequired ?? 8;
+
   clients.forEach((item, index) => {
     const phone = textValue(item.telefono ?? item.phone);
+    const id = textValue(item.id);
     const name = textValue(item.nombre ?? item.nombre_completo ?? item.name) || "Cliente";
     const key = phone || `${name}-${index}`;
+    const stamps = (loyaltyBalances && (loyaltyBalances.get(phone) ?? loyaltyBalances.get(id))) ?? 0;
+
     byPhone.set(key, {
-      id: textValue(item.id) || `cliente-${index + 1}`,
+      id: id || `cliente-${index + 1}`,
       name,
       email: textValue(item.email ?? item.correo),
       phone,
@@ -55,8 +65,8 @@ function mapRealClients(clients: Array<Record<string, unknown>>, appointments: A
       avatar: "",
       preferredBarber: "",
       preferredService: "",
-      stampCurrent: 0,
-      stampRequired: 8,
+      stampCurrent: stamps,
+      stampRequired: reqStamps,
       inactiveDays: 0,
       reactivationBenefit: "Sin automatizacion",
       offPeakBenefit: "Sin promocion"
@@ -65,11 +75,14 @@ function mapRealClients(clients: Array<Record<string, unknown>>, appointments: A
 
   appointments.forEach((item, index) => {
     const phone = textValue(item.cliente_tel ?? item.telefono ?? item.phone);
+    const id = textValue(item.cliente_id);
     const name = textValue(item.cliente_nombre ?? item.client ?? item.nombre_cliente) || "Cliente";
     const key = phone || `${name}-${index}`;
     const existing = byPhone.get(key);
+    const stamps = (loyaltyBalances && (loyaltyBalances.get(phone) ?? loyaltyBalances.get(id))) ?? (existing?.stampCurrent ?? 0);
+
     const next: Client = existing ?? {
-      id: textValue(item.cliente_id) || `cliente-cita-${index + 1}`,
+      id: id || `cliente-cita-${index + 1}`,
       name,
       email: "",
       phone,
@@ -78,12 +91,14 @@ function mapRealClients(clients: Array<Record<string, unknown>>, appointments: A
       avatar: "",
       preferredBarber: "",
       preferredService: "",
-      stampCurrent: 0,
-      stampRequired: 8,
+      stampCurrent: stamps,
+      stampRequired: reqStamps,
       inactiveDays: 0,
       reactivationBenefit: "Sin automatizacion",
       offPeakBenefit: "Sin promocion"
     };
+    next.stampCurrent = stamps;
+    next.stampRequired = reqStamps;
     next.lastVisit = formatDbDate(item.fecha);
     next.preferredBarber = textValue(item.barbero_nombre ?? item.barber ?? item.nombre_barbero);
     next.preferredService = textValue(item.servicio_nombre ?? item.service ?? item.nombre_servicio);
@@ -130,7 +145,7 @@ function phoneToWhatsappUrl(phone: string, clientName: string): string | null {
 }
 
 export default function ClientesPage() {
-  const { merged } = useDashboard();
+  const { merged, identity } = useDashboard();
   const [query, setQuery] = useState("");
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [detailOpen, setDetailOpen] = useState(false);
@@ -138,7 +153,41 @@ export default function ClientesPage() {
   const [calendarDay, setCalendarDay] = useState<number | null>(new Date().getDate());
   const [filterMode, setFilterMode] = useState<"day" | "all">("day");
 
-  const realClients = useMemo(() => mapRealClients(merged.clients, merged.appointments), [merged.clients, merged.appointments]);
+  const barberiaId = identity?.barberia_id;
+  const [loyaltyData, setLoyaltyData] = useState<{
+    balances: Map<string, number>;
+    required: number;
+  }>({ balances: new Map(), required: 8 });
+
+  useEffect(() => {
+    const bId = Number(barberiaId ?? 0);
+    if (!bId) return;
+    let isCancelled = false;
+    fetch(`/api/loyalty?barberia_id=${bId}`)
+      .then((res) => (res.ok ? res.json() : null))
+      .then((data) => {
+        if (!data || isCancelled) return;
+        const bMap = new Map<string, number>();
+        const required = Number(data.config?.sellos_requeridos || 8);
+        if (Array.isArray(data.balances)) {
+          for (const b of data.balances) {
+            const sellos = Number(b.saldo_sellos ?? 0);
+            if (b.cliente_id) bMap.set(String(b.cliente_id), sellos);
+            if (b.telefono) bMap.set(String(b.telefono), sellos);
+          }
+        }
+        setLoyaltyData({ balances: bMap, required });
+      })
+      .catch(() => {});
+    return () => {
+      isCancelled = true;
+    };
+  }, [barberiaId]);
+
+  const realClients = useMemo(
+    () => mapRealClients(merged.clients, merged.appointments, loyaltyData.balances, loyaltyData.required),
+    [merged.clients, merged.appointments, loyaltyData]
+  );
 
   const appointmentClientsForSelectedDay = useMemo(() => {
     if (!calendarDay) return [];
@@ -150,18 +199,19 @@ export default function ClientesPage() {
       const phone = textValue(item.cliente_tel ?? item.telefono ?? item.phone);
       const name = textValue(item.cliente_nombre ?? item.client ?? item.nombre_cliente) || "Cliente";
       const existing = realClients.find((client) => (phone && client.phone === phone) || (!phone && client.name.toLowerCase() === name.toLowerCase()));
-      const client: Client = existing ? { ...existing, lastVisit: appointmentDate } : {
+      const curStamps = (loyaltyData.balances.get(phone) ?? loyaltyData.balances.get(textValue(item.cliente_id))) ?? 0;
+      const client: Client = existing ? { ...existing, lastVisit: appointmentDate, stampCurrent: curStamps, stampRequired: loyaltyData.required } : {
         id: textValue(item.cliente_id) || `cliente-cita-dia-${index + 1}`, name, email: "", phone, lastVisit: appointmentDate,
         status: "Confirmada", avatar: "",
         preferredBarber: textValue(item.barbero_nombre ?? item.barber ?? item.nombre_barbero),
         preferredService: textValue(item.servicio_nombre ?? item.service ?? item.nombre_servicio),
-        stampCurrent: 0, stampRequired: 8, inactiveDays: 0,
+        stampCurrent: curStamps, stampRequired: loyaltyData.required, inactiveDays: 0,
         reactivationBenefit: "Sin automatizacion", offPeakBenefit: "Sin promocion"
       };
       byClient.set(phone || name.toLowerCase(), client);
     });
     return Array.from(byClient.values());
-  }, [calendarDay, calendarMonth, merged.appointments, realClients]);
+  }, [calendarDay, calendarMonth, merged.appointments, realClients, loyaltyData]);
 
   const daysWithVisits = useMemo(() => {
     const days = new Set<number>();

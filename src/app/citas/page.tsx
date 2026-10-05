@@ -142,9 +142,17 @@ function formatDbDate(value: unknown): string {
   return `${match[3]}/${match[2]}/${match[1]}`;
 }
 
-function mapAppointmentRequests(appointments: Array<Record<string, unknown>>): RequestItem[] {
+function mapAppointmentRequests(
+  appointments: Array<Record<string, unknown>>,
+  loyaltyBalances?: Map<string, number>,
+  loyaltyRequired?: number
+): RequestItem[] {
+  const reqStamps = loyaltyRequired ?? 8;
+
   return appointments.map((item, index) => {
     const client = textValue(item.cliente_nombre ?? item.client ?? item.nombre_cliente) || "Cliente";
+    const phone = textValue(item.cliente_tel ?? item.telefono ?? item.phone);
+    const clientId = textValue(item.cliente_id);
     const rawEstado = textValue(item.estado ?? item.status).toLowerCase() || "confirmada";
     const rawMethod = item.metodo_pago || item.pago_metodo || item.metodo || item.method;
     const hasPayment = Boolean(item.pago_id || item.pagado_en || item.total_pagado || rawEstado === "pagada" || (typeof rawMethod === "string" && rawMethod.trim().length > 0));
@@ -161,10 +169,12 @@ function mapAppointmentRequests(appointments: Array<Record<string, unknown>>): R
       ? `⚡ ${promoNombre} (-${descuentoPct}%) · $${precioFinal.toLocaleString()} (Regular: $${precioBase.toLocaleString()})`
       : "Sin promoción";
 
+    const curStamps = (loyaltyBalances && (loyaltyBalances.get(phone) ?? loyaltyBalances.get(clientId))) ?? 0;
+
     return {
       id: textValue(item.id) || `cita-${index + 1}`,
       client,
-      phone: textValue(item.cliente_tel ?? item.telefono ?? item.phone),
+      phone,
       email: textValue(item.cliente_email ?? item.email),
       service: textValue(item.servicio_nombre ?? item.service ?? item.nombre_servicio) || "Servicio",
       date: formatDbDate(item.fecha ?? item.date),
@@ -176,8 +186,8 @@ function mapAppointmentRequests(appointments: Array<Record<string, unknown>>): R
       rawEstado,
       hasPayment,
       avatar: "",
-      stampCurrent: 0,
-      stampRequired: 8,
+      stampCurrent: curStamps,
+      stampRequired: reqStamps,
       inactiveDays: 0,
       reactivationBenefit: "Sin automatizacion",
       offPeakBenefit,
@@ -294,7 +304,41 @@ export default function CitasPage() {
   const router = useRouter();
   const { merged, identity, refresh, loading } = useDashboard();
   const barberiaId = identity?.barberia_id;
-  const requests = useMemo(() => mapAppointmentRequests(merged.appointments), [merged.appointments]);
+
+  const [loyaltyData, setLoyaltyData] = useState<{
+    balances: Map<string, number>;
+    required: number;
+  }>({ balances: new Map(), required: 8 });
+
+  useEffect(() => {
+    const bId = Number(barberiaId ?? 0);
+    if (!bId) return;
+    let isCancelled = false;
+    fetch(`/api/loyalty?barberia_id=${bId}`)
+      .then((res) => (res.ok ? res.json() : null))
+      .then((data) => {
+        if (!data || isCancelled) return;
+        const bMap = new Map<string, number>();
+        const required = Number(data.config?.sellos_requeridos || 8);
+        if (Array.isArray(data.balances)) {
+          for (const b of data.balances) {
+            const sellos = Number(b.saldo_sellos ?? 0);
+            if (b.cliente_id) bMap.set(String(b.cliente_id), sellos);
+            if (b.telefono) bMap.set(String(b.telefono), sellos);
+          }
+        }
+        setLoyaltyData({ balances: bMap, required });
+      })
+      .catch(() => {});
+    return () => {
+      isCancelled = true;
+    };
+  }, [barberiaId]);
+
+  const requests = useMemo(
+    () => mapAppointmentRequests(merged.appointments, loyaltyData.balances, loyaltyData.required),
+    [merged.appointments, loyaltyData]
+  );
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [detailOpen, setDetailOpen] = useState(false);
   const [isCreateOpen, setIsCreateOpen] = useState(true);

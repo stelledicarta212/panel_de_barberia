@@ -27,6 +27,9 @@ import { useDashboard } from "@/store/dashboard-context";
 import { savePosSale, updateCitaDashboard } from "@/lib/dashboard-api";
 import { getPosAppointmentAction } from "@/lib/pos-appointment-flow";
 import { summarizePosDay } from "@/lib/pos-daily-summary";
+import type { OffPeakRule } from "@/types/off-peak";
+import { fetchOffPeakRules } from "@/lib/off-peak-client";
+import { OffPeakService } from "@/lib/off-peak.service";
 
 type Movement = {
   id: string;
@@ -325,6 +328,22 @@ function InventarioContent() {
   const [chargeError, setChargeError] = useState<string | null>(null);
   const [serviceSearch, setServiceSearch] = useState("");
 
+  // Reglas de Tiempos Muertos activas para resolución dinámica en mostrador
+  const [offPeakRules, setOffPeakRules] = useState<OffPeakRule[]>([]);
+  useEffect(() => {
+    const bId = Number(identity?.barberia_id ?? 0);
+    if (!bId) return;
+    let isCancelled = false;
+    fetchOffPeakRules(bId)
+      .then((rules) => {
+        if (!isCancelled) setOffPeakRules(rules);
+      })
+      .catch(() => {});
+    return () => {
+      isCancelled = true;
+    };
+  }, [identity?.barberia_id]);
+
   // Control de la Calculadora Modal
   const [showCalculator, setShowCalculator] = useState(false);
   const [calcDisplay, setCalcDisplay] = useState("0");
@@ -504,9 +523,27 @@ function InventarioContent() {
     for (const id of selectedServiceIds) {
       counts.set(id, (counts.get(id) ?? 0) + 1);
     }
+
+    // Fecha y hora actual en zona horaria local para resolución off-peak de mostrador
+    const now = new Date();
+    const yyyy = now.getFullYear();
+    const mm = String(now.getMonth() + 1).padStart(2, "0");
+    const dd = String(now.getDate()).padStart(2, "0");
+    const todayYmd = `${yyyy}-${mm}-${dd}`;
+    const hh = String(now.getHours()).padStart(2, "0");
+    const min = String(now.getMinutes()).padStart(2, "0");
+    const currentHms = `${hh}:${min}:00`;
+
+    const selectedBarberObj = barbers.find((b) => b.name === posBarber);
+    const selectedBarberIdNum = selectedBarberObj && !isNaN(Number(selectedBarberObj.id)) ? Number(selectedBarberObj.id) : null;
+
     return Array.from(counts.entries())
       .map(([id, quantity]) => {
         const service = services.find((s) => s.id === id);
+        const baseAmount = service?.amount ?? 0;
+        const serviceIdNum = !isNaN(Number(id)) ? Number(id) : null;
+
+        // Caso 1: Cita agendada previamente cargada en POS (autoridad financiera soberana)
         const hasLoadedPromo = Boolean(
           loadedAppointment &&
           (loadedAppointment.serviceId === id || loadedAppointment.service.toLowerCase() === service?.name?.toLowerCase()) &&
@@ -514,25 +551,46 @@ function InventarioContent() {
           loadedAppointment.precioFinal != null
         );
 
+        // Caso 2: Venta mostrador (walk-in sin cita previa): evaluar dinámicamente Tiempos Muertos
+        let walkinPromo: { base: number; descuentoPct: number; descuentoVal: number; precioFinal: number } | null = null;
+        if (!loadedAppointment && serviceIdNum && offPeakRules.length > 0) {
+          const calc = OffPeakService.calculatePricePure(baseAmount, offPeakRules, {
+            servicioId: serviceIdNum,
+            barberoId: selectedBarberIdNum,
+            fecha: todayYmd,
+            hora: currentHms
+          });
+          if (calc.tiene_descuento) {
+            walkinPromo = {
+              base: calc.precio_base,
+              descuentoPct: calc.descuento_porcentaje,
+              descuentoVal: calc.descuento_valor,
+              precioFinal: calc.precio_final
+            };
+          }
+        }
+
         const effectiveAmount = hasLoadedPromo && loadedAppointment?.precioFinal != null
           ? loadedAppointment.precioFinal
-          : (service?.amount ?? 0);
+          : (walkinPromo ? walkinPromo.precioFinal : baseAmount);
+
+        const promoData = hasLoadedPromo && loadedAppointment ? {
+          base: loadedAppointment.precioBase || baseAmount,
+          descuentoPct: loadedAppointment.descuentoPorcentaje || 0,
+          descuentoVal: loadedAppointment.descuentoValor || 0,
+          precioFinal: loadedAppointment.precioFinal || 0
+        } : walkinPromo;
 
         return {
           ...service,
           amount: effectiveAmount,
           quantity,
           totalAmount: effectiveAmount * quantity,
-          promo: hasLoadedPromo && loadedAppointment ? {
-            base: loadedAppointment.precioBase || service?.amount || 0,
-            descuentoPct: loadedAppointment.descuentoPorcentaje || 0,
-            descuentoVal: loadedAppointment.descuentoValor || 0,
-            precioFinal: loadedAppointment.precioFinal || 0
-          } : null
+          promo: promoData
         };
       })
       .filter((item) => item.id);
-  }, [selectedServiceIds, services, loadedAppointment]);
+  }, [selectedServiceIds, services, loadedAppointment, offPeakRules, barbers, posBarber]);
 
   const subtotal = useMemo(
     () => selectedServicesGrouped.reduce((acc, item) => acc + (item.totalAmount ?? 0), 0),
@@ -790,13 +848,15 @@ function InventarioContent() {
       const timeStr = now.toLocaleTimeString("es-CO", { hour: "2-digit", minute: "2-digit", hour12: false });
       const dateStr = now.toLocaleDateString("es-CO", { day: "2-digit", month: "2-digit", year: "numeric" });
 
+      const effectiveTotal = (res.total != null && res.total >= 0) ? res.total : subtotal;
+
       setReceiptDetails({
         client: posClient.trim() || "Cliente mostrador",
         barber: posBarber || "Sin barbero",
         method: posMethod,
         received: receivedAmount,
-        change: changeAmount,
-        total: subtotal,
+        change: Math.max(0, receivedAmount - effectiveTotal),
+        total: effectiveTotal,
         date: dateStr,
         hour: timeStr,
         services: selectedServicesGrouped.map(item => ({
