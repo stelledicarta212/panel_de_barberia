@@ -4,6 +4,7 @@ import { useState, useEffect } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
+  AlertTriangle,
   Bell,
   CalendarDays,
   CreditCard,
@@ -16,6 +17,8 @@ import {
   ShieldQuestion,
   RefreshCw,
   Sparkles,
+  Store,
+  Trash2,
   UserRound,
   Users,
   X
@@ -25,6 +28,7 @@ import { useDashboard } from "@/store/dashboard-context";
 import { canAccessPath } from "@/lib/dashboard-access";
 import { getSubscriptionDisplayInfo, BILLING_TERMS_MAP, formatSpanishDate } from "@/lib/product-state";
 import type { DashboardIdentity, DashboardPermissions } from "@/types/dashboard-state";
+import type { SessionMeBarberia } from "@/lib/session-me";
 
 const NAV_ITEMS = [
   { href: "/", label: "Panel", icon: LayoutGrid, permission: "canViewDashboard" },
@@ -65,7 +69,7 @@ function buildSettingsEditUrl(input: DashboardIdentity | null): string {
 
 export function DashboardShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
-  const { identity, merged, error, message, access, isAuthenticated, login, logout, saving, session, productState } = useDashboard();
+  const { identity, merged, error, message, access, isAuthenticated, login, logout, saving, session, productState, barberias, deleteBarberia } = useDashboard();
   const planDisplay = getSubscriptionDisplayInfo(productState);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -75,6 +79,11 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
   const [recoverStatus, setRecoverStatus] = useState<{ type: "success" | "error" | null; text: string | null }>({ type: null, text: null });
   const [sendingRecover, setSendingRecover] = useState(false);
   const [isPlanDrawerOpen, setIsPlanDrawerOpen] = useState(false);
+  const [isBarberiasModalOpen, setIsBarberiasModalOpen] = useState(false);
+  const [deletingBarberia, setDeletingBarberia] = useState<SessionMeBarberia | null>(null);
+  const [confirmBarberiaName, setConfirmBarberiaName] = useState("");
+  const [isDeleting, setIsDeleting] = useState(false);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
 
   useEffect(() => {
     if (!isPlanDrawerOpen) return;
@@ -424,6 +433,27 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
           </button>
 
           <div className="ba-sidebar-footer">
+            {barberias && barberias.length > 0 && (
+              <button
+                type="button"
+                onClick={() => setIsBarberiasModalOpen(true)}
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: "6px",
+                  fontSize: "12px",
+                  color: "var(--muted)",
+                  background: "transparent",
+                  border: "none",
+                  cursor: "pointer",
+                  padding: "4px 0",
+                  marginBottom: "8px"
+                }}
+              >
+                <Store size={13} />
+                <span>Mis barberías ({barberias.length})</span>
+              </button>
+            )}
             <p>rol: {roleLabel}</p>
             <p>id: {identity?.barberia_id ?? "-"}</p>
             <p>slug: {identity?.slug ?? "-"}</p>
@@ -438,6 +468,30 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
           <header className="ba-topbar ba-card">
             <div className="ba-search">Buscar barbería, cliente o cita...</div>
             <div className="ba-topbar-actions">
+              {barberias && barberias.length > 0 && (
+                <button
+                  type="button"
+                  onClick={() => setIsBarberiasModalOpen(true)}
+                  title="Mis barberías"
+                  aria-label="Mis barberías"
+                  style={{
+                    display: "inline-flex",
+                    alignItems: "center",
+                    gap: "6px",
+                    fontSize: "12px",
+                    padding: "6px 12px",
+                    borderRadius: "8px",
+                    border: "1px solid var(--panel-stroke, #333)",
+                    background: "var(--panel, #18181b)",
+                    color: "var(--text, #fff)",
+                    cursor: "pointer",
+                    fontWeight: 600
+                  }}
+                >
+                  <Store size={14} />
+                  <span>Mis barberías ({barberias.length})</span>
+                </button>
+              )}
               <button className="ba-icon-btn" type="button" aria-label="Notificaciones">
                 <Bell size={15} />
               </button>
@@ -719,6 +773,378 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
               </button>
             </div>
           </aside>
+        </div>
+      )}
+
+      {isBarberiasModalOpen && (
+        <div
+          className="ba-plan-drawer-overlay"
+          onClick={() => {
+            if (!isDeleting) {
+              setIsBarberiasModalOpen(false);
+              setDeletingBarberia(null);
+              setDeleteError(null);
+            }
+          }}
+          role="presentation"
+        >
+          <aside
+            className="ba-plan-drawer"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="ba-barberias-drawer-title"
+            onClick={(e) => e.stopPropagation()}
+            style={{ maxWidth: "520px", width: "100%" }}
+          >
+            <div className="ba-plan-drawer-header">
+              <div>
+                <span className="ba-plan-drawer-eyebrow">CUENTA</span>
+                <h2 id="ba-barberias-drawer-title" className="ba-plan-drawer-title">
+                  Mis barberías
+                </h2>
+              </div>
+              <button
+                type="button"
+                className="ba-plan-drawer-close"
+                onClick={() => {
+                  setIsBarberiasModalOpen(false);
+                  setDeletingBarberia(null);
+                  setDeleteError(null);
+                }}
+                aria-label="Cerrar"
+              >
+                <X size={18} />
+              </button>
+            </div>
+
+            <div className="ba-plan-drawer-body">
+              <p style={{ fontSize: "13px", color: "var(--muted)", margin: 0 }}>
+                Selecciona una barbería para abrir su panel o administra las que ya no utilizas.
+              </p>
+
+              {barberias.length === 0 ? (
+                <div className="ba-plan-drawer-card">
+                  <p style={{ margin: 0, color: "var(--muted)", fontSize: "13px" }}>
+                    No tienes barberías registradas actualmente.
+                  </p>
+                </div>
+              ) : (
+                <div style={{ display: "flex", flexDirection: "column", gap: "12px" }}>
+                  {barberias.map((b) => {
+                    const isCurrent = Number(b.id) === Number(identity?.barberia_id);
+                    const isActivePlan = ["PAID_ACTIVE", "TRIAL_ACTIVE", "TRIAL_EXPIRING", "ACTIVATION_PENDING"].includes(
+                      String(b.subscription_state || "").toUpperCase()
+                    );
+                    const isOwner = String(b.role || "").toLowerCase() === "owner" || access.role === "owner";
+
+                    return (
+                      <div
+                        key={b.id}
+                        className="ba-plan-drawer-card"
+                        style={{
+                          display: "flex",
+                          flexDirection: "column",
+                          gap: "10px",
+                          border: isCurrent ? "1px solid var(--accent, #d4af37)" : undefined
+                        }}
+                      >
+                        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+                          <div>
+                            <strong style={{ fontSize: "14px", color: "var(--text)" }}>
+                              {b.nombre || b.slug || `Barbería #${b.id}`}
+                            </strong>
+                            <div style={{ fontSize: "11px", color: "var(--muted)", marginTop: "2px" }}>
+                              slug: {b.slug} · ID: {b.id}
+                            </div>
+                          </div>
+                          {isCurrent && (
+                            <span
+                              style={{
+                                fontSize: "11px",
+                                fontWeight: 700,
+                                padding: "2px 8px",
+                                borderRadius: "6px",
+                                background: "rgba(212, 175, 55, 0.15)",
+                                color: "#d4af37"
+                              }}
+                            >
+                              Actual
+                            </span>
+                          )}
+                        </div>
+
+                        <div style={{ display: "flex", alignItems: "center", gap: "8px", flexWrap: "wrap", fontSize: "11px" }}>
+                          <span
+                            style={{
+                              padding: "2px 8px",
+                              borderRadius: "4px",
+                              background: "var(--panel-stroke, #27272a)",
+                              color: "var(--muted)"
+                            }}
+                          >
+                            Rol: {b.role || "owner"}
+                          </span>
+                          <span
+                            style={{
+                              padding: "2px 8px",
+                              borderRadius: "4px",
+                              background: isActivePlan ? "rgba(34, 197, 94, 0.15)" : "rgba(239, 68, 68, 0.12)",
+                              color: isActivePlan ? "#4ade80" : "#f87171"
+                            }}
+                          >
+                            {isActivePlan ? "Plan activo" : "Plan inactivo / vencido"}
+                          </span>
+                        </div>
+
+                        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginTop: "4px", gap: "8px" }}>
+                          {!isCurrent ? (
+                            <a
+                              href={`/barberia?slug=${encodeURIComponent(b.slug)}&barberia_id=${b.id}`}
+                              style={{
+                                fontSize: "12px",
+                                fontWeight: 600,
+                                color: "var(--accent, #d4af37)",
+                                textDecoration: "none",
+                                padding: "4px 8px",
+                                borderRadius: "6px",
+                                background: "rgba(212, 175, 55, 0.1)"
+                              }}
+                            >
+                              Cambiar a esta
+                            </a>
+                          ) : (
+                            <span style={{ fontSize: "12px", color: "var(--muted)" }}>En uso</span>
+                          )}
+
+                          {isOwner && (
+                            <div>
+                              {isActivePlan ? (
+                                <button
+                                  type="button"
+                                  disabled
+                                  title="No puedes eliminar esta barbería mientras tenga un plan activo. Cancela primero el plan."
+                                  style={{
+                                    display: "inline-flex",
+                                    alignItems: "center",
+                                    gap: "4px",
+                                    fontSize: "12px",
+                                    padding: "4px 8px",
+                                    borderRadius: "6px",
+                                    border: "1px solid rgba(255,255,255,0.08)",
+                                    background: "transparent",
+                                    color: "var(--muted)",
+                                    cursor: "not-allowed",
+                                    opacity: 0.5
+                                  }}
+                                >
+                                  <Trash2 size={13} />
+                                  <span>Eliminar</span>
+                                </button>
+                              ) : (
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    setDeletingBarberia(b);
+                                    setConfirmBarberiaName("");
+                                    setDeleteError(null);
+                                  }}
+                                  title="Eliminar barbería"
+                                  style={{
+                                    display: "inline-flex",
+                                    alignItems: "center",
+                                    gap: "4px",
+                                    fontSize: "12px",
+                                    padding: "4px 8px",
+                                    borderRadius: "6px",
+                                    border: "1px solid rgba(239, 68, 68, 0.3)",
+                                    background: "rgba(239, 68, 68, 0.08)",
+                                    color: "#f87171",
+                                    cursor: "pointer",
+                                    fontWeight: 600
+                                  }}
+                                >
+                                  <Trash2 size={13} />
+                                  <span>Eliminar</span>
+                                </button>
+                              )}
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+          </aside>
+        </div>
+      )}
+
+      {deletingBarberia && (
+        <div
+          className="ba-plan-drawer-overlay"
+          onClick={() => {
+            if (!isDeleting) {
+              setDeletingBarberia(null);
+              setConfirmBarberiaName("");
+              setDeleteError(null);
+            }
+          }}
+          role="presentation"
+          style={{ zIndex: 1100 }}
+        >
+          <div
+            role="alertdialog"
+            aria-modal="true"
+            aria-labelledby="ba-delete-modal-title"
+            onClick={(e) => e.stopPropagation()}
+            style={{
+              maxWidth: "460px",
+              width: "90%",
+              margin: "auto",
+              background: "var(--panel, #18181b)",
+              border: "1px solid rgba(239, 68, 68, 0.4)",
+              borderRadius: "16px",
+              padding: "24px",
+              boxShadow: "0 20px 40px rgba(0, 0, 0, 0.5)",
+              display: "flex",
+              flexDirection: "column",
+              gap: "16px"
+            }}
+          >
+            <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+              <div
+                style={{
+                  width: "36px",
+                  height: "36px",
+                  borderRadius: "50%",
+                  background: "rgba(239, 68, 68, 0.15)",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  color: "#f87171"
+                }}
+              >
+                <AlertTriangle size={20} />
+              </div>
+              <h3 id="ba-delete-modal-title" style={{ margin: 0, fontSize: "16px", fontWeight: 700, color: "var(--text)" }}>
+                ¿Eliminar &ldquo;{deletingBarberia.nombre || deletingBarberia.slug}&rdquo;?
+              </h3>
+            </div>
+
+            <div style={{ fontSize: "13px", color: "var(--muted)", lineHeight: "1.5" }}>
+              <p style={{ margin: "0 0 8px 0" }}>
+                Esta barbería dejará de aparecer en tu cuenta y quedará deshabilitada para nuevas reservas.
+              </p>
+              <p style={{ margin: 0 }}>
+                El historial de citas, pagos y datos contables se conservará.
+              </p>
+            </div>
+
+            <div>
+              <label
+                htmlFor="confirm-barberia-input"
+                style={{ display: "block", fontSize: "12px", fontWeight: 600, color: "var(--text)", marginBottom: "6px" }}
+              >
+                Escribe:{" "}
+                <strong style={{ color: "var(--accent, #d4af37)" }}>
+                  {deletingBarberia.nombre || deletingBarberia.slug}
+                </strong>
+              </label>
+              <input
+                id="confirm-barberia-input"
+                type="text"
+                value={confirmBarberiaName}
+                onChange={(e) => setConfirmBarberiaName(e.target.value)}
+                placeholder={deletingBarberia.nombre || deletingBarberia.slug}
+                disabled={isDeleting}
+                style={{
+                  width: "100%",
+                  padding: "8px 12px",
+                  borderRadius: "8px",
+                  border: "1px solid var(--panel-stroke, #333)",
+                  background: "var(--bg, #09090b)",
+                  color: "var(--text, #fff)",
+                  fontSize: "13px",
+                  boxSizing: "border-box"
+                }}
+              />
+            </div>
+
+            {deleteError && (
+              <p style={{ margin: 0, fontSize: "12px", color: "#f87171" }}>
+                {deleteError}
+              </p>
+            )}
+
+            <div style={{ display: "flex", justifyContent: "flex-end", gap: "10px", marginTop: "8px" }}>
+              <button
+                type="button"
+                onClick={() => {
+                  setDeletingBarberia(null);
+                  setConfirmBarberiaName("");
+                  setDeleteError(null);
+                }}
+                disabled={isDeleting}
+                style={{
+                  padding: "8px 14px",
+                  borderRadius: "8px",
+                  border: "1px solid var(--panel-stroke, #333)",
+                  background: "transparent",
+                  color: "var(--text)",
+                  cursor: "pointer",
+                  fontSize: "13px"
+                }}
+              >
+                Cancelar
+              </button>
+
+              <button
+                type="button"
+                disabled={
+                  confirmBarberiaName.trim() !==
+                    (deletingBarberia.nombre || deletingBarberia.slug || "").trim() ||
+                  isDeleting
+                }
+                onClick={async () => {
+                  setIsDeleting(true);
+                  setDeleteError(null);
+                  const res = await deleteBarberia(deletingBarberia.id);
+                  setIsDeleting(false);
+                  if (res.ok) {
+                    setDeletingBarberia(null);
+                    setConfirmBarberiaName("");
+                    setIsBarberiasModalOpen(false);
+                  } else {
+                    setDeleteError(res.message || "Error al eliminar.");
+                  }
+                }}
+                style={{
+                  padding: "8px 16px",
+                  borderRadius: "8px",
+                  border: "none",
+                  background:
+                    confirmBarberiaName.trim() ===
+                      (deletingBarberia.nombre || deletingBarberia.slug || "").trim() && !isDeleting
+                      ? "#ef4444"
+                      : "rgba(239, 68, 68, 0.4)",
+                  color: "#fff",
+                  cursor:
+                    confirmBarberiaName.trim() ===
+                      (deletingBarberia.nombre || deletingBarberia.slug || "").trim() && !isDeleting
+                      ? "pointer"
+                      : "not-allowed",
+                  fontSize: "13px",
+                  fontWeight: 700,
+                  display: "inline-flex",
+                  alignItems: "center",
+                  gap: "6px"
+                }}
+              >
+                {isDeleting ? "Eliminando..." : "Eliminar barbería"}
+              </button>
+            </div>
+          </div>
         </div>
       )}
     </main>
