@@ -28,8 +28,11 @@ export function getCanonicalOrigin(): string {
     process.env.NEXT_PUBLIC_BASE_URL ??
     "https://barberagency-barberagency.gymh5g.easypanel.host";
 
-  const trimmed = configured.trim().replace(/\/+$/, "");
+  let trimmed = configured.trim().replace(/\/+$/, "");
   if (trimmed && isSafeOrigin(trimmed)) {
+    if (trimmed.startsWith("http://")) {
+      trimmed = trimmed.replace(/^http:\/\//, "https://");
+    }
     return trimmed;
   }
   return "https://barberagency-barberagency.gymh5g.easypanel.host";
@@ -73,16 +76,16 @@ export function isTrustedHost(host: string): boolean {
 }
 
 export function resolveSafeRedirectOrigin(request: Request): string {
+  // Always enforce HTTPS for public canonical BarberAgency redirects.
+  // Internal ingress or reverse proxies may forward 'http' internally, but the client-facing scheme must be https.
   const forwardedHost = request.headers.get("x-forwarded-host");
-  const forwardedProto = request.headers.get("x-forwarded-proto") || "https";
-
   if (forwardedHost && isTrustedHost(forwardedHost)) {
-    return `${forwardedProto}://${forwardedHost}`.replace(/\/+$/, "");
+    return `https://${forwardedHost}`.replace(/\/+$/, "");
   }
 
   const host = request.headers.get("host");
   if (host && isTrustedHost(host)) {
-    return `${forwardedProto}://${host}`.replace(/\/+$/, "");
+    return `https://${host}`.replace(/\/+$/, "");
   }
 
   return getCanonicalOrigin();

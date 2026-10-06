@@ -197,4 +197,82 @@ describe("QR Redirect Security & Multi-Tenant Isolation", () => {
     const res2 = await GET(req2, { params: Promise.resolve({ qr_code: "" }) });
     expect(res2.status).toBe(404);
   });
+
+  // 12. x-forwarded-proto=http is overridden with https for trusted host
+  it("12. x-forwarded-proto=http does not downgrade redirect to http", async () => {
+    vi.spyOn(publicRpc, "resolveQrCode").mockResolvedValue({
+      ok: true,
+      slug: "barberia-prueba-4",
+      redirect_path: "/b/barberia-prueba-4"
+    });
+
+    const req = new Request("http://barberagency-barberagency.gymh5g.easypanel.host/q/QR04851428", {
+      headers: {
+        host: "barberagency-barberagency.gymh5g.easypanel.host",
+        "x-forwarded-host": "barberagency-barberagency.gymh5g.easypanel.host",
+        "x-forwarded-proto": "http"
+      }
+    });
+
+    const res = await GET(req, { params: Promise.resolve({ qr_code: "QR04851428" }) });
+    expect(res.status).toBe(302);
+    const location = res.headers.get("location") || "";
+    expect(location.startsWith("https://")).toBe(true);
+    expect(location).toBe(
+      "https://barberagency-barberagency.gymh5g.easypanel.host/b/barberia-prueba-4"
+    );
+  });
+
+  // 13. x-forwarded-proto=https works cleanly
+  it("13. x-forwarded-proto=https resolves directly to https", async () => {
+    vi.spyOn(publicRpc, "resolveQrCode").mockResolvedValue({
+      ok: true,
+      slug: "barberia-61",
+      redirect_path: "/b/barberia-61"
+    });
+
+    const req = new Request("https://barberagency.com/q/QR6D4BAD60", {
+      headers: {
+        host: "barberagency.com",
+        "x-forwarded-proto": "https"
+      }
+    });
+
+    const res = await GET(req, { params: Promise.resolve({ qr_code: "QR6D4BAD60" }) });
+    expect(res.status).toBe(302);
+    expect(res.headers.get("location")).toBe("https://barberagency.com/b/barberia-61");
+  });
+
+  // 14. adversarial attack vector tests
+  it("14. adversarial vectors (javascript proto, evil host, 0.0.0.0, internal container) all resolve to canonical https", async () => {
+    vi.spyOn(publicRpc, "resolveQrCode").mockResolvedValue({
+      ok: true,
+      slug: "barberia-prueba-4",
+      redirect_path: "/b/barberia-prueba-4"
+    });
+
+    const adversarialVectors: Record<string, string>[] = [
+      { host: "attacker.evil.com", proto: "https" },
+      { host: "evil.attacker.com", "x-forwarded-host": "evil.attacker.com" },
+      { host: "0.0.0.0:3000", "x-forwarded-proto": "javascript" },
+      { host: "container-app.internal", "x-forwarded-proto": "http" },
+      { host: "127.0.0.1", "x-forwarded-host": "127.0.0.1:8080" },
+      { host: "localhost", "x-forwarded-host": "localhost:3000" }
+    ];
+
+    for (const headers of adversarialVectors) {
+      const req = new Request("http://localhost:3000/q/QR04851428", { headers });
+      const res = await GET(req, { params: Promise.resolve({ qr_code: "QR04851428" }) });
+
+      expect(res.status).toBe(302);
+      const loc = res.headers.get("location") || "";
+      expect(loc.startsWith("https://barberagency-barberagency.gymh5g.easypanel.host")).toBe(true);
+      expect(loc).not.toContain("attacker");
+      expect(loc).not.toContain("localhost");
+      expect(loc).not.toContain("127.0.0.1");
+      expect(loc).not.toContain("0.0.0.0");
+      expect(loc).not.toContain(":3000");
+      expect(loc).not.toContain("internal");
+    }
+  });
 });
