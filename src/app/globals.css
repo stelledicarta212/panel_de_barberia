@@ -1295,6 +1295,108 @@ textarea {
   }
 }
 
+@media (max-width: 480px) {
+  .ba-plan-drawer-header {
+    padding: 16px 16px 14px;
+  }
+  .ba-plan-drawer-body {
+    padding: 14px 12px;
+    gap: 12px;
+  }
+}
+
+.ba-barberia-row-card {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 14px 16px;
+  border-radius: 12px;
+  background: var(--panel, #18181b);
+  border: 1px solid var(--panel-stroke, #27272a);
+  box-sizing: border-box;
+}
+
+.ba-barberia-row-card.is-current {
+  border-color: var(--accent, #d4af37);
+  box-shadow: 0 0 0 1px rgba(212, 175, 55, 0.25);
+}
+
+.ba-barberia-delete-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 12px;
+  font-weight: 600;
+  padding: 6px 10px;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  white-space: nowrap;
+  flex-shrink: 0;
+  box-sizing: border-box;
+  text-decoration: none;
+}
+
+.ba-barberia-delete-btn.is-active-blocked {
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  background: rgba(255, 255, 255, 0.05);
+  color: var(--muted, #a1a1aa);
+}
+
+.ba-barberia-delete-btn.is-active-blocked:hover {
+  background: rgba(255, 255, 255, 0.08);
+  color: var(--text, #ffffff);
+  border-color: rgba(255, 255, 255, 0.22);
+}
+
+.ba-barberia-delete-btn.is-eligible {
+  border: 1px solid rgba(239, 68, 68, 0.4);
+  background: rgba(239, 68, 68, 0.12);
+  color: #f87171;
+}
+
+.ba-barberia-delete-btn.is-eligible:hover {
+  border-color: rgba(239, 68, 68, 0.7);
+  background: rgba(239, 68, 68, 0.22);
+  color: #ffffff;
+}
+
+.ba-delete-modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.75);
+  backdrop-filter: blur(8px);
+  z-index: 1100;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+  box-sizing: border-box;
+  animation: ba-fade-in 0.15s ease-out;
+}
+
+.ba-delete-modal-dialog {
+  width: 100%;
+  max-width: 450px;
+  background: var(--panel, #18181b);
+  border: 1px solid rgba(239, 68, 68, 0.4);
+  border-radius: 16px;
+  padding: 24px;
+  box-shadow: 0 20px 40px rgba(0, 0, 0, 0.6);
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  box-sizing: border-box;
+}
+
+@media (max-width: 380px) {
+  .ba-delete-modal-dialog {
+    padding: 16px 14px;
+    gap: 12px;
+  }
+}
+
+
 /* Paid Plan Expiry Warning Alert & Drawer Notice */
 .ba-subscription-banner.ba-plan-expiry-warning {
   border-color: rgba(245, 158, 11, 0.45) !important;

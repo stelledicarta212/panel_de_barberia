@@ -4,6 +4,7 @@ import { useState, useEffect } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
+  AlertCircle,
   AlertTriangle,
   Bell,
   CalendarDays,
@@ -27,6 +28,7 @@ import { ThemeToggle } from "@/components/theme-toggle";
 import { useDashboard } from "@/store/dashboard-context";
 import { canAccessPath } from "@/lib/dashboard-access";
 import { getSubscriptionDisplayInfo, BILLING_TERMS_MAP, formatSpanishDate } from "@/lib/product-state";
+import { getBarberiaStatusTag, isExactNameConfirmation } from "@/lib/barberia-ui";
 import type { DashboardIdentity, DashboardPermissions } from "@/types/dashboard-state";
 import type { SessionMeBarberia } from "@/lib/session-me";
 
@@ -84,12 +86,22 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
   const [confirmBarberiaName, setConfirmBarberiaName] = useState("");
   const [isDeleting, setIsDeleting] = useState(false);
   const [deleteError, setDeleteError] = useState<string | null>(null);
+  const [blockedNotice, setBlockedNotice] = useState<string | null>(null);
 
   useEffect(() => {
-    if (!isPlanDrawerOpen) return;
+    if (!isPlanDrawerOpen && !isBarberiasModalOpen && !deletingBarberia) return;
     function handleKeyDown(event: KeyboardEvent) {
       if (event.key === "Escape") {
-        setIsPlanDrawerOpen(false);
+        if (deletingBarberia && !isDeleting) {
+          setDeletingBarberia(null);
+          setConfirmBarberiaName("");
+          setDeleteError(null);
+        } else if (isBarberiasModalOpen && !isDeleting) {
+          setIsBarberiasModalOpen(false);
+          setBlockedNotice(null);
+        } else if (isPlanDrawerOpen) {
+          setIsPlanDrawerOpen(false);
+        }
       }
     }
     window.addEventListener("keydown", handleKeyDown);
@@ -99,7 +111,7 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
       window.removeEventListener("keydown", handleKeyDown);
       document.body.style.overflow = prevOverflow;
     };
-  }, [isPlanDrawerOpen]);
+  }, [isPlanDrawerOpen, isBarberiasModalOpen, deletingBarberia, isDeleting]);
 
   const permissions = access.permissions;
   const canViewCurrentPath = canAccessPath(pathname, permissions);
@@ -784,6 +796,7 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
               setIsBarberiasModalOpen(false);
               setDeletingBarberia(null);
               setDeleteError(null);
+              setBlockedNotice(null);
             }
           }}
           role="presentation"
@@ -810,6 +823,7 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
                   setIsBarberiasModalOpen(false);
                   setDeletingBarberia(null);
                   setDeleteError(null);
+                  setBlockedNotice(null);
                 }}
                 aria-label="Cerrar"
               >
@@ -822,6 +836,44 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
                 Selecciona una barbería para abrir su panel o administra las que ya no utilizas.
               </p>
 
+              {blockedNotice && (
+                <div
+                  role="alert"
+                  style={{
+                    display: "flex",
+                    alignItems: "flex-start",
+                    gap: "10px",
+                    padding: "10px 12px",
+                    borderRadius: "8px",
+                    background: "rgba(245, 158, 11, 0.12)",
+                    border: "1px solid rgba(245, 158, 11, 0.35)",
+                    color: "#fbbf24",
+                    fontSize: "12px",
+                    lineHeight: "1.4"
+                  }}
+                >
+                  <AlertCircle size={16} style={{ flexShrink: 0, marginTop: "2px" }} />
+                  <span style={{ flex: 1 }}>{blockedNotice}</span>
+                  <button
+                    type="button"
+                    onClick={() => setBlockedNotice(null)}
+                    aria-label="Cerrar aviso"
+                    style={{
+                      background: "transparent",
+                      border: "none",
+                      color: "#fbbf24",
+                      cursor: "pointer",
+                      padding: "0 2px",
+                      fontSize: "16px",
+                      fontWeight: 700,
+                      lineHeight: 1
+                    }}
+                  >
+                    ×
+                  </button>
+                </div>
+              )}
+
               {barberias.length === 0 ? (
                 <div className="ba-plan-drawer-card">
                   <p style={{ margin: 0, color: "var(--muted)", fontSize: "13px" }}>
@@ -832,71 +884,97 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
                 <div style={{ display: "flex", flexDirection: "column", gap: "12px" }}>
                   {barberias.map((b) => {
                     const isCurrent = Number(b.id) === Number(identity?.barberia_id);
-                    const isActivePlan = ["PAID_ACTIVE", "TRIAL_ACTIVE", "TRIAL_EXPIRING", "ACTIVATION_PENDING"].includes(
-                      String(b.subscription_state || "").toUpperCase()
-                    );
-                    const isOwner = String(b.role || "").toLowerCase() === "owner" || access.role === "owner";
+                    const statusTag = getBarberiaStatusTag(b);
+                    const isActivePlan = statusTag.isActive;
+                    const isOwner =
+                      String(b.role || "").trim().toLowerCase() === "owner" ||
+                      String(access.role || "").trim().toLowerCase() === "owner" ||
+                      !b.role;
 
                     return (
                       <div
                         key={b.id}
-                        className="ba-plan-drawer-card"
-                        style={{
-                          display: "flex",
-                          flexDirection: "column",
-                          gap: "10px",
-                          border: isCurrent ? "1px solid var(--accent, #d4af37)" : undefined
-                        }}
+                        className={`ba-barberia-row-card${isCurrent ? " is-current" : ""}`}
                       >
-                        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-                          <div>
-                            <strong style={{ fontSize: "14px", color: "var(--text)" }}>
-                              {b.nombre || b.slug || `Barbería #${b.id}`}
-                            </strong>
-                            <div style={{ fontSize: "11px", color: "var(--muted)", marginTop: "2px" }}>
+                        <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: "10px" }}>
+                          <div style={{ minWidth: 0, flex: 1 }}>
+                            <div style={{ display: "flex", alignItems: "center", gap: "6px", flexWrap: "wrap", marginBottom: "4px" }}>
+                              <strong style={{ fontSize: "14px", color: "var(--text)", wordBreak: "break-word" }}>
+                                {b.nombre || b.slug || `Barbería #${b.id}`}
+                              </strong>
+                              <span
+                                style={{
+                                  fontSize: "11px",
+                                  fontWeight: 600,
+                                  padding: "2px 8px",
+                                  borderRadius: "4px",
+                                  background: statusTag.bg,
+                                  color: statusTag.color,
+                                  whiteSpace: "nowrap"
+                                }}
+                              >
+                                {statusTag.label}
+                              </span>
+                              {isCurrent && (
+                                <span
+                                  style={{
+                                    fontSize: "11px",
+                                    fontWeight: 700,
+                                    padding: "2px 8px",
+                                    borderRadius: "6px",
+                                    background: "rgba(212, 175, 55, 0.15)",
+                                    color: "#d4af37",
+                                    whiteSpace: "nowrap"
+                                  }}
+                                >
+                                  Actual
+                                </span>
+                              )}
+                            </div>
+                            <div style={{ fontSize: "11px", color: "var(--muted)" }}>
                               slug: {b.slug} · ID: {b.id}
                             </div>
                           </div>
-                          {isCurrent && (
-                            <span
-                              style={{
-                                fontSize: "11px",
-                                fontWeight: 700,
-                                padding: "2px 8px",
-                                borderRadius: "6px",
-                                background: "rgba(212, 175, 55, 0.15)",
-                                color: "#d4af37"
-                              }}
-                            >
-                              Actual
-                            </span>
+
+                          {isOwner && (
+                            <div style={{ flexShrink: 0 }}>
+                              {isActivePlan ? (
+                                <button
+                                  type="button"
+                                  className="ba-barberia-delete-btn is-active-blocked"
+                                  onClick={() =>
+                                    setBlockedNotice(
+                                      "No puedes eliminar esta barbería mientras tenga un plan activo. Cancela primero el plan."
+                                    )
+                                  }
+                                  title="No puedes eliminar esta barbería mientras tenga un plan activo. Cancela primero el plan."
+                                  aria-label={`No puedes eliminar ${b.nombre || b.slug}: plan activo`}
+                                >
+                                  <Trash2 size={13} />
+                                  <span>Eliminar</span>
+                                </button>
+                              ) : (
+                                <button
+                                  type="button"
+                                  className="ba-barberia-delete-btn is-eligible"
+                                  onClick={() => {
+                                    setBlockedNotice(null);
+                                    setDeletingBarberia(b);
+                                    setConfirmBarberiaName("");
+                                    setDeleteError(null);
+                                  }}
+                                  title="Eliminar barbería"
+                                  aria-label={`Eliminar barbería ${b.nombre || b.slug}`}
+                                >
+                                  <Trash2 size={13} />
+                                  <span>Eliminar</span>
+                                </button>
+                              )}
+                            </div>
                           )}
                         </div>
 
-                        <div style={{ display: "flex", alignItems: "center", gap: "8px", flexWrap: "wrap", fontSize: "11px" }}>
-                          <span
-                            style={{
-                              padding: "2px 8px",
-                              borderRadius: "4px",
-                              background: "var(--panel-stroke, #27272a)",
-                              color: "var(--muted)"
-                            }}
-                          >
-                            Rol: {b.role || "owner"}
-                          </span>
-                          <span
-                            style={{
-                              padding: "2px 8px",
-                              borderRadius: "4px",
-                              background: isActivePlan ? "rgba(34, 197, 94, 0.15)" : "rgba(239, 68, 68, 0.12)",
-                              color: isActivePlan ? "#4ade80" : "#f87171"
-                            }}
-                          >
-                            {isActivePlan ? "Plan activo" : "Plan inactivo / vencido"}
-                          </span>
-                        </div>
-
-                        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginTop: "4px", gap: "8px" }}>
+                        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginTop: "2px", gap: "8px" }}>
                           {!isCurrent ? (
                             <a
                               href={`/barberia?slug=${encodeURIComponent(b.slug)}&barberia_id=${b.id}`}
@@ -913,61 +991,7 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
                               Cambiar a esta
                             </a>
                           ) : (
-                            <span style={{ fontSize: "12px", color: "var(--muted)" }}>En uso</span>
-                          )}
-
-                          {isOwner && (
-                            <div>
-                              {isActivePlan ? (
-                                <button
-                                  type="button"
-                                  disabled
-                                  title="No puedes eliminar esta barbería mientras tenga un plan activo. Cancela primero el plan."
-                                  style={{
-                                    display: "inline-flex",
-                                    alignItems: "center",
-                                    gap: "4px",
-                                    fontSize: "12px",
-                                    padding: "4px 8px",
-                                    borderRadius: "6px",
-                                    border: "1px solid rgba(255,255,255,0.08)",
-                                    background: "transparent",
-                                    color: "var(--muted)",
-                                    cursor: "not-allowed",
-                                    opacity: 0.5
-                                  }}
-                                >
-                                  <Trash2 size={13} />
-                                  <span>Eliminar</span>
-                                </button>
-                              ) : (
-                                <button
-                                  type="button"
-                                  onClick={() => {
-                                    setDeletingBarberia(b);
-                                    setConfirmBarberiaName("");
-                                    setDeleteError(null);
-                                  }}
-                                  title="Eliminar barbería"
-                                  style={{
-                                    display: "inline-flex",
-                                    alignItems: "center",
-                                    gap: "4px",
-                                    fontSize: "12px",
-                                    padding: "4px 8px",
-                                    borderRadius: "6px",
-                                    border: "1px solid rgba(239, 68, 68, 0.3)",
-                                    background: "rgba(239, 68, 68, 0.08)",
-                                    color: "#f87171",
-                                    cursor: "pointer",
-                                    fontWeight: 600
-                                  }}
-                                >
-                                  <Trash2 size={13} />
-                                  <span>Eliminar</span>
-                                </button>
-                              )}
-                            </div>
+                            <span style={{ fontSize: "12px", color: "var(--muted)", fontWeight: 500 }}>En uso actualmente</span>
                           )}
                         </div>
                       </div>
@@ -982,7 +1006,7 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
 
       {deletingBarberia && (
         <div
-          className="ba-plan-drawer-overlay"
+          className="ba-delete-modal-overlay"
           onClick={() => {
             if (!isDeleting) {
               setDeletingBarberia(null);
@@ -991,26 +1015,13 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
             }
           }}
           role="presentation"
-          style={{ zIndex: 1100 }}
         >
           <div
+            className="ba-delete-modal-dialog"
             role="alertdialog"
             aria-modal="true"
             aria-labelledby="ba-delete-modal-title"
             onClick={(e) => e.stopPropagation()}
-            style={{
-              maxWidth: "460px",
-              width: "90%",
-              margin: "auto",
-              background: "var(--panel, #18181b)",
-              border: "1px solid rgba(239, 68, 68, 0.4)",
-              borderRadius: "16px",
-              padding: "24px",
-              boxShadow: "0 20px 40px rgba(0, 0, 0, 0.5)",
-              display: "flex",
-              flexDirection: "column",
-              gap: "16px"
-            }}
           >
             <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
               <div
@@ -1022,22 +1033,29 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
                   display: "flex",
                   alignItems: "center",
                   justifyContent: "center",
-                  color: "#f87171"
+                  color: "#f87171",
+                  flexShrink: 0
                 }}
               >
                 <AlertTriangle size={20} />
               </div>
-              <h3 id="ba-delete-modal-title" style={{ margin: 0, fontSize: "16px", fontWeight: 700, color: "var(--text)" }}>
-                ¿Eliminar &ldquo;{deletingBarberia.nombre || deletingBarberia.slug}&rdquo;?
+              <h3 id="ba-delete-modal-title" style={{ margin: 0, fontSize: "17px", fontWeight: 700, color: "var(--text)" }}>
+                Eliminar barbería
               </h3>
             </div>
 
             <div style={{ fontSize: "13px", color: "var(--muted)", lineHeight: "1.5" }}>
-              <p style={{ margin: "0 0 8px 0" }}>
-                Esta barbería dejará de aparecer en tu cuenta y quedará deshabilitada para nuevas reservas.
+              <p style={{ margin: "0 0 8px 0", color: "var(--text)" }}>
+                Vas a eliminar:{" "}
+                <strong style={{ color: "var(--accent, #d4af37)" }}>
+                  {deletingBarberia.nombre || deletingBarberia.slug}
+                </strong>
+              </p>
+              <p style={{ margin: "0 0 6px 0" }}>
+                La barbería dejará de aparecer en tu cuenta y no aceptará nuevas reservas.
               </p>
               <p style={{ margin: 0 }}>
-                El historial de citas, pagos y datos contables se conservará.
+                El historial de citas, pagos y datos se conservará.
               </p>
             </div>
 
@@ -1046,10 +1064,10 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
                 htmlFor="confirm-barberia-input"
                 style={{ display: "block", fontSize: "12px", fontWeight: 600, color: "var(--text)", marginBottom: "6px" }}
               >
-                Escribe:{" "}
-                <strong style={{ color: "var(--accent, #d4af37)" }}>
+                Escribe el nombre exacto para confirmar:{" "}
+                <span style={{ color: "var(--accent, #d4af37)" }}>
                   {deletingBarberia.nombre || deletingBarberia.slug}
-                </strong>
+                </span>
               </label>
               <input
                 id="confirm-barberia-input"
@@ -1060,7 +1078,7 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
                 disabled={isDeleting}
                 style={{
                   width: "100%",
-                  padding: "8px 12px",
+                  padding: "10px 12px",
                   borderRadius: "8px",
                   border: "1px solid var(--panel-stroke, #333)",
                   background: "var(--bg, #09090b)",
@@ -1077,7 +1095,7 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
               </p>
             )}
 
-            <div style={{ display: "flex", justifyContent: "flex-end", gap: "10px", marginTop: "8px" }}>
+            <div style={{ display: "flex", justifyContent: "flex-end", gap: "10px", marginTop: "8px", flexWrap: "wrap" }}>
               <button
                 type="button"
                 onClick={() => {
@@ -1093,7 +1111,8 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
                   background: "transparent",
                   color: "var(--text)",
                   cursor: "pointer",
-                  fontSize: "13px"
+                  fontSize: "13px",
+                  fontWeight: 600
                 }}
               >
                 Cancelar
@@ -1102,8 +1121,7 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
               <button
                 type="button"
                 disabled={
-                  confirmBarberiaName.trim() !==
-                    (deletingBarberia.nombre || deletingBarberia.slug || "").trim() ||
+                  !isExactNameConfirmation(confirmBarberiaName, deletingBarberia) ||
                   isDeleting
                 }
                 onClick={async () => {
@@ -1124,14 +1142,12 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
                   borderRadius: "8px",
                   border: "none",
                   background:
-                    confirmBarberiaName.trim() ===
-                      (deletingBarberia.nombre || deletingBarberia.slug || "").trim() && !isDeleting
+                    isExactNameConfirmation(confirmBarberiaName, deletingBarberia) && !isDeleting
                       ? "#ef4444"
                       : "rgba(239, 68, 68, 0.4)",
                   color: "#fff",
                   cursor:
-                    confirmBarberiaName.trim() ===
-                      (deletingBarberia.nombre || deletingBarberia.slug || "").trim() && !isDeleting
+                    isExactNameConfirmation(confirmBarberiaName, deletingBarberia) && !isDeleting
                       ? "pointer"
                       : "not-allowed",
                   fontSize: "13px",
