@@ -185,9 +185,27 @@ export async function deleteBarberiaService(
   if (postgrestBase) {
     const rpcUrl = `${postgrestBase}/rpc/ba_soft_delete_barberia`;
     try {
+      const headers: Record<string, string> = {
+        "Content-Type": "application/json",
+        Accept: "application/json"
+      };
+      if (baSession) {
+        headers["Authorization"] = `Bearer ${baSession}`;
+      }
+      const serviceToken = (
+        process.env.POSTGREST_SERVICE_KEY ??
+        process.env.SUPABASE_SERVICE_ROLE_KEY ??
+        process.env.LOYALTY_SERVICE_ROLE_TOKEN ??
+        ""
+      ).trim();
+      if (!baSession && serviceToken) {
+        headers["Authorization"] = `Bearer ${serviceToken}`;
+        headers["apikey"] = serviceToken;
+      }
+
       const rpcRes = await fetch(rpcUrl, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers,
         body: JSON.stringify({
           p_user_id: userId,
           p_barberia_id: targetBarberiaId
