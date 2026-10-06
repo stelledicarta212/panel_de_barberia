@@ -4541,6 +4541,8 @@ textarea {
   display: grid;
   gap: 8px;
   grid-template-columns: minmax(0, 1.7fr) minmax(250px, 0.7fr);
+  max-width: 100%;
+  min-width: 0;
 }
 
 .ba-pos-layout {
@@ -5054,6 +5056,8 @@ textarea {
   padding: 10px;
   display: grid;
   gap: 8px;
+  max-width: 100%;
+  min-width: 0;
 }
 
 .ba-loyalty-head h1 {
@@ -5063,6 +5067,8 @@ textarea {
   display: inline-flex;
   align-items: center;
   gap: 6px;
+  min-width: 0;
+  overflow-wrap: anywhere;
 }
 
 .ba-loyalty-head {
@@ -5070,12 +5076,15 @@ textarea {
   align-items: center;
   justify-content: space-between;
   gap: 8px;
+  min-width: 0;
 }
 
 .ba-pro-badge {
   display: inline-flex;
   align-items: center;
   gap: 4px;
+  max-width: 100%;
+  min-width: 0;
   border-radius: 999px;
   padding: 6px 10px;
   font-size: 11px;
@@ -5093,11 +5102,15 @@ textarea {
   font-size: 11px;
   font-weight: 700;
   width: 72px;
+  min-width: 0;
+  max-width: 100%;
 }
 
 .ba-loyalty-block {
   display: grid;
   gap: 8px;
+  max-width: 100%;
+  min-width: 0;
 }
 
 .ba-loyalty-stamp-block {
@@ -5108,6 +5121,7 @@ textarea {
 .ba-loyalty-feature-card {
   padding: 14px;
   gap: 12px;
+  min-width: 0;
   border-radius: 16px;
   border: 1px solid color-mix(in srgb, var(--gold) 24%, var(--panel-stroke));
   background:
@@ -5139,18 +5153,21 @@ textarea {
   display: grid;
   gap: 8px;
   grid-template-columns: repeat(2, minmax(0, 1fr));
+  min-width: 0;
 }
 
 .ba-loyalty-form-grid {
   display: grid;
   gap: 8px;
   grid-template-columns: repeat(2, minmax(0, 1fr));
+  min-width: 0;
 }
 
 .ba-stamp-preview {
   display: grid;
   grid-template-columns: repeat(8, minmax(0, 1fr));
   gap: 10px;
+  min-width: 0;
 }
 
 .ba-stamp-preview span {
@@ -5186,6 +5203,7 @@ textarea {
     linear-gradient(180deg, rgba(255, 255, 255, 0.02), rgba(0, 0, 0, 0.06));
   display: grid;
   gap: 12px;
+  min-width: 0;
   box-shadow: 0 12px 28px rgba(0, 0, 0, 0.18);
 }
 
@@ -5248,6 +5266,7 @@ textarea {
   display: flex;
   align-items: center;
   justify-content: space-between;
+  flex-wrap: wrap;
   gap: 12px;
   padding-top: 4px;
   border-top: 1px solid var(--panel-stroke);
@@ -5274,6 +5293,7 @@ textarea {
 
 .ba-loyalty-rules li .ba-input {
   width: 100%;
+  min-width: 0;
 }
 
 .ba-loyalty-note-input {
@@ -5294,6 +5314,9 @@ textarea {
 }
 
 .ba-loyalty-block .ba-input {
+  width: 100%;
+  min-width: 0;
+  max-width: 100%;
   border-width: 1px;
   border-style: dashed;
   border-color: color-mix(in srgb, var(--gold) 35%, var(--panel-stroke));
@@ -6345,10 +6368,71 @@ textarea {
   .ba-services-main,
   .ba-barbers-main,
   .ba-loyalty-main,
+  .ba-loyalty-layout,
+  .ba-loyalty-block,
+  .ba-loyalty-grid-two,
+  .ba-loyalty-form-grid,
   .ba-pos-layout,
   .ba-pos-main-grid,
   .ba-pos-bottom-grid {
     overflow-x: clip;
+  }
+
+  .ba-loyalty-layout,
+  .ba-loyalty-layout > *,
+  .ba-loyalty-main,
+  .ba-loyalty-main > *,
+  .ba-services-right,
+  .ba-services-right > *,
+  .ba-stamp-card,
+  .ba-stamp-card > *,
+  .ba-loyalty-block .ba-field,
+  .ba-loyalty-block .ba-input,
+  .ba-loyalty-block textarea {
+    max-width: 100%;
+    min-width: 0;
+  }
+
+  .ba-loyalty-main,
+  .ba-loyalty-stamp-block,
+  .ba-loyalty-feature-card,
+  .ba-right-widget {
+    padding: 12px;
+  }
+
+  .ba-loyalty-head {
+    align-items: flex-start;
+  }
+
+  .ba-loyalty-head h1 {
+    font-size: 26px;
+    line-height: 1.05;
+  }
+
+  .ba-pro-badge {
+    width: 100%;
+    justify-content: flex-start;
+  }
+
+  .ba-pro-badge .ba-loyalty-inline-input {
+    flex: 1 1 auto;
+  }
+
+  .ba-stamp-card {
+    padding: 12px;
+  }
+
+  .ba-stamp-preview {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 8px;
+  }
+
+  .ba-stamp-card-foot .ba-card-gold {
+    width: 100%;
+  }
+
+  .ba-pos-widget-kpis {
+    grid-template-columns: 1fr;
   }
 
   .ba-form-row,
