@@ -1,6 +1,11 @@
 import { NextResponse } from "next/server";
 import { normalizeSessionSetCookies, sanitizeAuthResponseBody } from "../../session/cookies";
 import { secureAuthHeaders } from "@/lib/rate-limit";
+import {
+  PREAUTH_COOKIE_NAME,
+  consumePreauthRegistration,
+  buildClearPreauthCookie
+} from "@/lib/preauth-registration";
 
 function getGoogleSessionEndpoint(): string {
   const sessionMe = process.env.SESSION_ME_ENDPOINT;
@@ -108,6 +113,48 @@ function jsonResponse(body: unknown, status: number) {
   });
 }
 
+function isBrowserNavigation(request: Request): boolean {
+  const accept = request.headers.get("accept") || "";
+  const secFetchDest = request.headers.get("sec-fetch-dest") || "";
+  const secFetchMode = request.headers.get("sec-fetch-mode") || "";
+
+  if (secFetchDest === "document" || secFetchMode === "navigate") {
+    return true;
+  }
+  if (accept.includes("text/html")) {
+    return true;
+  }
+  return false;
+}
+
+function sendError(
+  request: Request,
+  errorCode: string,
+  message: string,
+  httpStatus = 400
+) {
+  const clearPreauth = buildClearPreauthCookie();
+
+  if (!isBrowserNavigation(request)) {
+    const res = jsonResponse({ ok: false, error: errorCode, message }, httpStatus);
+    res.headers.append("Set-Cookie", clearPreauth);
+    return res;
+  }
+
+  const safeOrigin = resolveSafeRedirectOrigin(request);
+  const redirectTarget = new URL(
+    `/registro/?auth_error=${encodeURIComponent(errorCode)}`,
+    safeOrigin
+  );
+  const res = NextResponse.redirect(redirectTarget, 303);
+  const secHeaders = secureAuthHeaders();
+  for (const [k, v] of Object.entries(secHeaders)) {
+    res.headers.set(k, v);
+  }
+  res.headers.append("Set-Cookie", clearPreauth);
+  return res;
+}
+
 function extractCookie(request: Request, name: string): string | null {
   const cookieHeader = request.headers.get("cookie");
   if (!cookieHeader) return null;
@@ -163,8 +210,10 @@ export async function POST(request: Request) {
         credential = params.get("credential")?.trim() || "";
         bodyCsrfToken = params.get("g_csrf_token")?.trim() || "";
       } catch {
-        return jsonResponse(
-          { ok: false, error: "invalid_body", message: "Cuerpo de solicitud invalido" },
+        return sendError(
+          request,
+          "invalid_body",
+          "Cuerpo de solicitud invalido",
           400
         );
       }
@@ -178,8 +227,10 @@ export async function POST(request: Request) {
         bodyCsrfToken = typeof record.g_csrf_token === "string" ? record.g_csrf_token.trim() : "";
       }
     } catch {
-      return jsonResponse(
-        { ok: false, error: "invalid_json", message: "JSON invalido" },
+      return sendError(
+        request,
+        "invalid_json",
+        "JSON invalido",
         400
       );
     }
@@ -190,8 +241,10 @@ export async function POST(request: Request) {
       credential = params.get("credential")?.trim() || "";
       bodyCsrfToken = params.get("g_csrf_token")?.trim() || "";
     } catch {
-      return jsonResponse(
-        { ok: false, error: "invalid_body", message: "Cuerpo de solicitud invalido" },
+      return sendError(
+        request,
+        "invalid_body",
+        "Cuerpo de solicitud invalido",
         400
       );
     }
@@ -199,8 +252,10 @@ export async function POST(request: Request) {
 
   // 1. Missing credential validation
   if (!credential) {
-    return jsonResponse(
-      { ok: false, error: "missing_credential", message: "Credencial de Google ausente" },
+    return sendError(
+      request,
+      "missing_credential",
+      "Credencial de Google ausente",
       400
     );
   }
@@ -208,62 +263,129 @@ export async function POST(request: Request) {
   // 2. Google double-submit CSRF cookie check
   const cookieCsrfToken = extractCookie(request, "g_csrf_token");
   if (!cookieCsrfToken) {
-    return jsonResponse(
-      { ok: false, error: "missing_csrf_cookie", message: "Cookie CSRF (g_csrf_token) ausente" },
+    return sendError(
+      request,
+      "missing_csrf_cookie",
+      "Cookie CSRF (g_csrf_token) ausente",
       400
     );
   }
 
   // 3. Google double-submit CSRF body value check
   if (!bodyCsrfToken) {
-    return jsonResponse(
-      { ok: false, error: "missing_csrf_token", message: "Token CSRF (g_csrf_token) ausente en el formulario" },
+    return sendError(
+      request,
+      "missing_csrf_token",
+      "Token CSRF (g_csrf_token) ausente en el formulario",
       400
     );
   }
 
   // 4. Google double-submit CSRF equality check
   if (cookieCsrfToken !== bodyCsrfToken) {
-    return jsonResponse(
-      { ok: false, error: "csrf_mismatch", message: "Token CSRF no coincide con la cookie de sesion" },
+    return sendError(
+      request,
+      "csrf_mismatch",
+      "Token CSRF no coincide con la cookie de sesion",
       400
     );
   }
 
-  // 5. Check upstream endpoint configuration
+  // 5. Recover and validate pre-auth registration state if present
+  let preauthData: { nombre: string; apellido: string } | null = null;
+  const preauthCookie = extractCookie(request, PREAUTH_COOKIE_NAME);
+  if (preauthCookie) {
+    try {
+      const consumption = await consumePreauthRegistration(preauthCookie);
+      if (consumption.success && consumption.data) {
+        preauthData = {
+          nombre: consumption.data.nombre,
+          apellido: consumption.data.apellido
+        };
+      } else if (consumption.reason === "already_consumed_replay") {
+        return sendError(
+          request,
+          "replayed_preauth",
+          "Estado de registro ya consumido o reusado",
+          400
+        );
+      } else if (consumption.reason === "expired") {
+        return sendError(
+          request,
+          "expired_preauth",
+          "El registro previo ha expirado",
+          400
+        );
+      } else if (consumption.reason === "configuration_error") {
+        return sendError(
+          request,
+          "service_misconfigured",
+          "Error de configuracion en el servicio de registro",
+          500
+        );
+      } else if (consumption.reason?.startsWith("db_rpc_")) {
+        return sendError(
+          request,
+          "service_unavailable",
+          "Servicio de verificacion no disponible",
+          503
+        );
+      } else {
+        return sendError(
+          request,
+          "invalid_preauth",
+          "Estado de registro previo no valido",
+          400
+        );
+      }
+    } catch {
+      return sendError(
+        request,
+        "service_misconfigured",
+        "Error de configuracion en el servicio de registro",
+        500
+      );
+    }
+  }
+
+  // 6. Check upstream endpoint configuration
   const googleSessionEndpoint = getGoogleSessionEndpoint();
   if (!googleSessionEndpoint) {
-    return jsonResponse(
-      {
-        ok: false,
-        error: "endpoint_not_configured",
-        message: "Servicio de autenticacion de Google no configurado"
-      },
+    return sendError(
+      request,
+      "endpoint_not_configured",
+      "Servicio de autenticacion de Google no configurado",
       500
     );
   }
 
-  // 6. Upstream authentication call
+  // 7. Upstream authentication call preserving name contract
   try {
+    const upstreamPayload: Record<string, unknown> = {
+      token: credential,
+      id_token: credential
+    };
+    if (preauthData?.nombre) {
+      upstreamPayload.nombre = preauthData.nombre;
+    }
+    if (preauthData?.apellido) {
+      upstreamPayload.apellido = preauthData.apellido;
+    }
+
     const upstream = await fetch(googleSessionEndpoint, {
       method: "POST",
       headers: {
         "Content-Type": "application/json"
       },
-      body: JSON.stringify({
-        token: credential,
-        id_token: credential
-      }),
+      body: JSON.stringify(upstreamPayload),
       cache: "no-store"
     });
 
     if (upstream.status !== 200) {
-      return jsonResponse(
-        {
-          ok: false,
-          error: "auth_failed",
-          message: "Credencial de Google no valida o rechazada"
-        },
+      return sendError(
+        request,
+        "auth_failed",
+        "Credencial de Google no valida o rechazada",
         upstream.status >= 400 && upstream.status < 500 ? upstream.status : 502
       );
     }
@@ -273,12 +395,10 @@ export async function POST(request: Request) {
     try {
       body = text ? JSON.parse(text) : {};
     } catch {
-      return jsonResponse(
-        {
-          ok: false,
-          error: "invalid_upstream_response",
-          message: "Respuesta no valida del servidor de autenticacion"
-        },
+      return sendError(
+        request,
+        "invalid_upstream_response",
+        "Respuesta no valida del servidor de autenticacion",
         502
       );
     }
@@ -305,14 +425,15 @@ export async function POST(request: Request) {
       response.headers.append("Set-Cookie", cookie);
     }
 
+    // Always clear pre-auth state cookie upon completion
+    response.headers.append("Set-Cookie", buildClearPreauthCookie());
+
     return response;
   } catch {
-    return jsonResponse(
-      {
-        ok: false,
-        error: "upstream_error",
-        message: "No fue posible conectar con el servicio de autenticacion"
-      },
+    return sendError(
+      request,
+      "upstream_error",
+      "No fue posible conectar con el servicio de autenticacion",
       502
     );
   }
