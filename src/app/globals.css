@@ -6464,6 +6464,135 @@ textarea {
   }
 }
 
+.ba-finance-loyalty-page,
+.ba-finance-loyalty-page * {
+  box-sizing: border-box;
+  min-width: 0;
+}
+
+.ba-finance-loyalty-page {
+  width: 100%;
+  max-width: 100%;
+  overflow-x: clip;
+}
+
+.ba-finance-loyalty-page :is(img, svg, input, select, textarea, button, table) {
+  max-width: 100%;
+}
+
+.ba-finance-loyalty-page :is(h1, h2, h3, p, span, small, strong, label, th, td, button) {
+  overflow-wrap: anywhere;
+}
+
+.ba-finance-loyalty-page .ba-loyalty-kpi-grid {
+  grid-template-columns: repeat(auto-fit, minmax(min(220px, 100%), 1fr)) !important;
+}
+
+.ba-finance-loyalty-page .ba-loyalty-reward-grid {
+  grid-template-columns: repeat(auto-fill, minmax(min(280px, 100%), 1fr)) !important;
+}
+
+.ba-finance-loyalty-page .ba-loyalty-config-panel {
+  width: min(800px, 100%);
+}
+
+@media (max-width: 767px) {
+  .ba-finance-loyalty-page {
+    padding: 0 0 32px !important;
+  }
+
+  .ba-finance-loyalty-page > header,
+  .ba-finance-loyalty-page .ba-loyalty-page-actions,
+  .ba-finance-loyalty-page .ba-loyalty-client-toolbar {
+    display: grid !important;
+    grid-template-columns: 1fr;
+    align-items: stretch !important;
+    width: 100%;
+  }
+
+  .ba-finance-loyalty-page > header > *,
+  .ba-finance-loyalty-page .ba-loyalty-page-actions > *,
+  .ba-finance-loyalty-page .ba-loyalty-client-toolbar > *,
+  .ba-finance-loyalty-page .ba-loyalty-search-wrap,
+  .ba-finance-loyalty-page .ba-loyalty-search-wrap label {
+    width: 100%;
+  }
+
+  .ba-finance-loyalty-page > header h1 {
+    font-size: 22px !important;
+    line-height: 1.15;
+  }
+
+  .ba-finance-loyalty-page .ba-loyalty-kpi-grid,
+  .ba-finance-loyalty-page .ba-loyalty-reward-grid {
+    grid-template-columns: 1fr !important;
+  }
+
+  .ba-finance-loyalty-page .ba-loyalty-tabs {
+    display: grid !important;
+    grid-template-columns: 1fr;
+    overflow-x: visible !important;
+  }
+
+  .ba-finance-loyalty-page .ba-loyalty-tabs [role="tab"] {
+    width: 100%;
+    justify-content: center;
+    white-space: normal !important;
+    text-align: center;
+  }
+
+  .ba-finance-loyalty-page .ba-loyalty-client-panel,
+  .ba-finance-loyalty-page .ba-loyalty-reward-panel,
+  .ba-finance-loyalty-page .ba-loyalty-config-panel,
+  .ba-finance-loyalty-page .ba-loyalty-history-panel {
+    padding: 14px !important;
+  }
+
+  .ba-finance-loyalty-page .ba-loyalty-filter-pills {
+    display: grid !important;
+    grid-template-columns: 1fr;
+    width: 100%;
+  }
+
+  .ba-finance-loyalty-page .ba-loyalty-filter-pills button {
+    width: 100%;
+    justify-content: center;
+    white-space: normal;
+    text-align: center;
+  }
+
+  .ba-finance-loyalty-page .ba-loyalty-table-wrap {
+    overflow-x: visible !important;
+  }
+
+  .ba-finance-loyalty-page .ba-loyalty-table-wrap :is(table, thead, tbody, tr, th, td) {
+    display: block;
+    width: 100%;
+  }
+
+  .ba-finance-loyalty-page .ba-loyalty-table-wrap thead {
+    display: none;
+  }
+
+  .ba-finance-loyalty-page .ba-loyalty-table-wrap tr {
+    margin-bottom: 10px;
+    padding: 10px;
+    border: 1px solid var(--panel-stroke);
+    border-radius: 10px;
+    background: rgba(255, 255, 255, 0.02);
+  }
+
+  .ba-finance-loyalty-page .ba-loyalty-table-wrap td {
+    padding: 8px 0 !important;
+    text-align: left !important;
+  }
+
+  .ba-finance-loyalty-page .ba-loyalty-table-wrap td:last-child button {
+    width: 100%;
+    justify-content: center;
+  }
+}
+
 @media (min-width: 768px) and (max-width: 1024px) {
   .ba-dashboard-frame {
     grid-template-columns: 220px minmax(0, 1fr);

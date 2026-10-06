@@ -721,7 +721,7 @@ export default function ProgramaLealtadPage() {
 
   return (
     <DashboardShell>
-      <div style={{ maxWidth: "1280px", margin: "0 auto", padding: "0 12px 32px" }}>
+      <div className="ba-finance-loyalty-page" style={{ maxWidth: "1280px", margin: "0 auto", padding: "0 12px 32px" }}>
         {/* HEADER SECTION (Section 7) */}
         <header
           style={{
@@ -754,7 +754,7 @@ export default function ProgramaLealtadPage() {
             </p>
           </div>
 
-          <div style={{ display: "flex", alignItems: "center", gap: "10px", flexWrap: "wrap" }}>
+          <div className="ba-loyalty-page-actions" style={{ display: "flex", alignItems: "center", gap: "10px", flexWrap: "wrap" }}>
             {/* Status Pill with icon and high contrast (Canonical Truth-in-UI) */}
             <div
               style={{
@@ -892,6 +892,7 @@ export default function ProgramaLealtadPage() {
 
         {/* CANONICAL KPI BAR (Section 10 & 11) */}
         <section
+          className="ba-loyalty-kpi-grid"
           style={{
             display: "grid",
             gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))",
@@ -966,6 +967,7 @@ export default function ProgramaLealtadPage() {
 
         {/* SEGMENTED NAVIGATION / TABS (Section 6 & 12) */}
         <nav
+          className="ba-loyalty-tabs"
           role="tablist"
           aria-label="Secciones del programa de lealtad"
           style={{
@@ -1137,9 +1139,10 @@ export default function ProgramaLealtadPage() {
 
         {/* TAB A: CLIENTES & CANJES (PRIMARY OPERATIONAL WORKSPACE) */}
         {activeTab === "clientes" && (
-          <div className="ba-card" style={{ padding: "20px", borderRadius: "12px" }}>
+          <div className="ba-card ba-loyalty-client-panel" style={{ padding: "20px", borderRadius: "12px" }}>
             {/* Filter & Search Bar Controls (Section 13 & 14) */}
             <div
+              className="ba-loyalty-client-toolbar"
               style={{
                 display: "flex",
                 justifyContent: "space-between",
@@ -1149,7 +1152,7 @@ export default function ProgramaLealtadPage() {
                 marginBottom: "20px"
               }}
             >
-              <div style={{ display: "flex", alignItems: "center", gap: "8px", flex: "1 1 280px" }}>
+              <div className="ba-loyalty-search-wrap" style={{ display: "flex", alignItems: "center", gap: "8px", flex: "1 1 280px" }}>
                 <label htmlFor={searchInputId} style={{ display: "flex", alignItems: "center", position: "relative", width: "100%" }}>
                   <Search size={16} style={{ position: "absolute", left: "12px", color: "var(--muted, #9ca3af)" }} />
                   <input
@@ -1181,7 +1184,7 @@ export default function ProgramaLealtadPage() {
               </div>
 
               {/* Eligibility Filter Pills (Section 15 & Phase 5) */}
-              <div style={{ display: "flex", gap: "6px", flexWrap: "wrap" }}>
+              <div className="ba-loyalty-filter-pills" style={{ display: "flex", gap: "6px", flexWrap: "wrap" }}>
                 <button
                   type="button"
                   className={customerFilter === "periodo" ? "ba-card-gold" : "ba-btn-ghost"}
@@ -1328,7 +1331,7 @@ export default function ProgramaLealtadPage() {
             ) : (
               <>
                 {/* DESKTOP TABLE (Section 16) */}
-                <div style={{ overflowX: "auto" }}>
+                <div className="ba-loyalty-table-wrap" style={{ overflowX: "auto" }}>
                   <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "13px" }}>
                     <thead>
                       <tr style={{ borderBottom: "1px solid rgba(255, 255, 255, 0.08)", textAlign: "left", color: "var(--muted, #9ca3af)" }}>
@@ -1525,7 +1528,7 @@ export default function ProgramaLealtadPage() {
 
         {/* TAB B: CATÁLOGO DE RECOMPENSAS (Section 28) */}
         {activeTab === "recompensas" && (
-          <div className="ba-card" style={{ padding: "20px", borderRadius: "12px" }}>
+          <div className="ba-card ba-loyalty-reward-panel" style={{ padding: "20px", borderRadius: "12px" }}>
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "16px" }}>
               <div>
                 <h2 style={{ margin: 0, fontSize: "16px", fontWeight: 600, display: "flex", alignItems: "center", gap: "8px" }}>
@@ -1562,7 +1565,7 @@ export default function ProgramaLealtadPage() {
                 )}
               </div>
             ) : (
-              <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(280px, 1fr))", gap: "12px" }}>
+              <div className="ba-loyalty-reward-grid" style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(280px, 1fr))", gap: "12px" }}>
                 {rewards.map((reward) => (
                   <div
                     key={`reward-card-${reward.id}`}
@@ -1683,7 +1686,7 @@ export default function ProgramaLealtadPage() {
 
         {/* TAB C: CONFIGURACIÓN DEL PROGRAMA (Owner/Admin Only - Section 34) */}
         {activeTab === "configuracion" && isOwnerOrAdmin && (
-          <div className="ba-card" style={{ padding: "20px", borderRadius: "12px", maxWidth: "800px" }}>
+          <div className="ba-card ba-loyalty-config-panel" style={{ padding: "20px", borderRadius: "12px", maxWidth: "800px" }}>
             <h2 style={{ margin: "0 0 4px", fontSize: "16px", fontWeight: 600, display: "flex", alignItems: "center", gap: "8px" }}>
               <BadgeCheck size={16} color="#d8b56d" />
               <span>Configuración del Programa de Lealtad</span>
@@ -1834,7 +1837,7 @@ export default function ProgramaLealtadPage() {
 
         {/* TAB D: HISTORIAL / ACTIVIDAD RECIENTE (Section 37 & 38) */}
         {activeTab === "historial" && (
-          <div className="ba-card" style={{ padding: "20px", borderRadius: "12px" }}>
+          <div className="ba-card ba-loyalty-history-panel" style={{ padding: "20px", borderRadius: "12px" }}>
             <div
               style={{
                 display: "flex",
@@ -1890,7 +1893,7 @@ export default function ProgramaLealtadPage() {
                 <p style={{ margin: 0, fontSize: "13px" }}>Sin movimientos en esta categoría.</p>
               </div>
             ) : (
-              <div style={{ overflowX: "auto" }}>
+              <div className="ba-loyalty-table-wrap" style={{ overflowX: "auto" }}>
                 <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "12px" }}>
                   <thead>
                     <tr style={{ borderBottom: "1px solid rgba(255, 255, 255, 0.08)", textAlign: "left", color: "var(--muted, #9ca3af)" }}>
