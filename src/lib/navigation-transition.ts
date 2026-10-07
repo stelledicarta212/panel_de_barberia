@@ -112,7 +112,7 @@ export function shouldShowNavigationTransition(input: TransitionDecisionInput): 
   }
 }
 
-export const MIN_VISIBLE_MS = 650;
+export const MIN_VISIBLE_MS = 300;
 export const DEADLOCK_FAILSAFE_MS = 8000;
 
 export function calculateRemainingVisibleMs(

@@ -80,7 +80,7 @@ describe("navigation transition rules", () => {
   });
 });
 
-describe("navigation transition minimum visibility timing & lifecycle (MIN_VISIBLE_MS = 650)", () => {
+describe("navigation transition minimum visibility timing & lifecycle (MIN_VISIBLE_MS = 300)", () => {
   beforeEach(() => {
     vi.useFakeTimers();
   });
@@ -89,8 +89,73 @@ describe("navigation transition minimum visibility timing & lifecycle (MIN_VISIB
     vi.useRealTimers();
   });
 
-  // 1. navigation begins immediately (no async delay / promise blocking)
-  it("1. navigation begins immediately without blocking or artificial start delay", () => {
+  // 1. route completes in 100ms -> overlay remains until ~300ms total
+  it("1. route completes in 100ms -> overlay remains until 300ms total", () => {
+    const manager = new NavigationTransitionManager();
+    manager.startTransition("Cargando clientes...");
+
+    // Fast navigation completes in 100ms
+    vi.advanceTimersByTime(100);
+    manager.onRouteComplete();
+
+    // At 100ms, destination is ready, but overlay remains visible until 300ms
+    expect(manager.isActive).toBe(true);
+
+    // At 299ms, still active
+    vi.advanceTimersByTime(199);
+    expect(manager.isActive).toBe(true);
+
+    // At 300ms, dismissal timer fires
+    vi.advanceTimersByTime(1);
+    expect(manager.isActive).toBe(false);
+    manager.destroy();
+  });
+
+  // 2. route completes in 299ms -> closes ~1ms later
+  it("2. route completes in 299ms -> closes 1ms later", () => {
+    const manager = new NavigationTransitionManager();
+    manager.startTransition("Cargando clientes...");
+
+    vi.advanceTimersByTime(299);
+    manager.onRouteComplete();
+
+    // Overlay is still active at 299ms
+    expect(manager.isActive).toBe(true);
+
+    // 1ms later at 300ms total, it closes
+    vi.advanceTimersByTime(1);
+    expect(manager.isActive).toBe(false);
+    manager.destroy();
+  });
+
+  // 3. route completes in 300ms -> closes immediately
+  it("3. route completes in 300ms -> closes immediately", () => {
+    const manager = new NavigationTransitionManager();
+    manager.startTransition("Cargando clientes...");
+
+    vi.advanceTimersByTime(300);
+    manager.onRouteComplete();
+
+    // Closes immediately with zero extra wait
+    expect(manager.isActive).toBe(false);
+    manager.destroy();
+  });
+
+  // 4. route completes in 800ms -> closes immediately at completion -> no additional 300ms
+  it("4. route completes in 800ms -> closes immediately at completion without adding 300ms", () => {
+    const manager = new NavigationTransitionManager();
+    manager.startTransition("Cargando clientes...");
+
+    vi.advanceTimersByTime(800);
+    manager.onRouteComplete();
+
+    // Closes immediately at 800ms, NOT waiting until 1100ms
+    expect(manager.isActive).toBe(false);
+    manager.destroy();
+  });
+
+  // 5. navigation begins immediately
+  it("5. navigation begins immediately without blocking or artificial start delay", () => {
     const decision = shouldShowNavigationTransition({
       href: "/clientes",
       currentUrl
@@ -104,87 +169,13 @@ describe("navigation transition minimum visibility timing & lifecycle (MIN_VISIB
     });
 
     const startReturn = manager.startTransition("Cargando clientes...");
-    expect(startReturn).toBeUndefined(); // synchronous execution, no Promise
-    manager.destroy();
-  });
-
-  // 2. overlay activates immediately
-  it("2. overlay activates immediately upon startTransition", () => {
-    const manager = new NavigationTransitionManager();
-    expect(manager.isActive).toBe(false);
-
-    manager.startTransition("Cargando barberos...");
-    expect(manager.isActive).toBe(true);
-    expect(manager.currentMessage).toBe("Cargando barberos...");
-    expect(manager.transitionStartedAt).toBe(0);
-    manager.destroy();
-  });
-
-  // 3. destination completion before 650ms does not immediately hide overlay
-  it("3. destination completion before 650ms does not immediately hide overlay", () => {
-    const manager = new NavigationTransitionManager();
-    manager.startTransition("Cargando clientes...");
-
-    // Fast navigation completes in 50ms
-    vi.advanceTimersByTime(50);
-    manager.onRouteComplete();
-
-    // Destination is ready, but overlay must remain visible to honor 650ms minimum
+    expect(startReturn).toBeUndefined(); // synchronous, no Promise
     expect(manager.isActive).toBe(true);
     manager.destroy();
   });
 
-  // 4. overlay hides at approximately 650ms total visibility
-  it("4. overlay hides at exactly 650ms total visibility for fast routes", () => {
-    const manager = new NavigationTransitionManager();
-    manager.startTransition("Cargando clientes...");
-
-    // Route completes at 100ms
-    vi.advanceTimersByTime(100);
-    manager.onRouteComplete();
-    expect(manager.isActive).toBe(true);
-
-    // At 649ms (549ms after completion), still active
-    vi.advanceTimersByTime(549);
-    expect(manager.isActive).toBe(true);
-
-    // At 650ms total elapsed, dismissal timer fires
-    vi.advanceTimersByTime(1);
-    expect(manager.isActive).toBe(false);
-    manager.destroy();
-  });
-
-  // 5. navigation taking longer than 650ms hides immediately when complete
-  it("5. navigation taking longer than 650ms hides immediately when complete", () => {
-    const manager = new NavigationTransitionManager();
-    manager.startTransition("Cargando clientes...");
-
-    // Slow route finishes at 1200ms (> 650ms)
-    vi.advanceTimersByTime(1200);
-    expect(manager.isActive).toBe(true);
-
-    manager.onRouteComplete();
-    // Dismisses immediately because 1200ms >= 650ms
-    expect(manager.isActive).toBe(false);
-    manager.destroy();
-  });
-
-  // 6. 650ms is NOT added after slow navigation (approximately 2s total, NOT 2s + 650ms)
-  it("6. 650ms is NOT added after slow navigation", () => {
-    const manager = new NavigationTransitionManager();
-    manager.startTransition("Cargando clientes...");
-
-    // Slow navigation finishes at 2000ms
-    vi.advanceTimersByTime(2000);
-    manager.onRouteComplete();
-
-    // Already hidden at 2000ms, not waiting until 2650ms
-    expect(manager.isActive).toBe(false);
-    manager.destroy();
-  });
-
-  // 7. same-route still shows no loader
-  it("7. same-route still shows no loader", () => {
+  // 6. same-route guard preserved
+  it("6. preserves same-route guard (no loader)", () => {
     const decision = shouldShowNavigationTransition({
       href: "/barberia?barberia_id=198",
       currentUrl: "https://barberagency-barberagency.gymh5g.easypanel.host/barberia?barberia_id=198"
@@ -193,8 +184,8 @@ describe("navigation transition minimum visibility timing & lifecycle (MIN_VISIB
     expect(decision.reason).toBe("same-route");
   });
 
-  // 8. hash-only still shows no loader
-  it("8. hash-only still shows no loader", () => {
+  // 7. hash-only guard preserved
+  it("7. preserves hash-only guard (no loader)", () => {
     const decision = shouldShowNavigationTransition({
       href: "/barberia?barberia_id=198#overview",
       currentUrl: "https://barberagency-barberagency.gymh5g.easypanel.host/barberia?barberia_id=198"
@@ -203,8 +194,18 @@ describe("navigation transition minimum visibility timing & lifecycle (MIN_VISIB
     expect(decision.reason).toBe("same-route");
   });
 
-  // 9. deadlock failsafe remains (8000ms clears stuck navigation)
-  it("9. deadlock failsafe remains and clears overlay at 8000ms if route never completes", () => {
+  // 8. external same-tab navigation preserved
+  it("8. preserves external same-tab navigation transition", () => {
+    const decision = shouldShowNavigationTransition({
+      href: "https://barberagency-barberagency.gymh5g.easypanel.host/planes/",
+      currentUrl: "https://barberagency-barberagency.gymh5g.easypanel.host/barberia?barberia_id=198"
+    });
+    expect(decision.shouldTransition).toBe(true);
+    expect(decision.message).toBe("Cargando planes...");
+  });
+
+  // 9. deadlock failsafe remains 8000ms
+  it("9. deadlock failsafe remains 8000ms and clears stuck overlay", () => {
     const manager = new NavigationTransitionManager();
     manager.startTransition("Cargando...");
 
@@ -216,49 +217,8 @@ describe("navigation transition minimum visibility timing & lifecycle (MIN_VISIB
     manager.destroy();
   });
 
-  // 10. no business/routing changes: contract integrity
-  it("10. preserves business route mappings without unintended alterations", () => {
-    expect(MIN_VISIBLE_MS).toBe(650);
-    expect(DEADLOCK_FAILSAFE_MS).toBe(8000);
-    expect(ROUTE_TRANSITION_MESSAGES["/citas"]).toBe("Cargando citas...");
-    expect(ROUTE_TRANSITION_MESSAGES["/finanzas"]).toBe("Cargando programa de lealtad...");
-  });
-
-  // 11. Reentrancy: user clicks another route while transition active
-  it("11. handles reentrancy when user navigates to another route while previous transition is active", () => {
-    const manager = new NavigationTransitionManager();
-
-    // Route 1 clicked at t = 0
-    manager.startTransition("Cargando citas...");
-    expect(manager.isActive).toBe(true);
-
-    // Route 1 completes at t = 50ms, dismissal scheduled at t = 650ms
-    vi.advanceTimersByTime(50);
-    manager.onRouteComplete();
-    expect(manager.isActive).toBe(true);
-
-    // At t = 200ms, user clicks Route 2
-    vi.advanceTimersByTime(150);
-    manager.startTransition("Cargando barberos...");
-    expect(manager.currentMessage).toBe("Cargando barberos...");
-    expect(manager.isActive).toBe(true);
-
-    // Route 2 completes at t = 300ms (100ms after Route 2 started)
-    vi.advanceTimersByTime(100);
-    manager.onRouteComplete();
-
-    // At t = 650ms (when Route 1 would have dismissed), Route 2 transition is STILL active
-    vi.advanceTimersByTime(350);
-    expect(manager.isActive).toBe(true);
-
-    // Route 2 minimum visibility completes at t = 200 + 650 = 850ms (200ms more)
-    vi.advanceTimersByTime(200);
-    expect(manager.isActive).toBe(false);
-    manager.destroy();
-  });
-
-  // 12. Failure safety: forceHide immediately dismisses without waiting
-  it("12. failure safety: forceHide immediately clears overlay without waiting", () => {
+  // 10. overlay cannot remain stuck (forceHide clears immediately)
+  it("10. overlay cannot remain stuck: forceHide immediately clears overlay", () => {
     const manager = new NavigationTransitionManager();
     manager.startTransition("Cargando...");
 
@@ -267,5 +227,47 @@ describe("navigation transition minimum visibility timing & lifecycle (MIN_VISIB
     expect(manager.transitionStartedAt).toBeNull();
     manager.destroy();
   });
+
+  // 11. Timing constant and route contract integrity
+  it("11. preserves business route mappings and configures MIN_VISIBLE_MS = 300", () => {
+    expect(MIN_VISIBLE_MS).toBe(300);
+    expect(DEADLOCK_FAILSAFE_MS).toBe(8000);
+    expect(ROUTE_TRANSITION_MESSAGES["/citas"]).toBe("Cargando citas...");
+    expect(ROUTE_TRANSITION_MESSAGES["/finanzas"]).toBe("Cargando programa de lealtad...");
+  });
+
+  // 12. Reentrancy: user clicks another route while transition is active
+  it("12. handles reentrancy when user navigates to another route while previous transition is active", () => {
+    const manager = new NavigationTransitionManager();
+
+    // Route 1 clicked at t = 0
+    manager.startTransition("Cargando citas...");
+    expect(manager.isActive).toBe(true);
+
+    // Route 1 completes at t = 50ms (dismissal scheduled for 300ms)
+    vi.advanceTimersByTime(50);
+    manager.onRouteComplete();
+    expect(manager.isActive).toBe(true);
+
+    // At t = 100ms, user clicks Route 2
+    vi.advanceTimersByTime(50);
+    manager.startTransition("Cargando barberos...");
+    expect(manager.currentMessage).toBe("Cargando barberos...");
+    expect(manager.isActive).toBe(true);
+
+    // Route 2 completes at t = 150ms (50ms after Route 2 started)
+    vi.advanceTimersByTime(50);
+    manager.onRouteComplete();
+
+    // At t = 300ms (when Route 1 would have dismissed), Route 2 transition is STILL active
+    vi.advanceTimersByTime(150);
+    expect(manager.isActive).toBe(true);
+
+    // Route 2 minimum visibility completes at t = 100 + 300 = 400ms (100ms more)
+    vi.advanceTimersByTime(100);
+    expect(manager.isActive).toBe(false);
+    manager.destroy();
+  });
 });
+
 
