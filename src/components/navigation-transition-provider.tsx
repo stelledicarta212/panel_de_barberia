@@ -4,65 +4,82 @@ import { createContext, useCallback, useContext, useEffect, useMemo, useRef, use
 import { usePathname } from "next/navigation";
 import {
   BARBERAGENCY_NAVIGATION_LOGO_URL,
-  DEFAULT_NAVIGATION_TRANSITION_MESSAGE
+  DEFAULT_NAVIGATION_TRANSITION_MESSAGE,
+  DEADLOCK_FAILSAFE_MS,
+  MIN_VISIBLE_MS,
+  NavigationTransitionManager
 } from "@/lib/navigation-transition";
 
 type NavigationTransitionContextValue = {
   isActive: boolean;
   message: string;
   startTransition: (message?: string) => void;
-  clearTransition: () => void;
+  clearTransition: (options?: { immediate?: boolean }) => void;
 };
 
 const NavigationTransitionContext = createContext<NavigationTransitionContextValue | null>(null);
+
+function getCurrentLocationKey(pathname: string | null): string {
+  if (typeof window !== "undefined") {
+    return window.location.pathname + window.location.search;
+  }
+  return pathname || "";
+}
 
 export function NavigationTransitionProvider({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const [isActive, setIsActive] = useState(false);
   const [message, setMessage] = useState(DEFAULT_NAVIGATION_TRANSITION_MESSAGE);
   const lastLocationRef = useRef("");
-  const failSafeRef = useRef<number | null>(null);
 
-  const clearTransition = useCallback(() => {
-    if (failSafeRef.current) {
-      window.clearTimeout(failSafeRef.current);
-      failSafeRef.current = null;
-    }
-    setIsActive(false);
-  }, []);
+  const [manager] = useState(
+    () =>
+      new NavigationTransitionManager({
+        minVisibleMs: MIN_VISIBLE_MS,
+        deadlockFailsafeMs: DEADLOCK_FAILSAFE_MS,
+        onStateChange: (state) => {
+          setIsActive(state.isActive);
+          setMessage(state.message);
+        }
+      })
+  );
 
-  const startTransition = useCallback((nextMessage?: string) => {
-    setMessage(nextMessage || DEFAULT_NAVIGATION_TRANSITION_MESSAGE);
-    setIsActive(true);
+  const clearTransition = useCallback(
+    (options?: { immediate?: boolean }) => {
+      if (options?.immediate) {
+        manager.forceHide();
+      } else {
+        manager.onRouteComplete();
+      }
+    },
+    [manager]
+  );
 
-    if (failSafeRef.current) {
-      window.clearTimeout(failSafeRef.current);
-    }
-    // Deadlock failsafe only. This is not a visual minimum duration.
-    failSafeRef.current = window.setTimeout(() => {
-      failSafeRef.current = null;
-      setIsActive(false);
-    }, 8000);
-  }, []);
+  const startTransition = useCallback(
+    (nextMessage?: string) => {
+      manager.startTransition(nextMessage);
+    },
+    [manager]
+  );
 
   useEffect(() => {
-    const currentLocation = pathname || "";
+    const currentKey = getCurrentLocationKey(pathname);
     if (!lastLocationRef.current) {
-      lastLocationRef.current = currentLocation;
+      lastLocationRef.current = currentKey;
       return;
     }
-    if (lastLocationRef.current !== currentLocation) {
-      lastLocationRef.current = currentLocation;
-      clearTransition();
+    if (lastLocationRef.current !== currentKey) {
+      lastLocationRef.current = currentKey;
+      manager.onRouteComplete();
     }
-  }, [clearTransition, pathname]);
+  }, [manager, pathname]);
 
   useEffect(() => {
-    const rememberAndClear = () => {
-      const currentLocation = window.location.href;
-      if (lastLocationRef.current !== currentLocation) {
-        lastLocationRef.current = currentLocation;
-        clearTransition();
+    const rememberAndComplete = () => {
+      const currentKey = getCurrentLocationKey(pathname);
+      if (lastLocationRef.current !== currentKey) {
+        lastLocationRef.current = currentKey;
+        manager.onRouteComplete();
       }
     };
 
@@ -71,33 +88,39 @@ export function NavigationTransitionProvider({ children }: { children: React.Rea
 
     window.history.pushState = function patchedPushState(...args) {
       const result = originalPushState.apply(this, args);
-      rememberAndClear();
+      rememberAndComplete();
       return result;
     };
     window.history.replaceState = function patchedReplaceState(...args) {
       const result = originalReplaceState.apply(this, args);
-      rememberAndClear();
+      rememberAndComplete();
       return result;
     };
 
-    window.addEventListener("popstate", rememberAndClear);
+    window.addEventListener("popstate", rememberAndComplete);
 
     return () => {
       window.history.pushState = originalPushState;
       window.history.replaceState = originalReplaceState;
-      window.removeEventListener("popstate", rememberAndClear);
+      window.removeEventListener("popstate", rememberAndComplete);
+      manager.destroy();
     };
-  }, [clearTransition]);
+  }, [manager, pathname]);
 
   useEffect(() => {
-    window.addEventListener("pagehide", clearTransition);
-    window.addEventListener("visibilitychange", clearTransition);
-    return () => {
-      window.removeEventListener("pagehide", clearTransition);
-      window.removeEventListener("visibilitychange", clearTransition);
-      clearTransition();
+    const handleImmediateHide = () => {
+      manager.forceHide();
     };
-  }, [clearTransition]);
+
+    window.addEventListener("pagehide", handleImmediateHide);
+    window.addEventListener("visibilitychange", handleImmediateHide);
+    return () => {
+      window.removeEventListener("pagehide", handleImmediateHide);
+      window.removeEventListener("visibilitychange", handleImmediateHide);
+      handleImmediateHide();
+    };
+  }, [manager]);
+
 
   const value = useMemo(
     () => ({ isActive, message, startTransition, clearTransition }),

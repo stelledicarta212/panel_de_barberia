@@ -111,3 +111,133 @@ export function shouldShowNavigationTransition(input: TransitionDecisionInput): 
     return { shouldTransition: false, reason: "empty", href: rawHref, message };
   }
 }
+
+export const MIN_VISIBLE_MS = 650;
+export const DEADLOCK_FAILSAFE_MS = 8000;
+
+export function calculateRemainingVisibleMs(
+  transitionStartedAt: number | null,
+  now: number = typeof performance !== "undefined" ? performance.now() : Date.now(),
+  minVisibleMs: number = MIN_VISIBLE_MS
+): number {
+  if (transitionStartedAt === null) {
+    return 0;
+  }
+  const elapsed = Math.max(0, now - transitionStartedAt);
+  return Math.max(0, minVisibleMs - elapsed);
+}
+
+export type NavigationTransitionStateChange = {
+  isActive: boolean;
+  message: string;
+};
+
+export class NavigationTransitionManager {
+  private active = false;
+  private message = DEFAULT_NAVIGATION_TRANSITION_MESSAGE;
+  private startedAt: number | null = null;
+  private dismissalTimer: ReturnType<typeof setTimeout> | null = null;
+  private failsafeTimer: ReturnType<typeof setTimeout> | null = null;
+
+  constructor(
+    private readonly options?: {
+      minVisibleMs?: number;
+      deadlockFailsafeMs?: number;
+      onStateChange?: (state: NavigationTransitionStateChange) => void;
+      getNow?: () => number;
+    }
+  ) {}
+
+  public get isActive(): boolean {
+    return this.active;
+  }
+
+  public get currentMessage(): string {
+    return this.message;
+  }
+
+  public get transitionStartedAt(): number | null {
+    return this.startedAt;
+  }
+
+  public startTransition(nextMessage?: string): void {
+    const failsafeMs = this.options?.deadlockFailsafeMs ?? DEADLOCK_FAILSAFE_MS;
+    const getNow =
+      this.options?.getNow ??
+      (typeof performance !== "undefined" ? () => performance.now() : () => Date.now());
+
+    this.clearDismissalTimer();
+    this.clearFailsafeTimer();
+
+    this.message = nextMessage || DEFAULT_NAVIGATION_TRANSITION_MESSAGE;
+    this.startedAt = getNow();
+    this.active = true;
+    this.notify();
+
+    // Deadlock failsafe only. This is not a visual minimum duration.
+    this.failsafeTimer = setTimeout(() => {
+      this.clearFailsafeTimer();
+      this.forceHide();
+    }, failsafeMs);
+  }
+
+  public onRouteComplete(): void {
+    if (!this.active || this.startedAt === null) {
+      this.forceHide();
+      return;
+    }
+
+    const minMs = this.options?.minVisibleMs ?? MIN_VISIBLE_MS;
+    const getNow =
+      this.options?.getNow ??
+      (typeof performance !== "undefined" ? () => performance.now() : () => Date.now());
+    const remaining = calculateRemainingVisibleMs(this.startedAt, getNow(), minMs);
+
+    if (remaining > 0) {
+      this.clearDismissalTimer();
+      this.dismissalTimer = setTimeout(() => {
+        this.clearDismissalTimer();
+        this.forceHide();
+      }, remaining);
+    } else {
+      this.forceHide();
+    }
+  }
+
+  public forceHide(): void {
+    this.clearDismissalTimer();
+    this.clearFailsafeTimer();
+    this.startedAt = null;
+    if (this.active) {
+      this.active = false;
+      this.notify();
+    }
+  }
+
+  public destroy(): void {
+    this.clearDismissalTimer();
+    this.clearFailsafeTimer();
+  }
+
+  private clearDismissalTimer(): void {
+    if (this.dismissalTimer !== null) {
+      clearTimeout(this.dismissalTimer);
+      this.dismissalTimer = null;
+    }
+  }
+
+  private clearFailsafeTimer(): void {
+    if (this.failsafeTimer !== null) {
+      clearTimeout(this.failsafeTimer);
+      this.failsafeTimer = null;
+    }
+  }
+
+  private notify(): void {
+    this.options?.onStateChange?.({
+      isActive: this.active,
+      message: this.message
+    });
+  }
+}
+
