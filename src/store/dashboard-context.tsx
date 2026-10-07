@@ -16,7 +16,7 @@ import {
   clearBarbershopContext
 } from "@/lib/barbershop-context";
 import { NO_PERMISSIONS, resolveDashboardAccess, resolveLoginAccess } from "@/lib/dashboard-access";
-import { getSessionMe } from "@/lib/session-me";
+import { getSessionMe, type SessionMeBarberia } from "@/lib/session-me";
 import type {
   CanonicalProductState,
   DashboardIdentity,
@@ -39,6 +39,7 @@ type DashboardContextValue = {
   access: DashboardUserAccess;
   session: DashboardLoginSession | null;
   isAuthenticated: boolean;
+  barberias: SessionMeBarberia[];
   merged: DashboardMerged;
   loading: boolean;
   saving: boolean;
@@ -48,6 +49,7 @@ type DashboardContextValue = {
   login: (email: string, password: string) => Promise<void>;
   logout: () => void;
   refresh: () => Promise<void>;
+  deleteBarberia: (id: number) => Promise<{ ok: boolean; message?: string; error?: string }>;
   setField: (key: ScalarMergedKey, value: string) => void;
   setCollection: (key: CollectionMergedKey, value: Array<Record<string, unknown>>) => void;
   saveDraft: () => Promise<void>;
@@ -164,6 +166,7 @@ export function DashboardProvider({ children }: { children: React.ReactNode }) {
   const [message, setMessage] = useState<string | null>(null);
   const [session, setSession] = useState<DashboardLoginSession | null>(null);
   const [sessionCheckFailed, setSessionCheckFailed] = useState<boolean>(false);
+  const [barberias, setBarberias] = useState<SessionMeBarberia[]>([]);
   
   const fallbackAccess = useMemo(() => resolveDashboardAccess(rawState), [rawState]);
   const access = session?.access ?? (session ? fallbackAccess : LOCKED_ACCESS);
@@ -214,6 +217,7 @@ export function DashboardProvider({ children }: { children: React.ReactNode }) {
         }
 
         const userBarberias = sessionMe.barberias ?? [];
+        setBarberias(userBarberias);
         let activeIdentity: DashboardIdentity | null = null;
 
         if (fromUrl.barberia_id || fromUrl.slug) {
@@ -618,6 +622,41 @@ export function DashboardProvider({ children }: { children: React.ReactNode }) {
     }
   }, [identity, merged, session]);
 
+  const deleteBarberia = useCallback(async (barberiaId: number) => {
+    try {
+      const res = await fetch(`/api/barberias/${barberiaId}/delete`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include"
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok || data.ok !== true) {
+        const errMsg = data.message || "Error al eliminar la barbería.";
+        setError(errMsg);
+        return { ok: false, message: errMsg, error: data.error };
+      }
+
+      setBarberias((prev) => prev.filter((b) => Number(b.id) !== barberiaId));
+
+      if (identity?.barberia_id === barberiaId) {
+        const remaining = barberias.filter((b) => Number(b.id) !== barberiaId);
+        if (remaining.length > 0) {
+          const next = remaining[0];
+          window.location.href = `/barberia?slug=${encodeURIComponent(next.slug)}&barberia_id=${next.id}`;
+        } else {
+          window.location.href = "/";
+        }
+      } else {
+        setMessage("Barbería eliminada correctamente.");
+      }
+      return { ok: true, message: data.message || "Barbería eliminada correctamente." };
+    } catch (err) {
+      const errMsg = err instanceof Error ? err.message : "Error de red al eliminar la barbería.";
+      setError(errMsg);
+      return { ok: false, message: errMsg, error: "network_error" };
+    }
+  }, [barberias, identity]);
+
   const value = useMemo<DashboardContextValue>(() => ({
     identity,
     rawState,
@@ -625,6 +664,7 @@ export function DashboardProvider({ children }: { children: React.ReactNode }) {
     access,
     session,
     isAuthenticated,
+    barberias,
     merged,
     loading,
     saving,
@@ -634,6 +674,7 @@ export function DashboardProvider({ children }: { children: React.ReactNode }) {
     login: loginAction,
     logout: logoutAction,
     refresh,
+    deleteBarberia,
     setField: (key, value) => {
       setMerged((prev) => ({ ...prev, [key]: value }));
     },
@@ -643,6 +684,8 @@ export function DashboardProvider({ children }: { children: React.ReactNode }) {
     saveDraft: saveDraftAction,
     publish: publishAction
   }), [
+    barberias,
+    deleteBarberia,
     error,
     identity,
     access,
