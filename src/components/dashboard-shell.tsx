@@ -1134,7 +1134,15 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
                     setConfirmBarberiaName("");
                     setIsBarberiasModalOpen(false);
                   } else {
-                    setDeleteError(res.message || "Error al eliminar.");
+                    const isSessionExpired =
+                      res.error === "not_authenticated" ||
+                      res.message === "Sesión requerida." ||
+                      res.message === "Sesión no autorizada o expirada.";
+                    if (isSessionExpired) {
+                      setDeleteError("Tu sesión expiró. Inicia sesión nuevamente para continuar.");
+                    } else {
+                      setDeleteError(res.message || "Error al eliminar.");
+                    }
                   }
                 }}
                 style={{
