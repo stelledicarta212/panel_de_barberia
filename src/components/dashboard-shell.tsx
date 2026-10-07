@@ -1,7 +1,6 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
   Bell,
@@ -21,6 +20,7 @@ import {
   X
 } from "lucide-react";
 import { ThemeToggle } from "@/components/theme-toggle";
+import { TransitionAnchor, TransitionLink } from "@/components/transition-link";
 import { useDashboard } from "@/store/dashboard-context";
 import { canAccessPath } from "@/lib/dashboard-access";
 import { getSubscriptionDisplayInfo, BILLING_TERMS_MAP, formatSpanishDate } from "@/lib/product-state";
@@ -360,7 +360,7 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
                     <span>{planDisplay.dashboardCtaLabel}</span>
                   </button>
                 ) : (
-                  <a
+                  <TransitionAnchor
                     className="ba-btn-gold"
                     href={planDisplay.dashboardCtaHref}
                     title={planDisplay.dashboardCtaLabel}
@@ -368,7 +368,7 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
                     style={{ textDecoration: "none", display: "inline-flex", alignItems: "center", gap: "6px" }}
                   >
                     <span>{planDisplay.dashboardCtaLabel}</span>
-                  </a>
+                  </TransitionAnchor>
                 )}
               </div>
             </div>
@@ -405,15 +405,15 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
               );
               if (isExternal) {
                 return (
-                  <a key={item.href} className={className} href={href}>
+                  <TransitionAnchor key={item.href} className={className} href={href}>
                     {content}
-                  </a>
+                  </TransitionAnchor>
                 );
               }
               return (
-                <Link key={item.href} className={className} href={href}>
+                <TransitionLink key={item.href} className={className} href={href}>
                   {content}
-                </Link>
+                </TransitionLink>
               );
             })}
           </nav>
@@ -472,7 +472,7 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
                   <span>{planDisplay.dashboardCtaLabel}</span>
                 </button>
               ) : (
-                <a
+                <TransitionAnchor
                   className="ba-btn-gold"
                   href={planDisplay.dashboardCtaHref}
                   title={planDisplay.dashboardCtaLabel}
@@ -480,7 +480,7 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
                   style={{ textDecoration: "none", display: "inline-flex", alignItems: "center", gap: "6px" }}
                 >
                   <span>{planDisplay.dashboardCtaLabel}</span>
-                </a>
+                </TransitionAnchor>
               )}
             </div>
           </header>
@@ -519,7 +519,7 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
                     {planDisplay.bannerCtaLabel || planDisplay.dashboardCtaLabel}
                   </button>
                 ) : (
-                  <a
+                  <TransitionAnchor
                     className={`ba-btn-gold${
                       planDisplay.state === "PAID_ACTIVE" && planDisplay.isWarning ? " ba-plan-expiry-warning-cta" : ""
                     }`}
@@ -527,7 +527,7 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
                     aria-label={planDisplay.bannerCtaLabel || planDisplay.dashboardCtaLabel}
                   >
                     {planDisplay.bannerCtaLabel || planDisplay.dashboardCtaLabel}
-                  </a>
+                  </TransitionAnchor>
                 )}
               </div>
             </aside>
@@ -547,13 +547,13 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
               </div>
               <h2>Empieza creando tu barbería</h2>
               <p>Al crearla tendrás 7 días gratis para probar BarberAgency.</p>
-              <a
+              <TransitionAnchor
                 className="ba-btn-gold ba-btn-large"
                 href={planDisplay.dashboardCtaHref}
                 aria-label="Crear mi barbería"
               >
                 Crear mi barbería
-              </a>
+              </TransitionAnchor>
             </section>
           ) : canViewCurrentPath ? (
             children
@@ -567,13 +567,13 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
               </p>
               {planDisplay.isExpired ? (
                 <div style={{ marginTop: "1.25rem" }}>
-                  <a
+                  <TransitionAnchor
                     className="ba-btn-gold ba-btn-large"
                     href={planDisplay.dashboardCtaHref}
                     aria-label={planDisplay.dashboardCtaLabel}
                   >
                     {planDisplay.dashboardCtaLabel}
-                  </a>
+                  </TransitionAnchor>
                 </div>
               ) : (
                 <small>Rol: {roleLabel}</small>
@@ -698,7 +698,7 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
             </div>
 
             <div className="ba-plan-drawer-footer">
-              <a
+              <TransitionAnchor
                 href={planDisplay.bannerCtaHref || planDisplay.dashboardCtaHref}
                 className={`ba-btn-gold ba-plan-drawer-primary-btn${
                   planDisplay.state === "PAID_ACTIVE" && planDisplay.isWarning ? " is-warning" : ""
@@ -709,7 +709,7 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
                     ? "Renovar ahora"
                     : "Gestionar plan"}
                 </span>
-              </a>
+              </TransitionAnchor>
               <button
                 type="button"
                 className="ba-plan-drawer-secondary-btn"

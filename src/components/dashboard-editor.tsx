@@ -17,6 +17,9 @@ import {
 } from "lucide-react";
 import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
+import { TransitionAnchor } from "@/components/transition-link";
+import { useNavigationTransition } from "@/components/navigation-transition-provider";
+import { getNavigationTransitionMessage } from "@/lib/navigation-transition";
 import { useDashboard } from "@/store/dashboard-context";
 
 type ReservationRecord = {
@@ -109,6 +112,7 @@ function formatLongDate(dateKey: string): string {
 
 export function DashboardEditor() {
   const router = useRouter();
+  const { startTransition } = useNavigationTransition();
   const { merged, loading, saving, publishing, refresh, saveDraft, publish } = useDashboard();
   const [selectedDateKey, setSelectedDateKey] = useState(() => todayDateKey());
   const reservations = useMemo<ReservationRecord[]>(() => {
@@ -118,6 +122,11 @@ export function DashboardEditor() {
   }, [merged.appointments]);
   const qrPanelValue = merged.qr_url;
   const publicLandingLabel = String(merged.biz_name || merged.biz_slug || "Landing publica").trim();
+
+  function navigateToDashboardRoute(href: string) {
+    startTransition(getNavigationTransitionMessage(href));
+    router.push(href);
+  }
 
   const offDaysByBarber = useMemo(() => {
     const map: Record<string, string[]> = {};
@@ -495,8 +504,8 @@ export function DashboardEditor() {
           className="ba-card ba-overview-booking"
           role="button"
           tabIndex={0}
-          onClick={() => router.push("/citas")}
-          onKeyDown={(e) => (e.key === "Enter" || e.key === " ") && router.push("/citas")}
+          onClick={() => navigateToDashboardRoute("/citas")}
+          onKeyDown={(e) => (e.key === "Enter" || e.key === " ") && navigateToDashboardRoute("/citas")}
         >
           <div className="ba-card-title flex flex-col md:flex-row md:items-center justify-between gap-4 w-full">
             <div className="flex items-center gap-2">
@@ -570,8 +579,8 @@ export function DashboardEditor() {
           className="ba-card ba-overview-barbers"
           role="button"
           tabIndex={0}
-          onClick={() => router.push("/barberos")}
-          onKeyDown={(e) => (e.key === "Enter" || e.key === " ") && router.push("/barberos")}
+          onClick={() => navigateToDashboardRoute("/barberos")}
+          onKeyDown={(e) => (e.key === "Enter" || e.key === " ") && navigateToDashboardRoute("/barberos")}
         >
           <div className="ba-card-title">
             <h2>Gestion de Barberos</h2>
@@ -597,8 +606,8 @@ export function DashboardEditor() {
           className="ba-card ba-overview-loyalty"
           role="button"
           tabIndex={0}
-          onClick={() => router.push("/finanzas")}
-          onKeyDown={(e) => (e.key === "Enter" || e.key === " ") && router.push("/finanzas")}
+          onClick={() => navigateToDashboardRoute("/finanzas")}
+          onKeyDown={(e) => (e.key === "Enter" || e.key === " ") && navigateToDashboardRoute("/finanzas")}
         >
           <div className="ba-card-title">
             <h2>Programa de Lealtad</h2>
@@ -630,8 +639,8 @@ export function DashboardEditor() {
           className="ba-card"
           role="button"
           tabIndex={0}
-          onClick={() => router.push("/servicios")}
-          onKeyDown={(e) => (e.key === "Enter" || e.key === " ") && router.push("/servicios")}
+          onClick={() => navigateToDashboardRoute("/servicios")}
+          onKeyDown={(e) => (e.key === "Enter" || e.key === " ") && navigateToDashboardRoute("/servicios")}
         >
           <div className="ba-card-title"><h2>Servicios</h2><Scissors size={14} /></div>
           <ul className="ba-list">
@@ -645,8 +654,8 @@ export function DashboardEditor() {
           className="ba-card"
           role="button"
           tabIndex={0}
-          onClick={() => router.push("/clientes")}
-          onKeyDown={(e) => (e.key === "Enter" || e.key === " ") && router.push("/clientes")}
+          onClick={() => navigateToDashboardRoute("/clientes")}
+          onKeyDown={(e) => (e.key === "Enter" || e.key === " ") && navigateToDashboardRoute("/clientes")}
         >
           <div className="ba-card-title"><h2>Clientes</h2><Users size={14} /></div>
           <ul className="ba-list">
@@ -664,8 +673,8 @@ export function DashboardEditor() {
           className="ba-card"
           role="button"
           tabIndex={0}
-          onClick={() => router.push("/inventario")}
-          onKeyDown={(e) => (e.key === "Enter" || e.key === " ") && router.push("/inventario")}
+          onClick={() => navigateToDashboardRoute("/inventario")}
+          onKeyDown={(e) => (e.key === "Enter" || e.key === " ") && navigateToDashboardRoute("/inventario")}
         >
           <div className="ba-card-title"><h2>Finanzas</h2><CircleDollarSign size={14} /></div>
           <ul className="ba-list">
@@ -702,7 +711,7 @@ export function DashboardEditor() {
           <div className="ba-form-grid ba-publication-form">
             <div className="ba-field">
               <span>URL pública</span>
-              <a 
+              <TransitionAnchor 
                 className="ba-public-url-link" 
                 href={merged.public_landing_url || "#"} 
                 target="_blank" 
@@ -720,7 +729,7 @@ export function DashboardEditor() {
                 ) : (
                   publicLandingLabel
                 )}
-              </a>
+              </TransitionAnchor>
             </div>
             <div className="ba-field ba-publication-qr">
               <span>QR publico</span>
@@ -736,9 +745,9 @@ export function DashboardEditor() {
           <div className="ba-action-row">
             <button className="ba-btn-ghost" onClick={() => refresh()} disabled={loading} type="button"><RefreshCw size={15} />Recargar</button>
             <button className="ba-btn-ghost" onClick={() => handleCopyPublicUrl()} disabled={!merged.public_landing_url} type="button">Copiar URL</button>
-            <a className="ba-btn-ghost" href={merged.public_landing_url || "#"} target="_blank" rel="noreferrer" aria-disabled={!merged.public_landing_url}>
+            <TransitionAnchor className="ba-btn-ghost" href={merged.public_landing_url || "#"} target="_blank" rel="noreferrer" aria-disabled={!merged.public_landing_url}>
               Abrir landing
-            </a>
+            </TransitionAnchor>
             <button className="ba-btn-main" onClick={() => saveDraft()} disabled={saving || publishing} type="button"><Save size={15} />Guardar</button>
             <button className="ba-btn-main" onClick={() => publish()} disabled={publishing || saving} type="button"><Send size={15} />Publicar</button>
           </div>
