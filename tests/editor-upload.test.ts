@@ -529,4 +529,141 @@ describe("POST /api/editor/upload route handler", () => {
     expect(capturedUpstreamFormData!.get("slot")).toBe("service");
     expect(capturedUpstreamFormData!.get("service_id")).toBe("45");
   });
+
+  it("successfully allows onboarding draft image upload for authenticated user with no existing barberia", async () => {
+    let capturedUpstreamFormData: FormData | null = null;
+
+    vi.spyOn(globalThis, "fetch").mockImplementation(async (input, init) => {
+      const url = String(input);
+      if (url.includes("/session/me")) {
+        return new Response(
+          JSON.stringify({
+            ok: true,
+            user_id: 42,
+            barberias: [] // New user undergoing onboarding
+          }),
+          { status: 200, headers: { "Content-Type": "application/json" } }
+        );
+      }
+      if (url.includes("/webhook/upload-live")) {
+        capturedUpstreamFormData = (init?.body as FormData) || null;
+        return new Response(
+          JSON.stringify({
+            ok: true,
+            url: "https://pub-369b1ea177db4f8e8b8fb47c8f6c0ef7.r2.dev/services/onboarding/draft-service.jpg",
+            key: "services/onboarding/draft-service.jpg"
+          }),
+          { status: 200, headers: { "Content-Type": "application/json" } }
+        );
+      }
+      return new Response("Not Found", { status: 404 });
+    });
+
+    const formData = new FormData();
+    formData.append("biz_slug", "barberia-prueba-ui");
+    formData.append("context", "onboarding");
+    formData.append(
+      "file",
+      new File([VALID_JPEG_BYTES], "servicio_nuevo.jpg", { type: "image/jpeg" })
+    );
+
+    const req = new Request("http://localhost/api/editor/upload", {
+      method: "POST",
+      headers: { Cookie: "ba_session=sess-onboarding-user" },
+      body: formData
+    });
+
+    const res = await POST(req);
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(body.ok).toBe(true);
+    expect(body.url).toBe(
+      "https://pub-369b1ea177db4f8e8b8fb47c8f6c0ef7.r2.dev/services/onboarding/draft-service.jpg"
+    );
+
+    expect(capturedUpstreamFormData).not.toBeNull();
+    expect(capturedUpstreamFormData!.get("barberia_id")).toBe("0");
+    expect(capturedUpstreamFormData!.get("biz_slug")).toBe("barberia-prueba-ui");
+    expect(capturedUpstreamFormData!.get("context")).toBe("onboarding");
+    expect(capturedUpstreamFormData!.get("user_id")).toBe("42");
+  });
+
+  it("returns 400 slug_mismatch if slug and biz_slug disagree in upload request", async () => {
+    const formData = new FormData();
+    formData.append("slug", "slug-uno");
+    formData.append("biz_slug", "slug-dos");
+    formData.append(
+      "file",
+      new File([VALID_JPEG_BYTES], "servicio.jpg", { type: "image/jpeg" })
+    );
+
+    const req = new Request("http://localhost/api/editor/upload", {
+      method: "POST",
+      headers: { Cookie: "ba_session=sess-onboarding-user" },
+      body: formData
+    });
+
+    const res = await POST(req);
+    expect(res.status).toBe(400);
+    const body = await res.json();
+    expect(body.ok).toBe(false);
+    expect(body.code).toBe("slug_mismatch");
+  });
+
+  it("returns 400 slug_invalido if slug contains path traversal or invalid characters", async () => {
+    const formData = new FormData();
+    formData.append("slug", "../../../malicious");
+    formData.append(
+      "file",
+      new File([VALID_JPEG_BYTES], "servicio.jpg", { type: "image/jpeg" })
+    );
+
+    const req = new Request("http://localhost/api/editor/upload", {
+      method: "POST",
+      headers: { Cookie: "ba_session=sess-onboarding-user" },
+      body: formData
+    });
+
+    const res = await POST(req);
+    expect(res.status).toBe(400);
+    const body = await res.json();
+    expect(body.ok).toBe(false);
+    expect(body.code).toBe("slug_invalido");
+  });
+
+  it("handles upstream responses wrapped in arrays [{ url: ... }]", async () => {
+    vi.spyOn(globalThis, "fetch").mockImplementation(async (input) => {
+      const url = String(input);
+      if (url.includes("/session/me")) {
+        return new Response(JSON.stringify({ ok: true, user_id: 42, barberias: [] }), { status: 200 });
+      }
+      if (url.includes("/webhook/upload-live")) {
+        return new Response(
+          JSON.stringify([
+            {
+              url: "https://pub-369b1ea177db4f8e8b8fb47c8f6c0ef7.r2.dev/services/array-upload.jpg"
+            }
+          ]),
+          { status: 200, headers: { "Content-Type": "application/json" } }
+        );
+      }
+      return new Response("Not Found", { status: 404 });
+    });
+
+    const formData = new FormData();
+    formData.append("biz_slug", "barberia-array");
+    formData.append("file", new File([VALID_JPEG_BYTES], "servicio.jpg", { type: "image/jpeg" }));
+
+    const req = new Request("http://localhost/api/editor/upload", {
+      method: "POST",
+      headers: { Cookie: "ba_session=sess-valid" },
+      body: formData
+    });
+
+    const res = await POST(req);
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(body.ok).toBe(true);
+    expect(body.url).toBe("https://pub-369b1ea177db4f8e8b8fb47c8f6c0ef7.r2.dev/services/array-upload.jpg");
+  });
 });

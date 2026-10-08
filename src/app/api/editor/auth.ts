@@ -10,12 +10,18 @@ export type EditorAuthResult =
       baSession: string;
       barberiaId: number;
       slug: string | null;
+      userId?: number;
+      isOnboarding?: boolean;
     }
   | {
       ok: false;
       status: number;
       body: Record<string, unknown>;
     };
+
+export interface ValidateEditorTenantOptions {
+  allowOnboarding?: boolean;
+}
 
 type EditorPayloadParseResult =
   | { ok: true; payload: Record<string, unknown> }
@@ -24,6 +30,43 @@ type EditorPayloadParseResult =
       status: number;
       body: Record<string, unknown>;
     };
+
+export function isValidSlug(slug: unknown): boolean {
+  if (!slug || typeof slug !== "string") return false;
+  const trimmed = slug.trim();
+  if (trimmed.length < 2 || trimmed.length > 80) return false;
+  return /^[a-z0-9]+(?:-[a-z0-9]+)*$/i.test(trimmed);
+}
+
+export function isValidCanonicalStorageUrl(url: unknown): boolean {
+  if (!url || typeof url !== "string") return false;
+  const trimmed = url.trim();
+  if (!trimmed.startsWith("https://")) return false;
+  const lower = trimmed.toLowerCase();
+  if (
+    lower.startsWith("blob:") ||
+    lower.startsWith("data:") ||
+    lower.startsWith("file:") ||
+    lower.includes("localhost") ||
+    lower.includes("127.0.0.1") ||
+    lower.includes("0.0.0.0") ||
+    lower.includes("169.254.")
+  ) {
+    return false;
+  }
+  try {
+    const parsed = new URL(trimmed);
+    if (parsed.protocol !== "https:" || !parsed.hostname || parsed.hostname.length < 3) {
+      return false;
+    }
+    if (parsed.username || parsed.password) {
+      return false;
+    }
+    return true;
+  } catch {
+    return false;
+  }
+}
 
 export function readBaSession(cookieHeader: string): string {
   const match = cookieHeader.match(/(?:^|;\s*)ba_session=([^;]+)/);
@@ -126,7 +169,11 @@ function readAuthorizedBarberias(body: unknown): Array<{ id: number; slug: strin
     .filter((item): item is { id: number; slug: string | null } => Boolean(item));
 }
 
-export async function validateEditorTenant(request: Request, payload: Record<string, unknown>): Promise<EditorAuthResult> {
+export async function validateEditorTenant(
+  request: Request,
+  payload: Record<string, unknown>,
+  options: ValidateEditorTenantOptions = {}
+): Promise<EditorAuthResult> {
   const sessionMeEndpoint = getSessionMeEndpoint();
   if (!sessionMeEndpoint) {
     return {
@@ -164,6 +211,18 @@ export async function validateEditorTenant(request: Request, payload: Record<str
         ok: false,
         code: "barberia_id_requerido",
         message: "barberia_id o slug requerido"
+      }
+    };
+  }
+
+  if (slug && !isValidSlug(slug)) {
+    return {
+      ok: false,
+      status: 400,
+      body: {
+        ok: false,
+        code: "slug_invalido",
+        message: "El slug proporcionado tiene un formato invalido."
       }
     };
   }
@@ -226,6 +285,20 @@ export async function validateEditorTenant(request: Request, payload: Record<str
   }
 
   if (!matched) {
+    if (options.allowOnboarding && !requestedBarberiaId) {
+      const rawUserId =
+        (sessionBody as Record<string, unknown>)?.user_id ??
+        (sessionBody as Record<string, unknown>)?.id;
+      const parsedUserId = Number(rawUserId);
+      return {
+        ok: true,
+        baSession,
+        barberiaId: 0,
+        slug: slug || null,
+        userId: Number.isFinite(parsedUserId) && parsedUserId > 0 ? parsedUserId : undefined,
+        isOnboarding: true
+      };
+    }
     return {
       ok: false,
       status: 400,

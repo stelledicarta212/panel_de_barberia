@@ -1,6 +1,14 @@
 import { NextResponse } from "next/server";
-import { getCorsHeaders, readBaSession, validateEditorTenant } from "../auth";
+import {
+  getCorsHeaders,
+  isValidCanonicalStorageUrl,
+  isValidSlug,
+  readBaSession,
+  validateEditorTenant
+} from "../auth";
 import { consumeRateLimit, getClientIp, rateLimitResponse } from "@/lib/rate-limit";
+
+export { isValidCanonicalStorageUrl };
 
 const MAX_FILE_SIZE_BYTES = 10 * 1024 * 1024; // 10MB
 
@@ -102,27 +110,7 @@ export function validateImageMagicBytes(buffer: ArrayBuffer, mimeType: string): 
   return false;
 }
 
-export function isValidCanonicalStorageUrl(url: string): boolean {
-  if (!url || typeof url !== "string") return false;
-  const trimmed = url.trim();
-  if (!trimmed.startsWith("https://")) return false;
-  const lower = trimmed.toLowerCase();
-  if (
-    lower.startsWith("blob:") ||
-    lower.startsWith("data:") ||
-    lower.startsWith("file:") ||
-    lower.includes("localhost") ||
-    lower.includes("127.0.0.1")
-  ) {
-    return false;
-  }
-  try {
-    const parsed = new URL(trimmed);
-    return parsed.protocol === "https:" && parsed.hostname.length > 0;
-  } catch {
-    return false;
-  }
-}
+
 
 export async function OPTIONS(request: Request) {
   return new NextResponse(null, {
@@ -179,11 +167,31 @@ export async function POST(request: Request) {
   const parsedId = Number(rawBarberiaId);
   const barberiaId = Number.isFinite(parsedId) && parsedId > 0 ? parsedId : undefined;
 
-  const slug = (
-    formData.get("slug") ??
-    formData.get("biz_slug") ??
-    ""
-  ).toString().trim();
+  const rawSlug = formData.get("slug")?.toString().trim() || "";
+  const rawBizSlug = formData.get("biz_slug")?.toString().trim() || "";
+
+  if (rawSlug && rawBizSlug && rawSlug !== rawBizSlug) {
+    return NextResponse.json(
+      {
+        ok: false,
+        code: "slug_mismatch",
+        message: "Los parametros slug y biz_slug no coinciden."
+      },
+      { status: 400, headers: corsHeaders }
+    );
+  }
+
+  const slug = rawSlug || rawBizSlug || "";
+  if (slug && !isValidSlug(slug)) {
+    return NextResponse.json(
+      {
+        ok: false,
+        code: "slug_invalido",
+        message: "El slug proporcionado tiene un formato invalido. Debe contener solo caracteres alfanumericos y guiones."
+      },
+      { status: 400, headers: corsHeaders }
+    );
+  }
 
   if (!barberiaId && !slug) {
     return NextResponse.json(
@@ -198,10 +206,14 @@ export async function POST(request: Request) {
 
   let tenant;
   try {
-    tenant = await validateEditorTenant(request, {
-      barberia_id: barberiaId,
-      slug: slug || undefined
-    });
+    tenant = await validateEditorTenant(
+      request,
+      {
+        barberia_id: barberiaId,
+        slug: slug || undefined
+      },
+      { allowOnboarding: true }
+    );
   } catch (error) {
     return NextResponse.json(
       {
@@ -218,7 +230,9 @@ export async function POST(request: Request) {
   }
 
   const clientIp = getClientIp(request);
-  const rateLimitKey = `editor_upload:${tenant.barberiaId}:${clientIp}`;
+  const rateLimitKey = tenant.isOnboarding
+    ? `editor_upload_onboarding:${tenant.userId ?? "anon"}:${clientIp}`
+    : `editor_upload:${tenant.barberiaId}:${clientIp}`;
   const limitCheck = await consumeRateLimit(rateLimitKey, 30, 60, true);
   if (!limitCheck.allowed) {
     return rateLimitResponse(limitCheck.retryAfter);
@@ -300,9 +314,15 @@ export async function POST(request: Request) {
 
   const upstreamFormData = new FormData();
   upstreamFormData.append("file", file, safeFileName);
-  upstreamFormData.append("barberia_id", String(tenant.barberiaId));
+  upstreamFormData.append("barberia_id", String(tenant.barberiaId || 0));
   if (tenant.slug) {
     upstreamFormData.append("biz_slug", tenant.slug);
+  }
+  if (tenant.isOnboarding) {
+    upstreamFormData.append("context", "onboarding");
+    if (tenant.userId) {
+      upstreamFormData.append("user_id", String(tenant.userId));
+    }
   }
   const slot = formData.get("slot");
   if (slot) {
@@ -340,11 +360,29 @@ export async function POST(request: Request) {
     clearTimeout(timeoutId);
 
     const text = await upstreamRes.text().catch(() => "");
-    let body: Record<string, unknown> = {};
+    let rawParsed: unknown = {};
     try {
-      body = text ? JSON.parse(text) : {};
+      rawParsed = text ? JSON.parse(text) : {};
     } catch {
       // non-JSON
+    }
+
+    let body: Record<string, unknown> = {};
+    if (Array.isArray(rawParsed) && rawParsed.length > 0) {
+      const first = rawParsed[0];
+      if (first && typeof first === "object") {
+        body =
+          (first as Record<string, unknown>).json &&
+          typeof (first as Record<string, unknown>).json === "object"
+            ? ((first as Record<string, unknown>).json as Record<string, unknown>)
+            : (first as Record<string, unknown>);
+      }
+    } else if (rawParsed && typeof rawParsed === "object") {
+      body =
+        (rawParsed as Record<string, unknown>).json &&
+        typeof (rawParsed as Record<string, unknown>).json === "object"
+          ? ((rawParsed as Record<string, unknown>).json as Record<string, unknown>)
+          : (rawParsed as Record<string, unknown>);
     }
 
     if (!upstreamRes.ok) {
