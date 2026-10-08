@@ -71,13 +71,18 @@ export function NavigationTransitionProvider({ children }: { children: React.Rea
     if (lastLocationRef.current !== currentKey) {
       lastLocationRef.current = currentKey;
       manager.onRouteComplete();
+    } else if (manager.isActive) {
+      manager.onRouteComplete();
     }
   }, [manager, pathname]);
 
   useEffect(() => {
     const rememberAndComplete = () => {
-      const currentKey = getCurrentLocationKey(pathname);
-      if (lastLocationRef.current !== currentKey) {
+      const currentKey =
+        typeof window !== "undefined"
+          ? window.location.pathname + window.location.search
+          : "";
+      if (currentKey && lastLocationRef.current !== currentKey) {
         lastLocationRef.current = currentKey;
         manager.onRouteComplete();
       }
@@ -105,7 +110,18 @@ export function NavigationTransitionProvider({ children }: { children: React.Rea
       window.removeEventListener("popstate", rememberAndComplete);
       manager.destroy();
     };
-  }, [manager, pathname]);
+  }, [manager]);
+
+  useEffect(() => {
+    if (!isActive) return;
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") {
+        manager.forceHide();
+      }
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [isActive, manager]);
 
   useEffect(() => {
     const handleImmediateHide = () => {
@@ -121,7 +137,6 @@ export function NavigationTransitionProvider({ children }: { children: React.Rea
     };
   }, [manager]);
 
-
   const value = useMemo(
     () => ({ isActive, message, startTransition, clearTransition }),
     [clearTransition, isActive, message, startTransition]
@@ -135,8 +150,9 @@ export function NavigationTransitionProvider({ children }: { children: React.Rea
         role="status"
         aria-live="polite"
         aria-hidden={isActive ? "false" : "true"}
+        onClick={() => clearTransition({ immediate: true })}
       >
-        <div className="ba-navigation-transition-card">
+        <div className="ba-navigation-transition-card" onClick={(e) => e.stopPropagation()}>
           <div className="ba-navigation-transition-logo-wrap" aria-hidden="true">
             {/* eslint-disable-next-line @next/next/no-img-element -- remote WordPress brand asset must match the onboarding loader exactly. */}
             <img

@@ -215,8 +215,7 @@ export class NavigationTransitionManager {
   }
 
   public destroy(): void {
-    this.clearDismissalTimer();
-    this.clearFailsafeTimer();
+    this.forceHide();
   }
 
   private clearDismissalTimer(): void {

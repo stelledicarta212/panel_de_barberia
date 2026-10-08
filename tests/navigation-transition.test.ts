@@ -268,6 +268,108 @@ describe("navigation transition minimum visibility timing & lifecycle (MIN_VISIB
     expect(manager.isActive).toBe(false);
     manager.destroy();
   });
+
+  // 13. manager.destroy() must leave active = false and notify subscribers
+  it("13. manager.destroy() forces active = false and notifies subscriber", () => {
+    let notifiedState = true;
+    const manager = new NavigationTransitionManager({
+      onStateChange: (state) => {
+        notifiedState = state.isActive;
+      }
+    });
+
+    manager.startTransition("Cargando servicios...");
+    expect(manager.isActive).toBe(true);
+    expect(notifiedState).toBe(true);
+
+    // When destroy is called, it must unconditionally deactivate
+    manager.destroy();
+    expect(manager.isActive).toBe(false);
+    expect(notifiedState).toBe(false);
+    expect(manager.transitionStartedAt).toBeNull();
+  });
+
+  // 14. Original regression: unmount/cleanup during active transition cannot leave orphaned active state
+  it("14. original regression: destruction during active transition leaves active = false without hung overlay", () => {
+    let currentActive = false;
+    const manager = new NavigationTransitionManager({
+      minVisibleMs: 300,
+      onStateChange: (state) => {
+        currentActive = state.isActive;
+      }
+    });
+
+    manager.startTransition("Cargando servicios...");
+    expect(currentActive).toBe(true);
+
+    // Simulate route change that triggers manager destroy on unmount
+    manager.destroy();
+
+    // In the old code, active was left TRUE with all timers destroyed (hung forever).
+    // In the fixed code, active is guaranteed to be FALSE.
+    expect(currentActive).toBe(false);
+    expect(manager.isActive).toBe(false);
+
+    // Advancing timers further produces no lingering effects
+    vi.advanceTimersByTime(10000);
+    expect(currentActive).toBe(false);
+    expect(manager.isActive).toBe(false);
+  });
+
+  // 15. Rapid consecutive module navigation ending in clean dismiss
+  it("15. rapid consecutive module navigation ends in active = false", () => {
+    const states: boolean[] = [];
+    const manager = new NavigationTransitionManager({
+      minVisibleMs: 300,
+      onStateChange: (state) => {
+        states.push(state.isActive);
+      }
+    });
+
+    // Nav 1: Panel -> Citas
+    manager.startTransition("Cargando citas...");
+    expect(manager.isActive).toBe(true);
+
+    vi.advanceTimersByTime(50);
+    // Nav 2: Citas -> Servicios before Nav 1 even finishes
+    manager.startTransition("Cargando servicios...");
+    expect(manager.isActive).toBe(true);
+    expect(manager.currentMessage).toBe("Cargando servicios...");
+
+    vi.advanceTimersByTime(50);
+    // Nav 3: Servicios completes
+    manager.onRouteComplete();
+    expect(manager.isActive).toBe(true);
+
+    // After remaining visibility (300 - 50 = 250ms), must deactivate
+    vi.advanceTimersByTime(250);
+    expect(manager.isActive).toBe(false);
+    manager.destroy();
+  });
+
+  // 16. Deadlock failsafe fires when route never finishes (error / hang)
+  it("16. deadlock failsafe unconditionally dismisses overlay if route hangs indefinitely", () => {
+    let finalActive = true;
+    const manager = new NavigationTransitionManager({
+      deadlockFailsafeMs: 8000,
+      onStateChange: (state) => {
+        finalActive = state.isActive;
+      }
+    });
+
+    manager.startTransition("Cargando servicios...");
+    expect(manager.isActive).toBe(true);
+
+    // Hangs for 7999ms
+    vi.advanceTimersByTime(7999);
+    expect(manager.isActive).toBe(true);
+
+    // Exactly at 8000ms failsafe must trigger
+    vi.advanceTimersByTime(1);
+    expect(manager.isActive).toBe(false);
+    expect(finalActive).toBe(false);
+    manager.destroy();
+  });
 });
 
 
