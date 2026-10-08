@@ -296,3 +296,123 @@ test("provider lifecycle: route change does not destroy manager, and overlay dis
   assert.equal(isActive, false);
 });
 
+test("dashboard-shell: Panel item href is /barberia and never /", () => {
+  const shellSource = fs.readFileSync("./src/components/dashboard-shell.tsx", "utf8");
+  assert.match(shellSource, /\{\s*href:\s*["']\/barberia["'],\s*label:\s*["']Panel["']/);
+  assert.doesNotMatch(shellSource, /\{\s*href:\s*["']\/["'],\s*label:\s*["']Panel["']/);
+});
+
+test("panel navigation: transitions to /barberia from all modules", () => {
+  const baseUrl = "https://barberagency-barberagency.gymh5g.easypanel.host";
+  const modules = [
+    { from: "/servicios", label: "Servicios" },
+    { from: "/citas", label: "Citas" },
+    { from: "/clientes", label: "Clientes" },
+    { from: "/barberos", label: "Barberos" },
+    { from: "/finanzas", label: "Programa de Lealtad" },
+    { from: "/inventario", label: "Caja / POS" }
+  ];
+
+  for (const mod of modules) {
+    const decision = shouldShowNavigationTransition({
+      href: "/barberia",
+      currentUrl: `${baseUrl}${mod.from}`
+    });
+    assert.equal(decision.shouldTransition, true, `Transition to Panel from ${mod.label} must be true`);
+    assert.equal(decision.message, "Cargando panel...", `Transition message must be 'Cargando panel...'`);
+    assert.equal(decision.href, "/barberia", `Transition target href must be /barberia`);
+  }
+});
+
+test("panel navigation: ignores transition when clicking Panel from /barberia", () => {
+  const baseUrl = "https://barberagency-barberagency.gymh5g.easypanel.host";
+  const decision = shouldShowNavigationTransition({
+    href: "/barberia",
+    currentUrl: `${baseUrl}/barberia`
+  });
+  assert.equal(decision.shouldTransition, false);
+  assert.equal(decision.reason, "same-route");
+});
+
+test("panel navigation: round-trip Panel -> Servicios -> Panel", async () => {
+  const baseUrl = "https://barberagency-barberagency.gymh5g.easypanel.host";
+  let simulatedTime = 0;
+  const manager = new NavigationTransitionManager({
+    minVisibleMs: 300,
+    getNow: () => simulatedTime
+  });
+
+  // 1. Panel -> Servicios
+  const d1 = shouldShowNavigationTransition({
+    href: "/servicios",
+    currentUrl: `${baseUrl}/barberia`
+  });
+  assert.equal(d1.shouldTransition, true);
+  assert.equal(d1.message, "Cargando servicios...");
+
+  manager.startTransition(d1.message);
+  assert.equal(manager.isActive, true);
+
+  simulatedTime = 310;
+  manager.onRouteComplete();
+  assert.equal(manager.isActive, false);
+
+  // 2. Servicios -> Panel
+  const d2 = shouldShowNavigationTransition({
+    href: "/barberia",
+    currentUrl: `${baseUrl}/servicios`
+  });
+  assert.equal(d2.shouldTransition, true);
+  assert.equal(d2.message, "Cargando panel...");
+
+  manager.startTransition(d2.message);
+  assert.equal(manager.isActive, true);
+
+  simulatedTime = 620;
+  manager.onRouteComplete();
+  assert.equal(manager.isActive, false);
+
+  manager.destroy();
+});
+
+test("menu active state: isActive recognizes /barberia and / correctly", () => {
+  const checkIsActive = (itemHref, currentPathname) => {
+    return currentPathname === itemHref || (itemHref === "/barberia" && currentPathname === "/");
+  };
+
+  // On /barberia: Panel is active, others are inactive
+  assert.equal(checkIsActive("/barberia", "/barberia"), true);
+  assert.equal(checkIsActive("/servicios", "/barberia"), false);
+  assert.equal(checkIsActive("/citas", "/barberia"), false);
+
+  // On / (root redirect edge case): Panel is active
+  assert.equal(checkIsActive("/barberia", "/"), true);
+  assert.equal(checkIsActive("/servicios", "/"), false);
+
+  // On /servicios: Panel is inactive, Servicios is active
+  assert.equal(checkIsActive("/barberia", "/servicios"), false);
+  assert.equal(checkIsActive("/servicios", "/servicios"), true);
+
+  // On /citas: Panel is inactive, Citas is active
+  assert.equal(checkIsActive("/barberia", "/citas"), false);
+  assert.equal(checkIsActive("/citas", "/citas"), true);
+});
+
+test("popstate back/forward simulation: overlay completes cleanly", async () => {
+  let simulatedTime = 0;
+  const manager = new NavigationTransitionManager({
+    minVisibleMs: 300,
+    getNow: () => simulatedTime
+  });
+
+  // User presses back button (popstate triggers navigation transition)
+  manager.startTransition("Cargando panel...");
+  assert.equal(manager.isActive, true);
+
+  // Route completes as history restores previous entry
+  simulatedTime = 320;
+  manager.onRouteComplete();
+  assert.equal(manager.isActive, false);
+  manager.destroy();
+});
+

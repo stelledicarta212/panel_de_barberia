@@ -372,4 +372,94 @@ describe("navigation transition minimum visibility timing & lifecycle (MIN_VISIB
   });
 });
 
+describe("Panel navigation flows & menu active state", () => {
+  const baseUrl = "https://barberagency-barberagency.gymh5g.easypanel.host";
+
+  it("navigates to /barberia (Panel) from each dashboard module", () => {
+    const modules = [
+      { from: "/servicios", label: "Servicios" },
+      { from: "/citas", label: "Citas" },
+      { from: "/clientes", label: "Clientes" },
+      { from: "/barberos", label: "Barberos" },
+      { from: "/finanzas", label: "Programa de Lealtad" },
+      { from: "/inventario", label: "Caja / POS" }
+    ];
+
+    for (const mod of modules) {
+      const decision = shouldShowNavigationTransition({
+        href: "/barberia",
+        currentUrl: `${baseUrl}${mod.from}`
+      });
+      expect(decision.shouldTransition).toBe(true);
+      expect(decision.message).toBe("Cargando panel...");
+      expect(decision.href).toBe("/barberia");
+    }
+  });
+
+  it("ignores transition when clicking Panel from Panel (same-route)", () => {
+    const decision = shouldShowNavigationTransition({
+      href: "/barberia",
+      currentUrl: `${baseUrl}/barberia`
+    });
+    expect(decision.shouldTransition).toBe(false);
+    expect(decision.reason).toBe("same-route");
+  });
+
+  it("handles round-trip: Panel -> Servicios -> Panel cleanly", () => {
+    const manager = new NavigationTransitionManager({ minVisibleMs: 300 });
+
+    // Panel -> Servicios
+    const d1 = shouldShowNavigationTransition({
+      href: "/servicios",
+      currentUrl: `${baseUrl}/barberia`
+    });
+    expect(d1.shouldTransition).toBe(true);
+    expect(d1.message).toBe("Cargando servicios...");
+
+    manager.startTransition(d1.message);
+    expect(manager.isActive).toBe(true);
+    vi.advanceTimersByTime(300);
+    manager.onRouteComplete();
+    expect(manager.isActive).toBe(false);
+
+    // Servicios -> Panel
+    const d2 = shouldShowNavigationTransition({
+      href: "/barberia",
+      currentUrl: `${baseUrl}/servicios`
+    });
+    expect(d2.shouldTransition).toBe(true);
+    expect(d2.message).toBe("Cargando panel...");
+
+    manager.startTransition(d2.message);
+    expect(manager.isActive).toBe(true);
+    vi.advanceTimersByTime(300);
+    manager.onRouteComplete();
+    expect(manager.isActive).toBe(false);
+    manager.destroy();
+  });
+
+  it("evaluates menu isActive logic correctly for /barberia and other routes", () => {
+    const checkIsActive = (itemHref: string, currentPathname: string) => {
+      return currentPathname === itemHref || (itemHref === "/barberia" && currentPathname === "/");
+    };
+
+    // On /barberia: Panel is active, others are inactive
+    expect(checkIsActive("/barberia", "/barberia")).toBe(true);
+    expect(checkIsActive("/servicios", "/barberia")).toBe(false);
+    expect(checkIsActive("/citas", "/barberia")).toBe(false);
+
+    // On / (fallback/landing): Panel is active
+    expect(checkIsActive("/barberia", "/")).toBe(true);
+    expect(checkIsActive("/servicios", "/")).toBe(false);
+
+    // On /servicios: Panel is inactive, Servicios is active
+    expect(checkIsActive("/barberia", "/servicios")).toBe(false);
+    expect(checkIsActive("/servicios", "/servicios")).toBe(true);
+
+    // On /citas: Panel is inactive, Citas is active
+    expect(checkIsActive("/barberia", "/citas")).toBe(false);
+    expect(checkIsActive("/citas", "/citas")).toBe(true);
+  });
+});
+
 

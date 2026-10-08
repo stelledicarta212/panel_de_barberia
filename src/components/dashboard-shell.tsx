@@ -33,7 +33,7 @@ import type { DashboardIdentity, DashboardPermissions } from "@/types/dashboard-
 import type { SessionMeBarberia } from "@/lib/session-me";
 
 const NAV_ITEMS = [
-  { href: "/", label: "Panel", icon: LayoutGrid, permission: "canViewDashboard" },
+  { href: "/barberia", label: "Panel", icon: LayoutGrid, permission: "canViewDashboard" },
   { href: "/citas", label: "Citas", icon: CalendarDays, permission: "canViewAppointments" },
   { href: "/clientes", label: "Clientes", icon: Users, permission: "canViewClients" },
   { href: "/barberos", label: "Barberos", icon: UserRound, permission: "canViewBarbers" },
@@ -408,7 +408,7 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
           <nav className="ba-nav">
             {NAV_ITEMS.map((item) => {
               if (!permissions[item.permission as keyof DashboardPermissions]) return null;
-              const isActive = pathname === item.href;
+              const isActive = pathname === item.href || (item.href === "/barberia" && pathname === "/");
               const Icon = item.icon;
               const href =
                 item.href === "/configuracion"
